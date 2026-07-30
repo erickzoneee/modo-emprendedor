@@ -2,6 +2,8 @@
 
 **Aprende. Construye. Vende.**
 
+### 👉 [Abrir la app](https://erickzoneee.github.io/modo-emprendedor/)
+
 Una app tipo Duolingo que no te enseña *sobre* emprender: te lleva de una idea a un negocio real, **una misión al día**.
 
 Al terminar la ruta no te llevas un certificado. Te llevas una idea validada, un cliente ideal definido, una oferta escrita, tus precios calculados, una identidad básica, una estrategia de ventas y tus primeros clientes.
