@@ -1,0 +1,216 @@
+/* ==========================================================================
+   MI NEGOCIO — expediente que se llena con las misiones reales
+   ========================================================================== */
+(function (w, d) {
+  'use strict';
+
+  var UI = w.UI, el = UI.el, C = w.CONFIG;
+
+  function render() {
+    var s = w.Store.state;
+    var filled = C.DOSSIER.filter(function (sec) { return !!s.dossier[sec.key]; }).length;
+    var pct = (filled / C.DOSSIER.length) * 100;
+
+    var root = el('div', { class: 'screen' });
+
+    root.appendChild(el('div', { class: 'dossier-hero' }, [
+      el('div', { class: 'row', style: { gap: '12px' } }, [
+        el('div', { class: 'grow' }, [
+          el('div', { class: 'tiny', style: { color: '#fff', opacity: '.85' }, text: 'Mi Negocio' }),
+          el('h2', { text: s.profile.businessName || 'Tu expediente' }),
+          el('p', { text: filled + ' de ' + C.DOSSIER.length + ' secciones completas' })
+        ]),
+        el('div', { style: { fontSize: '38px' }, text: filled === C.DOSSIER.length ? '🏆' : '📂' })
+      ]),
+      el('div', { style: { marginTop: '14px' } }, [UI.pbar(pct, 'gold')])
+    ]));
+
+    root.appendChild(el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+      el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg(filled >= 6 ? 'happy' : 'neutral') }),
+      el('div', { class: 'speech' }, [
+        el('div', { class: 'small', text: filled === 0
+          ? 'Aquí se va guardando tu negocio real. Cada misión que entregas llena una sección. Al final tendrás un plan completo, no un certificado.'
+          : (filled < 6 ? 'Vas construyendo tu plan. Toca cualquier sección para verla, editarla o pedirme una revisión.'
+                        : 'Tu expediente ya tiene forma de negocio de verdad. Puedes exportarlo y usarlo tal cual.') })
+      ])
+    ]));
+
+    var list = el('div', { class: 'col stagger', style: { gap: '10px' } });
+    C.DOSSIER.forEach(function (sec) {
+      var data = s.dossier[sec.key];
+      var preview = data ? summarize(data) : sec.hint;
+      var item = el('button', {
+        class: 'doss-item' + (data ? ' is-filled' : ''), type: 'button',
+        onclick: function () { w.Sound.tap(); openSection(sec, data); }
+      }, [
+        el('span', { class: 'doss-item__ico', text: sec.icon }),
+        el('span', { class: 'grow', style: { minWidth: '0' } }, [
+          el('span', { class: 'doss-item__t', text: sec.title }),
+          el('span', { class: 'doss-item__p', text: preview })
+        ]),
+        el('span', { style: { fontSize: '18px', flex: 'none', color: data ? 'var(--teal)' : 'var(--ink-3)' },
+          text: data ? '✓' : '›' })
+      ]);
+      list.appendChild(item);
+    });
+    root.appendChild(list);
+
+    root.appendChild(el('div', { class: 'sep', text: 'Exportar' }));
+    root.appendChild(el('div', { class: 'grid-2', style: { gap: '10px' } }, [
+      UI.btn('Copiar plan', { variant: 'ghost', size: 'sm', onClick: function () { UI.copy(buildPlan()); } }),
+      UI.btn('Descargar .txt', { variant: 'ghost', size: 'sm', onClick: function () {
+        UI.download('mi-negocio.txt', buildPlan());
+        UI.toast('Descargado', 'green', '⬇️');
+      } })
+    ]));
+    root.appendChild(UI.btn('Ver plan completo', { variant: 'brand', onClick: showPlan }));
+
+    return root;
+  }
+
+  function summarize(data) {
+    if (!data || !data.answers) return '';
+    var vals = Object.keys(data.answers).map(function (k) { return data.answers[k]; }).filter(Boolean);
+    return vals.join(' · ').slice(0, 160);
+  }
+
+  /* ------------------------- Detalle de sección ------------------------- */
+
+  function openSection(sec, data) {
+    var content = [
+      el('div', { class: 'row', style: { gap: '12px' } }, [
+        el('span', { style: { fontSize: '30px' }, text: sec.icon }),
+        el('div', { class: 'grow' }, [
+          el('div', { class: 'h3', text: sec.title }),
+          el('div', { class: 'small', text: sec.hint })
+        ])
+      ])
+    ];
+
+    if (data && data.answers) {
+      var box = el('div', { class: 'card card--tight' });
+      Object.keys(data.answers).forEach(function (k) {
+        if (!data.answers[k]) return;
+        box.appendChild(el('div', { class: 'kv', style: { flexDirection: 'column', alignItems: 'flex-start', gap: '2px' } }, [
+          el('span', { class: 'kv__k', text: labelize(k) }),
+          el('span', { class: 'small', style: { fontWeight: '700', color: 'var(--ink)', whiteSpace: 'pre-wrap', textAlign: 'left' },
+            text: data.answers[k] })
+        ]));
+      });
+      content.push(box);
+      if (data.score != null) {
+        content.push(el('div', { class: 'row', style: { gap: '8px' } }, [
+          UI.chip('Evaluación: ' + data.score + '/100', data.score >= 70 ? 'green' : 'gold', '🧠'),
+          UI.chip(new Date(data.at).toLocaleDateString('es-MX'), null, '📅')
+        ]));
+      }
+      content.push(UI.btn('Editar esta sección', {
+        variant: 'ghost',
+        onClick: function () { UI.closeSheet(); editSection(sec, data); }
+      }));
+    } else {
+      content.push(el('div', { class: 'empty' }, [
+        el('div', { class: 'empty__ico', text: '📝' }),
+        el('div', { class: 'small', text: 'Todavía vacío. Se llena cuando completas la misión correspondiente en la ruta, o puedes escribirlo tú ahora.' })
+      ]));
+      content.push(UI.btn('Escribirlo ahora', {
+        variant: 'brand',
+        onClick: function () { UI.closeSheet(); editSection(sec, null); }
+      }));
+    }
+
+    UI.sheet(content);
+  }
+
+  function labelize(k) {
+    var map = {
+      idea: 'Idea', texto: 'Texto', grupo: 'Grupo', necesidad: 'Necesidad', donde: 'Dónde',
+      pago: 'Cuánto pagan', oferta: 'Oferta', incluye: 'Incluye', garantia: 'Garantía',
+      costo: 'Costo', precio: 'Precio', razon: 'Razón', mercado: 'Mercado', valor: 'Valor',
+      meta: 'Meta', a1: 'Acción 1', a2: 'Acción 2', a3: 'Acción 3', indicador: 'Indicador',
+      pasos: 'Pasos', nombre: 'Nombre', disparador: 'Disparador', fallos: 'Si algo falla',
+      mensaje: 'Mensaje', canal1: 'Canal 1', canal2: 'Canal 2', accion1: 'Acción semanal 1',
+      accion2: 'Acción semanal 2', ingresos: 'Ingresos', gastos: 'Gastos', fijos: 'Costos fijos',
+      variable: 'Costo variable', pitch: 'Pitch', o1: 'Objeción 1', o2: 'Objeción 2', o3: 'Objeción 3'
+    };
+    return map[k] || (k.charAt(0).toUpperCase() + k.slice(1));
+  }
+
+  function editSection(sec, data) {
+    var ta = el('textarea', { class: 'textarea', rows: '7', placeholder: sec.hint });
+    if (data && data.answers) {
+      ta.value = Object.keys(data.answers).map(function (k) {
+        return labelize(k) + ': ' + data.answers[k];
+      }).join('\n');
+    }
+    UI.sheet([
+      el('div', { class: 'h3', text: 'Editar · ' + sec.title }),
+      el('div', { class: 'small', text: sec.hint }),
+      ta,
+      UI.btn('Guardar', {
+        variant: 'green',
+        onClick: function () {
+          var txt = (ta.value || '').trim();
+          if (!txt) { UI.toast('Escribe algo primero', 'red', '✍️'); return; }
+          w.Store.set(function (s) {
+            s.dossier[sec.key] = { answers: { texto: txt }, score: null, at: Date.now(), from: 'manual' };
+          }, 'dossier');
+          w.Engine.checkBadges();
+          UI.closeSheet();
+          UI.toast('Guardado', 'green', '💾');
+          w.Sound.coin();
+          UI.Router.refresh();
+        }
+      })
+    ]);
+  }
+
+  /* ------------------------- Plan completo ------------------------- */
+
+  function buildPlan() {
+    var s = w.Store.state;
+    var out = [];
+    out.push('MI NEGOCIO — ' + (s.profile.businessName || 'Plan de emprendimiento'));
+    out.push('Generado con Modo Emprendedor · ' + new Date().toLocaleDateString('es-MX'));
+    out.push('');
+    C.DOSSIER.forEach(function (sec) {
+      var data = s.dossier[sec.key];
+      out.push('===================================');
+      out.push(sec.title.toUpperCase());
+      out.push('===================================');
+      if (data && data.answers) {
+        Object.keys(data.answers).forEach(function (k) {
+          if (data.answers[k]) out.push(labelize(k) + ': ' + data.answers[k]);
+        });
+      } else {
+        out.push('(pendiente)');
+      }
+      out.push('');
+    });
+    var p = w.Engine.overallProgress();
+    out.push('-----------------------------------');
+    out.push('Progreso en la ruta: ' + p.done + '/' + p.total + ' misiones · ' + s.xp + ' XP · racha de ' + s.streak + ' días');
+    return out.join('\n');
+  }
+
+  function showPlan() {
+    var s = w.Store.state;
+    var wrap = el('div', { class: 'col', style: { gap: '14px', textAlign: 'left' } });
+    wrap.appendChild(el('div', { class: 'h3', text: 'Plan completo' }));
+    C.DOSSIER.forEach(function (sec) {
+      var data = s.dossier[sec.key];
+      wrap.appendChild(el('div', { class: 'card card--tight', style: data ? {} : { opacity: '.5' } }, [
+        el('div', { class: 'row', style: { gap: '8px' } }, [
+          el('span', { text: sec.icon }),
+          el('span', { class: 'small', style: { fontWeight: '900' }, text: sec.title })
+        ]),
+        el('div', { class: 'small', style: { marginTop: '6px', whiteSpace: 'pre-wrap' },
+          text: data ? summarize(data) : 'Pendiente' })
+      ]));
+    });
+    wrap.appendChild(UI.btn('Copiar todo', { variant: 'brand', onClick: function () { UI.copy(buildPlan()); } }));
+    UI.sheet(wrap);
+  }
+
+  UI.Router.register('business', render);
+})(window, document);

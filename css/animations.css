@@ -1,0 +1,313 @@
+/* ==========================================================================
+   Animaciones
+   ========================================================================== */
+
+@keyframes fadeIn   { from { opacity: 0 } to { opacity: 1 } }
+@keyframes fadeOut  { from { opacity: 1 } to { opacity: 0 } }
+
+@keyframes floatGlow {
+  0%,100% { transform: translate(0,0) scale(1) }
+  33%     { transform: translate(6vmax,4vmax) scale(1.12) }
+  66%     { transform: translate(-4vmax,7vmax) scale(.94) }
+}
+
+@keyframes shine {
+  0%   { left: -140% }
+  45%  { left: 160% }
+  100% { left: 160% }
+}
+
+@keyframes shake {
+  0%,100% { transform: translateX(0) }
+  15% { transform: translateX(-9px) }
+  30% { transform: translateX(8px) }
+  45% { transform: translateX(-6px) }
+  60% { transform: translateX(5px) }
+  80% { transform: translateX(-2px) }
+}
+
+@keyframes pop {
+  0%   { transform: scale(.6); opacity: 0 }
+  60%  { transform: scale(1.08); opacity: 1 }
+  100% { transform: scale(1) }
+}
+
+@keyframes popIn {
+  from { transform: scale(.82) translateY(10px); opacity: 0 }
+  to   { transform: scale(1) translateY(0); opacity: 1 }
+}
+
+@keyframes tabPop {
+  from { transform: translateX(-50%) scaleX(0) }
+  to   { transform: translateX(-50%) scaleX(1) }
+}
+
+@keyframes pulseDot {
+  0%,100% { transform: scale(1); opacity: 1 }
+  50%     { transform: scale(1.28); opacity: .75 }
+}
+
+@keyframes dotBounce {
+  0%,80%,100% { transform: translateY(0); opacity: .4 }
+  40%         { transform: translateY(-7px); opacity: 1 }
+}
+
+/* ---------- Entradas de pantalla ---------- */
+@keyframes screenIn {
+  from { opacity: 0; transform: translateY(14px) scale(.985) }
+  to   { opacity: 1; transform: translateY(0) scale(1) }
+}
+@keyframes screenInRight {
+  from { opacity: 0; transform: translateX(26px) }
+  to   { opacity: 1; transform: translateX(0) }
+}
+@keyframes screenInLeft {
+  from { opacity: 0; transform: translateX(-26px) }
+  to   { opacity: 1; transform: translateX(0) }
+}
+@keyframes screenOut {
+  from { opacity: 1; transform: translateX(0) }
+  to   { opacity: 0; transform: translateX(-18px) }
+}
+
+.anim-in       { animation: screenIn .34s var(--ease-out) both; }
+.anim-in-right { animation: screenInRight .3s var(--ease-out) both; }
+.anim-in-left  { animation: screenInLeft .3s var(--ease-out) both; }
+.anim-out      { animation: screenOut .2s var(--ease-in-out) both; }
+
+/* ---------- Aparición escalonada ---------- */
+.stagger > * { animation: popIn .42s var(--ease-out) both; }
+.stagger > *:nth-child(1) { animation-delay: .03s }
+.stagger > *:nth-child(2) { animation-delay: .08s }
+.stagger > *:nth-child(3) { animation-delay: .13s }
+.stagger > *:nth-child(4) { animation-delay: .18s }
+.stagger > *:nth-child(5) { animation-delay: .23s }
+.stagger > *:nth-child(6) { animation-delay: .28s }
+.stagger > *:nth-child(7) { animation-delay: .33s }
+.stagger > *:nth-child(8) { animation-delay: .38s }
+.stagger > *:nth-child(9) { animation-delay: .43s }
+.stagger > *:nth-child(n+10) { animation-delay: .48s }
+
+/* ---------- Modales ---------- */
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(.86) translateY(24px) }
+  to   { opacity: 1; transform: scale(1) translateY(0) }
+}
+@keyframes modalOut {
+  from { opacity: 1; transform: scale(1) }
+  to   { opacity: 0; transform: scale(.92) translateY(14px) }
+}
+@keyframes sheetIn {
+  from { transform: translateY(100%) }
+  to   { transform: translateY(0) }
+}
+@keyframes sheetOut {
+  from { transform: translateY(0) }
+  to   { transform: translateY(100%) }
+}
+.is-closing .modal { animation: modalOut .22s var(--ease-in-out) forwards; }
+.is-closing .sheet { animation: sheetOut .26s var(--ease-in-out) forwards; }
+.is-closing .scrim { animation: fadeOut .22s forwards; }
+
+/* ---------- Toasts ---------- */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-22px) scale(.9) }
+  to   { opacity: 1; transform: translateY(0) scale(1) }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0) }
+  to   { opacity: 0; transform: translateY(-16px) scale(.94) }
+}
+
+/* ---------- Mascota ---------- */
+@keyframes bob {
+  0%,100% { transform: translateY(0) }
+  50%     { transform: translateY(-7px) }
+}
+@keyframes jump {
+  0%   { transform: translateY(0) scale(1) }
+  30%  { transform: translateY(-24px) scale(1.08, .94) }
+  55%  { transform: translateY(0) scale(.94, 1.06) }
+  75%  { transform: translateY(-8px) scale(1.02, .99) }
+  100% { transform: translateY(0) scale(1) }
+}
+@keyframes droop {
+  0%   { transform: translateY(0) rotate(0) }
+  40%  { transform: translateY(7px) rotate(-7deg) scale(.97) }
+  100% { transform: translateY(4px) rotate(-4deg) scale(.98) }
+}
+@keyframes tilt {
+  0%,100% { transform: rotate(-3deg) }
+  50%     { transform: rotate(4deg) }
+}
+@keyframes party {
+  0%   { transform: scale(1) rotate(0) }
+  25%  { transform: scale(1.12) rotate(-9deg) translateY(-14px) }
+  50%  { transform: scale(1.05) rotate(8deg) translateY(-6px) }
+  75%  { transform: scale(1.1) rotate(-5deg) translateY(-10px) }
+  100% { transform: scale(1) rotate(0) }
+}
+@keyframes blink {
+  0%,92%,100% { transform: scaleY(1) }
+  95%         { transform: scaleY(.08) }
+}
+@keyframes sparkle {
+  0%,100% { opacity: .55; transform: scale(.85) rotate(0) }
+  50%     { opacity: 1;  transform: scale(1.2) rotate(22deg) }
+}
+@keyframes waveL {
+  0%,100% { transform: rotate(0) }
+  50%     { transform: rotate(-42deg) }
+}
+@keyframes waveR {
+  0%,100% { transform: rotate(0) }
+  50%     { transform: rotate(42deg) }
+}
+
+/* ---------- Nodos de la ruta ---------- */
+@keyframes nodeIn {
+  0%   { transform: scale(0) rotate(-25deg); opacity: 0 }
+  65%  { transform: scale(1.14) rotate(6deg); opacity: 1 }
+  100% { transform: scale(1) rotate(0) }
+}
+@keyframes haloPulse {
+  0%   { transform: scale(.85); opacity: .8 }
+  70%  { transform: scale(1.55); opacity: 0 }
+  100% { transform: scale(1.55); opacity: 0 }
+}
+@keyframes bounceHint {
+  0%,100% { transform: translateY(0) }
+  40%     { transform: translateY(-10px) }
+  60%     { transform: translateY(-4px) }
+}
+@keyframes nodeUnlock {
+  0%   { transform: scale(1) }
+  35%  { transform: scale(1.28) rotate(-10deg) }
+  70%  { transform: scale(.94) rotate(5deg) }
+  100% { transform: scale(1) rotate(0) }
+}
+
+/* ---------- Racha / fuego ---------- */
+@keyframes flame {
+  0%,100% { transform: scale(1) rotate(-2deg) }
+  35%     { transform: scale(1.14, .92) rotate(3deg) }
+  70%     { transform: scale(.94, 1.1) rotate(-3deg) }
+}
+.flame { display: inline-block; animation: flame 1.4s var(--ease-in-out) infinite; }
+
+/* ---------- Monedas / XP ---------- */
+@keyframes coinSpin {
+  0%   { transform: rotateY(0) scale(1) }
+  50%  { transform: rotateY(180deg) scale(1.2) }
+  100% { transform: rotateY(360deg) scale(1) }
+}
+.coin-spin { display: inline-block; animation: coinSpin 1.6s var(--ease-in-out) infinite; }
+
+@keyframes floatUp {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.6) }
+  18%  { opacity: 1; transform: translate(-50%, -18px) scale(1.12) }
+  100% { opacity: 0; transform: translate(-50%, -76px) scale(.95) }
+}
+.float-gain {
+  position: fixed;
+  z-index: 9400;
+  font-weight: 900;
+  font-size: 20px;
+  pointer-events: none;
+  animation: floatUp 1.1s var(--ease-out) forwards;
+  text-shadow: 0 2px 6px rgba(0,0,0,.2);
+}
+
+/* ---------- Barra de progreso de lección ---------- */
+@keyframes barPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(67,201,94,0) }
+  50%     { box-shadow: 0 0 0 6px rgba(67,201,94,.18) }
+}
+
+/* ---------- Corazón perdido ---------- */
+@keyframes heartBreak {
+  0%   { transform: scale(1) }
+  30%  { transform: scale(1.45) }
+  60%  { transform: scale(.7) rotate(-14deg); opacity: .5 }
+  100% { transform: scale(1); opacity: 1 }
+}
+.heart-break { animation: heartBreak .6s var(--ease-out); }
+
+/* ---------- Rayos de nivel ---------- */
+@keyframes rays {
+  from { transform: rotate(0) }
+  to   { transform: rotate(360deg) }
+}
+.rays {
+  position: absolute;
+  inset: -30%;
+  background: conic-gradient(from 0deg,
+    rgba(255,200,0,.34) 0 8deg, transparent 8deg 24deg,
+    rgba(255,200,0,.34) 24deg 32deg, transparent 32deg 48deg,
+    rgba(255,200,0,.34) 48deg 56deg, transparent 56deg 72deg,
+    rgba(255,200,0,.34) 72deg 80deg, transparent 80deg 96deg,
+    rgba(255,200,0,.34) 96deg 104deg, transparent 104deg 120deg,
+    rgba(255,200,0,.34) 120deg 128deg, transparent 128deg 144deg,
+    rgba(255,200,0,.34) 144deg 152deg, transparent 152deg 168deg,
+    rgba(255,200,0,.34) 168deg 176deg, transparent 176deg 192deg,
+    rgba(255,200,0,.34) 192deg 200deg, transparent 200deg 216deg,
+    rgba(255,200,0,.34) 216deg 224deg, transparent 224deg 240deg,
+    rgba(255,200,0,.34) 240deg 248deg, transparent 248deg 264deg,
+    rgba(255,200,0,.34) 264deg 272deg, transparent 272deg 288deg,
+    rgba(255,200,0,.34) 288deg 296deg, transparent 296deg 312deg,
+    rgba(255,200,0,.34) 312deg 320deg, transparent 320deg 336deg,
+    rgba(255,200,0,.34) 336deg 344deg, transparent 344deg 360deg);
+  animation: rays 14s linear infinite;
+  pointer-events: none;
+  border-radius: 50%;
+  mask-image: radial-gradient(circle, #000 30%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle, #000 30%, transparent 72%);
+}
+
+/* ---------- Escritura del mentor ---------- */
+@keyframes typeIn {
+  from { opacity: 0; transform: translateY(8px) scale(.97) }
+  to   { opacity: 1; transform: translateY(0) scale(1) }
+}
+.msg-in { animation: typeIn .3s var(--ease-out) both; }
+
+/* ---------- Progreso circular ---------- */
+@property --p {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+/* ---------- Brillo de tarjeta destacada ---------- */
+@keyframes glowPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,107,26,.32) }
+  50%     { box-shadow: 0 0 0 12px rgba(255,107,26,0) }
+}
+.glow-pulse { animation: glowPulse 2.4s var(--ease-in-out) infinite; }
+
+/* ---------- Contador ---------- */
+@keyframes countPop {
+  0% { transform: scale(1) } 40% { transform: scale(1.24) } 100% { transform: scale(1) }
+}
+.count-pop { animation: countPop .38s var(--spring); display: inline-block; }
+
+/* ---------- Deslizar tarjetas del simulador ---------- */
+@keyframes cardDeal {
+  from { opacity: 0; transform: translateY(40px) rotate(-4deg) scale(.9) }
+  to   { opacity: 1; transform: translateY(0) rotate(0) scale(1) }
+}
+.card-deal { animation: cardDeal .5s var(--spring) both; }
+
+/* ---------- Barra de simulación ---------- */
+@keyframes growBar {
+  from { width: 0 }
+}
+
+/* ---------- Sello ---------- */
+@keyframes stamp {
+  0%   { transform: scale(2.6) rotate(-22deg); opacity: 0 }
+  55%  { transform: scale(.9) rotate(-8deg); opacity: 1 }
+  75%  { transform: scale(1.06) rotate(-11deg) }
+  100% { transform: scale(1) rotate(-10deg) }
+}
+.stamp { animation: stamp .6s var(--ease-out) both; }

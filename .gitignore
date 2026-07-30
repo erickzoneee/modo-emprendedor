@@ -1,0 +1,18 @@
+# Dependencias (la app no usa ninguna, pero por si acaso)
+node_modules/
+package-lock.json
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+
+# Local
+*.log
+.env
+.env.local

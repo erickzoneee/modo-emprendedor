@@ -1,0 +1,134 @@
+/* ==========================================================================
+   MODO EMPRENDEDOR — Design tokens
+   ========================================================================== */
+
+:root {
+  /* --- Marca --- */
+  --brand:        #FF6B1A;
+  --brand-2:      #FF9A3C;
+  --brand-dark:   #D14E06;
+  --brand-soft:   #FFF0E5;
+
+  /* --- Semánticos --- */
+  --green:        #43C95E;
+  --green-dark:   #2E9B44;
+  --green-soft:   #E9FAEE;
+
+  --blue:         #1CB0F6;
+  --blue-dark:    #1189C4;
+  --blue-soft:    #E6F6FE;
+
+  --purple:       #A855F7;
+  --purple-dark:  #7E2FD1;
+  --purple-soft:  #F6EDFE;
+
+  --gold:         #FFC800;
+  --gold-dark:    #D9A400;
+  --gold-soft:    #FFF7DC;
+
+  --red:          #FF4B4B;
+  --red-dark:     #D02F2F;
+  --red-soft:     #FFECEC;
+
+  --teal:         #14B8A6;
+  --teal-dark:    #0E8C7E;
+  --pink:         #EC4899;
+
+  /* --- Neutros --- */
+  --ink:          #10203A;
+  --ink-2:        #465A78;
+  --ink-3:        #8496AC;
+  --line:         #E3E9F2;
+  --line-2:       #EFF3F8;
+  --bg:           #F6F8FC;
+  --bg-2:         #EEF2F9;
+  --card:         #FFFFFF;
+  --card-2:       #FBFCFE;
+  --white:        #FFFFFF;
+
+  /* --- Colores por nivel de la ruta --- */
+  --lv1: #43C95E;
+  --lv2: #1CB0F6;
+  --lv3: #A855F7;
+  --lv4: #FF6B1A;
+  --lv5: #14B8A6;
+  --lv6: #EC4899;
+  --lv7: #6366F1;
+  --lv8: #FFC800;
+
+  /* --- Tipografía --- */
+  --font: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text',
+          'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --fs-xs: 11px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 21px;
+  --fs-2xl: 26px;
+  --fs-3xl: 34px;
+
+  /* --- Espaciado --- */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+  --s5: 20px; --s6: 24px; --s7: 32px; --s8: 44px;
+
+  /* --- Radios --- */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-full: 999px;
+
+  /* --- Sombras --- */
+  --sh-1: 0 1px 2px rgba(16,32,58,.06), 0 2px 8px rgba(16,32,58,.05);
+  --sh-2: 0 4px 14px rgba(16,32,58,.09);
+  --sh-3: 0 12px 34px rgba(16,32,58,.14);
+  --sh-pop: 0 18px 50px rgba(16,32,58,.24);
+
+  /* --- Curvas de animación --- */
+  --ease-out: cubic-bezier(.22,1,.36,1);
+  --ease-in-out: cubic-bezier(.65,0,.35,1);
+  --spring: cubic-bezier(.34,1.56,.64,1);
+  --snap: cubic-bezier(.2,.9,.25,1.1);
+
+  /* --- Layout --- */
+  --phone-w: 460px;
+  --topbar-h: 62px;
+  --tabbar-h: 68px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+/* ------------------------- Tema oscuro ------------------------- */
+html[data-theme="dark"] {
+  --ink:      #F2F6FC;
+  --ink-2:    #B4C2D6;
+  --ink-3:    #7C8CA4;
+  --line:     #26334A;
+  --line-2:   #1D293C;
+  --bg:       #0D1420;
+  --bg-2:     #111A29;
+  --card:     #151F30;
+  --card-2:   #1A2536;
+  --white:    #151F30;
+
+  --brand-soft:  #3A2313;
+  --green-soft:  #12301C;
+  --blue-soft:   #0F2A3D;
+  --purple-soft: #291637;
+  --gold-soft:   #33290A;
+  --red-soft:    #3A1A1A;
+
+  --sh-1: 0 1px 2px rgba(0,0,0,.4);
+  --sh-2: 0 6px 18px rgba(0,0,0,.45);
+  --sh-3: 0 14px 40px rgba(0,0,0,.55);
+  --sh-pop: 0 20px 60px rgba(0,0,0,.65);
+}
+
+/* Accesibilidad: respeta la preferencia de menos movimiento */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
