@@ -85,6 +85,8 @@
     }
 
     var root = el('div', { class: 'screen' });
+    root.appendChild(el('h1', { class: 'sr-only',
+      text: 'Simulador de empresa · semana ' + s.week + ' de ' + CFG.weeks }));
     root.appendChild(header(s));
 
     if (phase === 'plan') root.appendChild(planView(s));
@@ -332,7 +334,7 @@
       el('div', { class: 'row', style: { gap: '12px' } }, [
         el('span', { style: { fontSize: '32px' }, text: ev.icon }),
         el('div', [
-          el('div', { class: 'h3', text: ev.title }),
+          el('h2', { class: 'h3', text: ev.title }),
           el('p', { class: 'p', style: { marginTop: '6px' }, text: ev.text })
         ])
       ])
@@ -445,7 +447,7 @@
     var r = lastResult || {};
     var wrap = el('div', { class: 'col stagger', style: { gap: '12px' } });
 
-    wrap.appendChild(el('div', { class: 'sep', text: 'Resultado de la semana ' + s.week }));
+    wrap.appendChild(el('h2', { class: 'sep', text: 'Resultado de la semana ' + s.week }));
 
     if (w.Store.state.sim.lastEventWhy) {
       wrap.appendChild(el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
@@ -485,7 +487,7 @@
     if (r.lost > 0) {
       wrap.appendChild(el('div', { class: 'card card--tight', style: { background: 'var(--red-soft)', borderColor: 'var(--red)' } }, [
         el('div', { class: 'small', style: { color: 'var(--red-dark)', fontWeight: '800' },
-          text: '⚠️ Perdiste ' + r.lost + ' ventas por falta de inventario o capacidad. Eso también daña tu reputación.' })
+          text: '⚠️ Perdiste ' + UI.count(r.lost, 'venta', 'ventas') + ' por falta de inventario o capacidad. Eso también daña tu reputación.' })
       ]));
     }
 
@@ -520,7 +522,7 @@
 
     root.appendChild(el('div', { class: 'mascot mascot--xl ' + (won ? 'is-party' : 'is-think'),
       html: w.Mascot.svg(won ? 'money' : (survived ? 'happy' : 'sad')) }));
-    root.appendChild(el('div', { class: 'h1', text: won ? '¡Negocio rentable!' : (survived ? 'Sobreviviste' : 'Cerraste en números rojos') }));
+    root.appendChild(el('h1', { class: 'h1', text: won ? '¡Negocio rentable!' : (survived ? 'Sobreviviste' : 'Cerraste en números rojos') }));
     root.appendChild(el('p', { class: 'p', style: { maxWidth: '330px' },
       text: won ? 'Superaste la meta de utilidad acumulada. Estas decisiones son las mismas que tomarás con dinero real.'
                 : (survived ? 'Terminaste con utilidad, aunque por debajo de la meta. Revisa qué semanas te costaron más.'
@@ -564,7 +566,7 @@
       out.push('Cediste el ' + Math.round(100 - eq) + '% del negocio: de ' + UI.money(s.cumProfit) +
                ' de utilidad, solo ' + UI.money(s.cumProfit * eq / 100) + ' fue tuyo. El capital de un socio nunca es gratis.');
     }
-    if (s.lostSales > 8) out.push('Perdiste ' + s.lostSales + ' ventas por quedarte sin inventario o capacidad: en un negocio real eso también quema reputación.');
+    if (s.lostSales > 8) out.push('Perdiste ' + UI.count(s.lostSales, 'venta', 'ventas') + ' por quedarte sin inventario o capacidad: en un negocio real eso también quema reputación.');
     if (s.reputation < 50) out.push('Tu reputación terminó baja. Es la variable más lenta de recuperar y la que más afecta la demanda.');
     var margin = s.price ? ((s.price - s.unitCost) / s.price) * 100 : 0;
     if (margin < 40) out.push('Cerraste con margen de ' + Math.round(margin) + '%. Debajo de 45% cada venta deja muy poco para cubrir fijos.');

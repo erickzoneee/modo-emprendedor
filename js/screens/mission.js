@@ -37,9 +37,9 @@
 
     root.appendChild(el('div', { class: 'lesson-top' }, [
       UI.backBtn(function () { UI.Router.go('home', {}, 'back'); }),
-      el('div', { class: 'grow' }, [
+      el('div', { class: 'grow', style: { minWidth: '0' } }, [
         el('div', { class: 'tiny', text: m.boss ? 'Reto real' : 'Misión aplicada' }),
-        el('div', { class: 'h4', text: m.title })
+        el('h1', { class: 'h4', text: m.title })
       ])
     ]));
 
@@ -51,7 +51,7 @@
       el('div', { class: 'row', style: { gap: '12px' } }, [
         el('span', { style: { fontSize: '34px' }, text: m.icon }),
         el('div', [
-          el('h3', { text: m.title }),
+          el('h2', { text: m.title }),
           el('p', { text: m.brief })
         ])
       ])
@@ -86,10 +86,22 @@
     });
     body.appendChild(form);
 
-    var rubricPreview = el('div', { class: 'card card--tight' }, [
-      el('div', { class: 'tiny', text: 'El mentor va a revisar' }),
+    // Los criterios se anuncian ANTES de escribir, con su valor en puntos:
+    // así la calificación nunca aparece como una sorpresa.
+    var puntos = m.rubric.length ? Math.round(100 / m.rubric.length) : 0;
+    var rubricPreview = el('div', { class: 'card card--tight', style: { textAlign: 'left' } }, [
+      el('h2', { class: 'tiny', text: 'El mentor va a revisar ' + m.rubric.length + ' criterios' }),
       el('ul', { style: { marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' } },
-        m.rubric.map(function (r) { return el('li', { class: 'small', text: '○ ' + r.label }); }))
+        m.rubric.map(function (r) {
+          return el('li', { class: 'small', style: { display: 'flex', gap: '8px', alignItems: 'flex-start' } }, [
+            el('span', { text: '○' }),
+            el('span', { class: 'grow', text: r.label }),
+            el('span', { class: 'rubric-item__pts', text: '+' + puntos })
+          ]);
+        })),
+      el('div', { class: 'tiny', style: { marginTop: '10px', textTransform: 'none', letterSpacing: '0' },
+        text: 'Cada criterio cumplido suma ' + puntos + ' puntos. Necesitas ' +
+              w.Mentor.PASS_MARK + ' de 100 para entregarla.' })
     ]);
     body.appendChild(rubricPreview);
 
@@ -107,6 +119,72 @@
       setTimeout(function () { review(m, inputs, out, rubricPreview, true); }, 150);
     }
     return root;
+  }
+
+  /* ------------------------- De dónde sale la nota ------------------------- */
+
+  function scoreRow(k, v, hint, strong) {
+    return el('div', { class: 'score-row' + (strong ? ' is-total' : '') }, [
+      el('span', { class: 'score-row__k' }, [
+        el('span', { text: k }),
+        hint ? el('span', { class: 'score-row__hint', text: hint }) : null
+      ]),
+      el('span', { class: 'score-row__v', text: v })
+    ]);
+  }
+
+  /** Muestra el cálculo completo: la nota nunca debe sentirse arbitraria. */
+  function scoreCard(ev) {
+    var b = ev.breakdown;
+    var card = el('div', { class: 'card card--tight score-card' });
+
+    card.appendChild(el('h3', { class: 'tiny', text: 'Cómo se calcula esta nota' }));
+
+    var rows = el('div', { style: { marginTop: '8px' } });
+    rows.appendChild(scoreRow(
+      'Criterios cumplidos',
+      b.passed + ' de ' + b.total,
+      b.total ? 'cada uno vale ' + b.perCriterion + ' puntos' : null
+    ));
+    if (b.bonus) {
+      rows.appendChild(scoreRow('Bono por desarrollo', '+' + b.bonus,
+        'escribiste más de ' + b.deepAt + ' palabras'));
+    }
+    if (b.brevity < 0) {
+      rows.appendChild(scoreRow('Penalización por brevedad', String(b.brevity),
+        'solo ' + UI.count(b.words, 'palabra', 'palabras') + '; el mínimo son ' + b.shortAt));
+    } else if (b.brevity > 0) {
+      // El "-15" tiene suelo: aquí no restó, sostuvo la nota en el mínimo.
+      rows.appendChild(scoreRow('Nota mínima', String(b.floor),
+        'ningún intento baja de ' + b.floor + ' puntos'));
+    }
+    rows.appendChild(scoreRow('Tu nota', ev.score + ' / 100', null, true));
+    card.appendChild(rows);
+
+    // Qué falta exactamente y cuánto sube arreglarlo
+    if (ev.score < b.passMark) {
+      var faltan = b.passMark - ev.score;
+      var criterios = b.perCriterion ? Math.ceil(faltan / b.perCriterion) : 1;
+      card.appendChild(el('div', { class: 'score-note score-note--warn' }, [
+        el('b', { text: 'Para entregarla necesitas ' + b.passMark + '.' }),
+        ' Te faltan ' + faltan + ' puntos: con ' +
+        UI.count(Math.min(criterios, b.missing.length || criterios), 'criterio', 'criterios') +
+        ' más de los marcados abajo ya la entregas.'
+      ]));
+    } else if (b.missing.length) {
+      card.appendChild(el('div', { class: 'score-note' }, [
+        el('b', { text: 'Ya puedes entregarla.' }),
+        ' Si arreglas ' + UI.count(b.missing.length, 'criterio pendiente', 'criterios pendientes') +
+        ' subes hasta ' + Math.min(100, ev.score + b.missing.length * b.perCriterion) + '.'
+      ]));
+    } else {
+      card.appendChild(el('div', { class: 'score-note score-note--ok' }, [
+        el('b', { text: 'Cumpliste todos los criterios.' }),
+        ' No hay nada que corregir.'
+      ]));
+    }
+
+    return card;
   }
 
   /* ------------------------- Revisión ------------------------- */
@@ -141,7 +219,7 @@
       w.FX.count(ring.querySelector('.score-ring__n'), 0, evaluation.score, 900);
     }, 100);
 
-    out.appendChild(el('div', { class: 'sep', text: 'Evaluación del mentor' }));
+    out.appendChild(el('h2', { class: 'sep', text: 'Evaluación del mentor' }));
     out.appendChild(ring);
 
     out.appendChild(el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
@@ -152,14 +230,23 @@
       ])
     ]));
 
+    out.appendChild(scoreCard(evaluation));
+
+    out.appendChild(el('h3', { class: 'sep', text: 'Criterio por criterio' }));
+    var pts = evaluation.breakdown.perCriterion;
     var rub = el('div', { class: 'rubric' });
     evaluation.results.forEach(function (r, i) {
       rub.appendChild(el('div', { class: 'rubric-item ' + (r.ok ? 'ok' : 'no'), style: { animationDelay: (i * 0.09) + 's' } }, [
         el('span', { class: 'rubric-item__ico', text: r.ok ? '✅' : '⚠️' }),
-        el('div', [
+        el('div', { class: 'grow', style: { minWidth: '0' } }, [
           el('div', { class: 'rubric-item__t', text: r.label }),
           el('div', { class: 'rubric-item__p', text: r.note })
-        ])
+        ]),
+        el('span', {
+          class: 'rubric-item__pts' + (r.ok ? ' is-won' : ''),
+          title: r.ok ? 'Criterio cumplido' : 'Arreglarlo suma ' + pts + ' puntos',
+          text: (r.ok ? '+' : '+') + pts
+        })
       ]));
     });
     out.appendChild(rub);
@@ -179,7 +266,7 @@
     var already = w.Store.state.missions[m.id] && w.Store.state.missions[m.id].done;
     var actions = el('div', { class: 'col', style: { gap: '10px' } });
 
-    if (evaluation.score >= 60 || already) {
+    if (evaluation.score >= evaluation.breakdown.passMark || already) {
       actions.appendChild(UI.btn(already ? 'Guardar cambios' : 'Entregar misión (+' + m.reward.xp + ' XP)', {
         variant: 'green', size: 'lg', shiny: !already,
         onClick: function () { deliver(m, answers, evaluation, already); }
@@ -188,7 +275,8 @@
     } else {
       actions.appendChild(el('div', { class: 'card card--tight', style: { background: 'var(--gold-soft)', borderColor: 'var(--gold)' } }, [
         el('div', { class: 'small', style: { fontWeight: '800', color: 'var(--gold-dark)' },
-          text: '💡 Ajusta lo que marqué arriba y vuelve a pedir revisión. Necesitas 60 puntos para entregarla — no por exigencia, sino porque debajo de eso todavía no te sirve para vender.' })
+          text: '💡 Ajusta los criterios marcados con ⚠️ y vuelve a pedir revisión. Necesitas ' +
+                evaluation.breakdown.passMark + ' puntos para entregarla — no por exigencia, sino porque debajo de eso todavía no te sirve para vender.' })
       ]));
       actions.appendChild(UI.btn('Revisar de nuevo', {
         variant: 'purple',

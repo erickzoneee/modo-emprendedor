@@ -298,6 +298,9 @@
      EVALUACIÓN DE UNA MISIÓN
      ================================================================== */
 
+  /** Nota mínima para poder entregar una misión. */
+  var PASS_MARK = 60;
+
   function evaluate(mission, answers) {
     var text = Object.keys(answers).map(function (k) { return answers[k]; }).join('\n');
     var ctx = { text: text, answers: answers, mission: mission };
@@ -310,12 +313,19 @@
     });
 
     var passed = results.filter(function (r) { return r.ok; }).length;
-    var score = rubric.length ? Math.round((passed / rubric.length) * 100) : 100;
+    var base = rubric.length ? Math.round((passed / rubric.length) * 100) : 100;
+    var score = base;
 
-    // Refuerzo por profundidad
+    // Refuerzo por profundidad. Se guardan los ajustes ya aplicados (con signo)
+    // para poder enseñarlos: el "-15" por brevedad tiene un suelo de 20 puntos,
+    // así que a veces el ajuste real es menor, o incluso sube la nota.
     var wc = words(text).length;
-    if (wc > 45 && score < 100) score = Math.min(100, score + 5);
-    if (wc < 12) score = Math.max(20, score - 15);
+    var bonus = 0, brevity = 0;
+    if (wc > 45 && score < 100) { bonus = Math.min(100, score + 5) - score; score += bonus; }
+    if (wc < 12) { brevity = Math.max(20, score - 15) - score; score += brevity; }
+
+    // Cuánto sube la nota arreglar un criterio pendiente (para poder decirlo).
+    var porCriterio = rubric.length ? Math.round(100 / rubric.length) : 0;
 
     return {
       score: score,
@@ -324,7 +334,22 @@
       results: results,
       verdict: verdictFor(score),
       improved: improve(mission, answers, results),
-      wordCount: wc
+      wordCount: wc,
+      // Desglose para poder mostrar de dónde sale el número, no solo el número.
+      breakdown: {
+        base: base,
+        passed: passed,
+        total: rubric.length,
+        perCriterion: porCriterio,
+        bonus: bonus,             // +5 por desarrollar (más de 45 palabras)
+        brevity: brevity,         // ajuste por respuesta corta, con signo
+        words: wc,
+        deepAt: 45,
+        shortAt: 12,
+        floor: 20,                // ninguna respuesta baja de aquí
+        passMark: PASS_MARK,
+        missing: results.filter(function (r) { return !r.ok; })
+      }
     };
   }
 
@@ -577,6 +602,7 @@
   }
 
   w.Mentor = {
+    PASS_MARK: PASS_MARK,
     evaluate: evaluate,
     quickFeedback: quickFeedback,
     reply: reply,

@@ -29,7 +29,7 @@
 
     root.appendChild(el('div', { class: 'col', style: { alignItems: 'center', gap: '8px' } }, [
       el('div', { style: { fontSize: '56px' }, text: league.icon }),
-      el('div', { class: 'h2', text: 'Liga ' + league.name }),
+      el('h1', { class: 'h2', text: 'Liga ' + league.name }),
       el('div', { class: 'small t-center',
         text: myPos <= 3 ? '¡Estás en el podio! Los 3 primeros suben de liga el domingo.'
                          : 'Puesto #' + myPos + ' · los 3 primeros suben de liga' }),
@@ -37,7 +37,7 @@
     ]));
 
     /* Tabla */
-    root.appendChild(el('div', { class: 'sep', text: 'Esta semana' }));
+    root.appendChild(el('h2', { class: 'sep', text: 'Esta semana' }));
     var list = el('div', { class: 'col stagger', style: { gap: '8px' } });
     board.forEach(function (row, i) {
       var pos = i + 1;
@@ -57,13 +57,13 @@
           el('div', { class: 'small', text: myPos <= 3
             ? 'Vas en el podio. Una lección más al día lo asegura.'
             : 'Te faltan ' + UI.num(Math.max(0, board[2].xp - board[myPos - 1].xp) + 1) + ' XP para entrar al podio. Eso son unas ' +
-              Math.ceil(Math.max(0, board[2].xp - board[myPos - 1].xp) / 40) + ' lecciones.' })
+              UI.count(Math.max(1, Math.ceil(Math.max(0, board[2].xp - board[myPos - 1].xp) / 40)), 'lección', 'lecciones') + '.' })
         ])
       ])
     ]));
 
     /* Retos semanales */
-    root.appendChild(el('div', { class: 'sep', text: 'Retos de la semana' }));
+    root.appendChild(el('h2', { class: 'sep', text: 'Retos de la semana' }));
     var weekly = w.Engine.weeklyList();
     var wl = el('div', { class: 'col', style: { gap: '10px' } });
     weekly.forEach(function (item) {

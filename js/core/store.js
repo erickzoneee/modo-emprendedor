@@ -97,6 +97,10 @@
 
       settings: { sound: true, haptics: true, theme: 'light', reduceMotion: false },
 
+      // Respaldo: el progreso vive solo en este dispositivo, así que hay que
+      // recordarlo activamente antes de que alguien pierda todo.
+      backup: { lastAt: 0, promptedDay: null, remind: true },
+
       stats: { answers: 0, correct: 0, lessons: 0, missions: 0, days: [], minutes: 0 }
     };
   }
@@ -259,6 +263,21 @@
 
     exportJSON: function () {
       return JSON.stringify(state, null, 2);
+    },
+
+    /** Anota que el usuario acaba de respaldar (para no volver a insistir). */
+    markBackup: function () {
+      Store.set(function (s) {
+        if (!s.backup) s.backup = { lastAt: 0, promptedDay: null, remind: true };
+        s.backup.lastAt = Date.now();
+        s.backup.promptedDay = today();
+      }, 'backup');
+    },
+
+    /** Días desde el último respaldo. null si nunca se ha hecho uno. */
+    daysSinceBackup: function () {
+      if (!state.backup || !state.backup.lastAt) return null;
+      return Math.floor((Date.now() - state.backup.lastAt) / 86400000);
     },
 
     importJSON: function (txt) {

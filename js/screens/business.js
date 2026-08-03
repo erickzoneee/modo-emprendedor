@@ -17,7 +17,7 @@
       el('div', { class: 'row', style: { gap: '12px' } }, [
         el('div', { class: 'grow' }, [
           el('div', { class: 'tiny', style: { color: '#fff', opacity: '.85' }, text: 'Mi Negocio' }),
-          el('h2', { text: s.profile.businessName || 'Tu expediente' }),
+          el('h1', { text: s.profile.businessName || 'Tu expediente' }),
           el('p', { text: filled + ' de ' + C.DOSSIER.length + ' secciones completas' })
         ]),
         el('div', { style: { fontSize: '38px' }, text: filled === C.DOSSIER.length ? '🏆' : '📂' })
@@ -55,7 +55,7 @@
     });
     root.appendChild(list);
 
-    root.appendChild(el('div', { class: 'sep', text: 'Exportar' }));
+    root.appendChild(el('h2', { class: 'sep', text: 'Exportar' }));
     root.appendChild(el('div', { class: 'grid-2', style: { gap: '10px' } }, [
       UI.btn('Copiar plan', { variant: 'ghost', size: 'sm', onClick: function () { UI.copy(buildPlan()); } }),
       UI.btn('Descargar .txt', { variant: 'ghost', size: 'sm', onClick: function () {
@@ -81,7 +81,7 @@
       el('div', { class: 'row', style: { gap: '12px' } }, [
         el('span', { style: { fontSize: '30px' }, text: sec.icon }),
         el('div', { class: 'grow' }, [
-          el('div', { class: 'h3', text: sec.title }),
+          el('h2', { class: 'h3', text: sec.title }),
           el('div', { class: 'small', text: sec.hint })
         ])
       ])
@@ -144,7 +144,7 @@
       }).join('\n');
     }
     UI.sheet([
-      el('div', { class: 'h3', text: 'Editar · ' + sec.title }),
+      el('h2', { class: 'h3', text: 'Editar · ' + sec.title }),
       el('div', { class: 'small', text: sec.hint }),
       ta,
       UI.btn('Guardar', {
@@ -189,14 +189,16 @@
     });
     var p = w.Engine.overallProgress();
     out.push('-----------------------------------');
-    out.push('Progreso en la ruta: ' + p.done + '/' + p.total + ' misiones · ' + s.xp + ' XP · racha de ' + s.streak + ' días');
+    out.push('Progreso en la ruta: ' + p.done + '/' + p.total + ' paradas completadas');
+    out.push('(' + w.LESSONS.length + ' lecciones + ' + C.BOSSES.length + ' retos reales)');
+    out.push(UI.num(s.xp) + ' XP · racha de ' + UI.days(s.streak));
     return out.join('\n');
   }
 
   function showPlan() {
     var s = w.Store.state;
     var wrap = el('div', { class: 'col', style: { gap: '14px', textAlign: 'left' } });
-    wrap.appendChild(el('div', { class: 'h3', text: 'Plan completo' }));
+    wrap.appendChild(el('h2', { class: 'h3', text: 'Plan completo' }));
     C.DOSSIER.forEach(function (sec) {
       var data = s.dossier[sec.key];
       wrap.appendChild(el('div', { class: 'card card--tight', style: data ? {} : { opacity: '.5' } }, [

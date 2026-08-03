@@ -40,10 +40,15 @@ Es un sitio estático puro. Sube la carpeta completa a Netlify, Vercel, GitHub P
 | **248 ejercicios** | 9 tipos distintos de interacción |
 | **8 niveles** | Descubre → Valida → Construye → Vende → Administra → Crece → Sistematiza → Escala |
 | **8 retos reales** | los "jefes finales": se hacen fuera de la app |
-| **58 misiones aplicadas** | cada una a tu negocio de verdad |
+| **58 paradas en la ruta** | las 50 lecciones + los 8 retos reales |
+| **50 misiones aplicadas** | una por lección, cada una a tu negocio de verdad |
 | **Simulador de empresa** | 12 semanas, 22 eventos, modelo de demanda real |
 | **Mentor con IA** | evalúa tus textos, calcula y practica ventas contigo |
 | **Expediente Mi Negocio** | 12 secciones que se llenan solas y se exportan |
+
+> **Cómo se cuentan:** el mapa tiene **58 paradas** = **50 lecciones** + **8 retos reales**.
+> Cada lección cierra con una **misión aplicada** a tu propio negocio (50 en total), y cada nivel
+> termina con un **reto real** que haces fuera de la app y luego reportas.
 
 ---
 
@@ -191,6 +196,8 @@ Los `check` disponibles están en `CHECKS` dentro de `js/core/mentor.js` (29 com
 ## Datos y privacidad
 
 Todo se guarda en `localStorage`, solo en tu dispositivo. No hay servidor, no hay cuentas, no hay telemetría. Desde **Perfil** puedes exportar tu progreso a un `.json` y volver a importarlo en otro dispositivo.
+
+Como no hay servidor, ese archivo es el único respaldo posible, así que la app **te lo recuerda sola**: si pasan más de 7 días sin una copia y ya tienes progreso real, aparece un aviso con los botones para descargarla o copiarla al portapapeles. En **Perfil › Ajustes** se ve la fecha del último respaldo y el recordatorio se puede desactivar.
 
 Los rivales de la liga son simulados: existen para dar ritmo, no para compararte con nadie real.
 

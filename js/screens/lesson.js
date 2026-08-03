@@ -30,6 +30,7 @@
     };
 
     var root = el('div', { class: 'col', style: { minHeight: '100%', position: 'relative', gap: '0' } });
+    root.appendChild(el('h1', { class: 'sr-only', text: 'Lección: ' + lesson.title }));
     root.appendChild(topBar());
     var body = el('div', { class: 'lesson-body', id: 'lesson-body' });
     root.appendChild(body);
@@ -138,15 +139,41 @@
       f.classList.add(state === 'ok' ? 'is-ok' : 'is-ko');
       msg.appendChild(el('div', { class: 'lesson-foot__msg' }, [
         el('span', { class: 'lesson-foot__ico', text: opts.icon || (state === 'ok' ? '🎉' : '💡') }),
-        el('div', [
+        el('div', { class: 'grow', style: { minWidth: '0' } }, [
           el('div', { class: 'lesson-foot__t', text: opts.title }),
           opts.text ? el('div', { class: 'lesson-foot__p', html: UI.rich(opts.text) }) : null
         ])
       ]));
+      if (opts.details && opts.details.length) msg.appendChild(whyList(opts.details));
     }
     btn.className = 'btn btn--block btn--lg ' + (state === 'ko' ? 'btn--red' : 'btn--green');
     btn.querySelector('span:last-child').textContent = opts && opts.label ? opts.label : 'Continuar';
     btn.disabled = !!(opts && opts.disabled);
+  }
+
+  /** Desglose "por qué esta sí y las otras no".
+      details: [{ ok:bool, t:'texto de la opción', why:'razón', pick:bool }] */
+  function whyList(details) {
+    var box = el('details', { class: 'why', open: true });
+    var correctas = details.filter(function (x) { return x.ok; }).length;
+    box.appendChild(el('summary', { class: 'why__sum',
+      text: correctas > 1 ? 'Por qué esas son las correctas' : 'Por qué esa es la correcta' }));
+
+    var list = el('ul', { class: 'why__list' });
+    details.forEach(function (x) {
+      list.appendChild(el('li', { class: 'why__item' + (x.ok ? ' is-ok' : ' is-ko') + (x.pick ? ' is-pick' : '') }, [
+        el('span', { class: 'why__ico', text: x.ok ? '✅' : '✕' }),
+        el('span', { class: 'why__body' }, [
+          el('span', { class: 'why__t' }, [
+            x.t,
+            x.pick ? el('span', { class: 'why__tag', text: 'tu respuesta' }) : null
+          ]),
+          x.why ? el('span', { class: 'why__p', html: UI.rich(x.why) }) : null
+        ])
+      ]));
+    });
+    box.appendChild(list);
+    return box;
   }
 
   function updateBar() {
@@ -195,8 +222,9 @@
     S.current = built;
     built.node.classList.add('anim-in');
     body.appendChild(built.node);
-    var vp = d.getElementById('view');
-    if (vp) vp.scrollTop = 0;
+    // Cada paso empieza arriba: el pie es sticky y el contenido cambia de
+    // altura, así que hay que insistir en los cuadros siguientes.
+    UI.resetScroll();
 
     if (built.check) setFoot('idle', { label: built.label || 'Comprobar', disabled: !built.startEnabled });
     else setFoot('idle', { label: 'Continuar' });
@@ -233,6 +261,7 @@
           icon: pickPraise(),
           title: res.title || '¡Correcto!',
           text: res.explain,
+          details: res.details,
           label: 'Continuar'
         });
       } else {
@@ -243,6 +272,7 @@
           icon: '💡',
           title: res.title || 'Casi',
           text: res.explain,
+          details: res.details,
           label: 'Entendido'
         });
         if (left <= 0) { setTimeout(noHearts, 900); }
@@ -270,7 +300,7 @@
       ]),
       el('div', { class: 'concept-card' }, [
         el('div', { class: 'concept-card__tag', text: l.concept.tag || 'Concepto' }),
-        el('div', { class: 'h3', text: l.concept.title }),
+        el('h2', { class: 'h3', text: l.concept.title }),
         UI.frag(l.concept.body.map(function (p) { return el('p', { html: UI.rich(p) }); })),
         el('div', { class: 'keys' }, l.concept.keys.map(function (k) {
           return el('div', { class: 'key-row' }, [
@@ -291,7 +321,7 @@
           el('span', { class: 'case-card__emoji', text: c.emoji }),
           el('div', [
             el('div', { class: 'tiny', style: { color: 'var(--blue-dark)' }, text: 'Caso real' }),
-            el('div', { class: 'case-card__t', text: c.title })
+            el('h2', { class: 'case-card__t', text: c.title })
           ])
         ]),
         el('p', { html: UI.rich(c.text) })
@@ -306,7 +336,7 @@
 
   function qHead(step, sub) {
     return el('div', { class: 'col', style: { gap: '6px' } }, [
-      el('div', { class: 'q-title', text: step.q }),
+      el('h2', { class: 'q-title', text: step.q }),
       (step.sub || sub) ? el('div', { class: 'q-sub', text: step.sub || sub }) : null
     ]);
   }
@@ -363,10 +393,21 @@
         });
         return {
           ok: !!picked.ok,
-          explain: (picked.why ? picked.why + '\n\n' : '') + (step.explain || '')
+          title: picked.ok ? '¡Correcto!' : 'No era esa',
+          explain: step.explain || '',
+          // Se muestran TODAS las opciones: por qué la correcta lo es y por
+          // qué cada una de las otras no. Es la mitad del aprendizaje.
+          details: byCorrectFirst(opts.map(function (item, i) {
+            return { ok: !!item.o.ok, t: item.o.t, why: item.o.why, pick: i === chosen };
+          }))
         };
       }
     };
+  }
+
+  /** Ordena las opciones para el desglose: primero las correctas. */
+  function byCorrectFirst(list) {
+    return list.slice().sort(function (a, b) { return (b.ok ? 1 : 0) - (a.ok ? 1 : 0); });
   }
 
   /* ---------- verdadero / falso ---------- */
@@ -405,7 +446,12 @@
           if (val === step.ok) b.classList.add('is-correct');
           else if (val === chosen) b.classList.add('is-wrong');
         });
-        return { ok: ok, explain: step.explain };
+        return {
+          ok: ok,
+          title: ok ? '¡Correcto!' : 'No es así',
+          explain: (step.ok ? 'La afirmación **sí** es verdadera. ' : 'La afirmación es **falsa**. ') +
+                   (step.explain || '')
+        };
       }
     };
   }
@@ -448,16 +494,31 @@
           });
       },
       check: function () {
-        var ok = true;
+        var ok = true, faltaron = 0, sobraron = 0;
         UI.qsa('.opt', list).forEach(function (b, i) {
           var sel = !!picked[i], right = !!opts[i].ok;
           b.classList.add('is-locked');
           b.classList.remove('is-selected');
           if (right) { b.classList.add('is-correct'); b.querySelector('.opt__mark').textContent = '✓'; }
           if (sel && !right) { b.classList.add('is-wrong'); b.querySelector('.opt__mark').textContent = '✕'; }
-          if (sel !== right) ok = false;
+          if (sel !== right) {
+            ok = false;
+            if (right) faltaron++; else sobraron++;
+          }
         });
-        return { ok: ok, explain: step.explain, title: ok ? '¡Todas correctas!' : 'Te faltó alguna' };
+
+        var resumen = [];
+        if (faltaron) resumen.push('te ' + (faltaron === 1 ? 'faltó 1 correcta' : 'faltaron ' + faltaron + ' correctas'));
+        if (sobraron) resumen.push((sobraron === 1 ? 'marcaste 1 que no lo era' : 'marcaste ' + sobraron + ' que no lo eran'));
+
+        return {
+          ok: ok,
+          title: ok ? '¡Todas correctas!' : 'Casi: ' + resumen.join(' y '),
+          explain: step.explain,
+          details: byCorrectFirst(opts.map(function (o, i) {
+            return { ok: !!o.ok, t: o.t, why: o.why, pick: !!picked[i] };
+          }))
+        };
       }
     };
   }
@@ -603,7 +664,9 @@
         return {
           ok: wrongCount === 0,
           explain: step.explain,
-          title: wrongCount === 0 ? '¡Todo emparejado!' : 'Emparejado con ' + wrongCount + ' intento(s) extra'
+          title: wrongCount === 0
+            ? '¡Todo emparejado!'
+            : 'Emparejado con ' + UI.count(wrongCount, 'intento extra', 'intentos extra')
         };
       }
     };
@@ -725,7 +788,13 @@
         var ok = val >= step.best[0] && val <= step.best[1];
         valueEl.style.color = ok ? 'var(--green-dark)' : 'var(--red)';
         bandEl.textContent = (b ? b.label : '') + (ok ? '' : ' · Rango ideal: ' + fmtVal(step.best[0], step.unit) + ' a ' + fmtVal(step.best[1], step.unit));
-        return { ok: ok, explain: (b ? b.msg + '\n\n' : '') + step.explain, title: ok ? '¡Buen criterio!' : 'Ajusta tu criterio' };
+        return {
+          ok: ok,
+          explain: 'Rango ideal: **' + fmtVal(step.best[0], step.unit) + ' a ' +
+                   fmtVal(step.best[1], step.unit) + '**. ' + (step.explain || ''),
+          title: ok ? '¡Buen criterio!' : 'Ajusta tu criterio',
+          details: bandDetails(step, b)
+        };
       }
     };
   }
@@ -738,6 +807,18 @@
   function bandFor(step, v) {
     for (var i = 0; i < step.bands.length; i++) if (v <= step.bands[i].max) return step.bands[i];
     return step.bands[step.bands.length - 1];
+  }
+
+  /** Todas las bandas del deslizador con su rango: así se ve por qué la
+      elegida no es la buena y qué pasa en cada tramo. */
+  function bandDetails(step, actual) {
+    var low = step.min;
+    return step.bands.map(function (b) {
+      var rango = fmtVal(low, step.unit) + ' – ' + fmtVal(b.max, step.unit);
+      var ideal = low <= step.best[1] && b.max >= step.best[0];
+      low = b.max;
+      return { ok: ideal, t: b.label + ' (' + rango + ')', why: b.msg, pick: b === actual };
+    });
   }
   function toneColor(t) {
     return t === 'ok' ? 'var(--green-dark)' : (t === 'bad' ? 'var(--red)' : 'var(--gold-dark)');
@@ -819,8 +900,11 @@
 
         return {
           ok: !!picked.ok,
-          explain: picked.why + '\n\n' + (step.explain || ''),
-          title: picked.ok ? '¡Buena decisión!' : 'Esa decisión cuesta'
+          explain: step.explain || '',
+          title: picked.ok ? '¡Buena decisión!' : 'Esa decisión cuesta',
+          details: byCorrectFirst(opts.map(function (o, i) {
+            return { ok: !!o.ok, t: o.t, why: o.why, pick: i === chosen };
+          }))
         };
       }
     };
@@ -871,7 +955,9 @@
             el('ul', { style: { marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' } },
               r.good.map(function (g) { return el('li', { class: 'small', text: '✅ ' + g }); })
                 .concat(r.notes.map(function (n) { return el('li', { class: 'small', text: '💡 ' + n }); }))
-            )
+            ),
+            el('div', { class: 'tiny', style: { marginTop: '8px', textTransform: 'none', letterSpacing: '0' },
+              text: 'Aquí no hay respuesta única y la nota no bloquea nada: mide qué tan concreto y verificable es lo que escribiste (cifras, público definido, plazos).' })
           ])
         ]));
         fb.classList.add('anim-in');
@@ -959,7 +1045,7 @@
         el('div', { class: 'rays' }),
         el('div', { class: 'mascot mascot--xl is-party', html: w.Mascot.svg('party') })
       ]),
-      el('div', { class: 'h1', text: S.errors === 0 ? '¡Perfecto!' : '¡Lección completada!' }),
+      el('h2', { class: 'h1', text: S.errors === 0 ? '¡Perfecto!' : '¡Lección completada!' }),
       el('p', { class: 'p', text: lesson.title }),
       el('div', { class: 'finish__stats' }, [
         statBox('XP ganado', '+' + gained, '#FFC800', '#D9A400'),
@@ -974,7 +1060,7 @@
         el('div', { class: 'row', style: { gap: '12px' } }, [
           el('span', { class: 'flame', style: { fontSize: '30px' }, text: '🔥' }),
           el('div', [
-            el('div', { class: 'h4 c-brand', text: 'Racha de ' + day.streak + ' día' + (day.streak === 1 ? '' : 's') }),
+            el('div', { class: 'h4 c-brand', text: 'Racha de ' + UI.days(day.streak) }),
             el('div', { class: 'small', text: 'Vuelve mañana para no perderla.' })
           ])
         ])

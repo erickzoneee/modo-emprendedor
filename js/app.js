@@ -31,8 +31,8 @@
       UI.sheet([
         el('div', { class: 'col', style: { alignItems: 'center', gap: '10px' } }, [
           el('div', { class: 'flame', style: { fontSize: '54px' }, text: '🔥' }),
-          el('div', { class: 'h1', text: s.streak + ' día' + (s.streak === 1 ? '' : 's') }),
-          el('div', { class: 'small t-center', text: 'Tu mejor racha: ' + s.bestStreak + ' días.\nCompleta una lección al día para no perderla.' }),
+          el('div', { class: 'h1', text: UI.days(s.streak) }),
+          el('div', { class: 'small t-center', text: 'Tu mejor racha: ' + UI.days(s.bestStreak) + '.\nCompleta una lección al día para no perderla.' }),
           s.freezes > 0 ? UI.chip(s.freezes + ' congelador' + (s.freezes === 1 ? '' : 'es'), 'blue', '🧊') : null
         ]),
         UI.btn('Entendido', { variant: 'ghost', onClick: UI.closeSheet })
@@ -134,6 +134,85 @@
     }
   }
 
+  /* ------------------------- Respaldo ------------------------- */
+
+  var BACKUP_FILE = 'modo-emprendedor-respaldo.json';
+  var BACKUP_EVERY_DAYS = 7;
+
+  function exportBackup() {
+    UI.download(BACKUP_FILE, w.Store.exportJSON());
+    w.Store.markBackup();
+    UI.toast('Respaldo descargado', 'green', '⬇️');
+  }
+
+  function copyBackup() {
+    UI.copy(w.Store.exportJSON());
+    w.Store.markBackup();
+  }
+
+  /** Cuánto progreso hay realmente en juego: no se molesta a quien acaba de entrar. */
+  function backupStake() {
+    var s = w.Store.state;
+    var secciones = s.dossier ? Object.keys(s.dossier).length : 0;
+    return s.stats.lessons + s.stats.missions * 3 + secciones;
+  }
+
+  /** Recordatorio automático: la exportación existe, pero nadie la usa a tiempo. */
+  function maybeRemindBackup() {
+    var s = w.Store.state;
+    var b = s.backup;
+    if (!b || b.remind === false) return;
+    if (backupStake() < 4) return;                    // todavía no hay nada que perder
+    var t = w.Store.today();
+    if (b.promptedDay === t) return;                  // como mucho, una vez al día
+    var since = w.Store.daysSinceBackup();
+    if (since != null && since < BACKUP_EVERY_DAYS) return;
+
+    w.Store.set(function (st) { st.backup.promptedDay = t; }, 'backup');
+    backupSheet(since);
+  }
+
+  function backupSheet(since) {
+    var s = w.Store.state;
+    UI.sheet([
+      el('div', { class: 'row', style: { gap: '12px', alignItems: 'flex-start' } }, [
+        el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg('think') }),
+        el('div', { class: 'speech' }, [
+          el('h2', { class: 'h4', text: 'Guarda una copia de tu progreso' }),
+          el('div', { class: 'small', style: { marginTop: '6px' },
+            text: since == null
+              ? 'Todo lo que llevas vive solo en este navegador. Si borras los datos del sitio o cambias de teléfono, se pierde. Evitarlo toma cinco segundos.'
+              : 'Tu último respaldo fue hace ' + UI.days(since) + '. Todo lo que hiciste desde entonces solo existe en este navegador.' })
+        ])
+      ]),
+      el('div', { class: 'row wrap', style: { gap: '8px' } }, [
+        UI.chip(UI.count(s.stats.lessons, 'lección', 'lecciones'), 'green', '📚'),
+        UI.chip(UI.count(s.stats.missions, 'misión', 'misiones'), 'purple', '🎯'),
+        UI.chip(UI.num(s.xp) + ' XP', 'gold', '⚡'),
+        s.streak > 0 ? UI.chip('racha de ' + UI.days(s.streak), 'brand', '🔥') : null
+      ]),
+      UI.btn('Descargar respaldo', {
+        variant: 'brand', size: 'lg',
+        onClick: function () { exportBackup(); UI.closeSheet(); }
+      }),
+      UI.btn('Copiar al portapapeles', {
+        variant: 'ghost',
+        onClick: function () { copyBackup(); UI.closeSheet(); }
+      }),
+      el('div', { class: 'tiny t-center', style: { textTransform: 'none', letterSpacing: '0' },
+        text: 'Pégalo en tus notas, en un correo o en tu nube: se restaura desde Perfil › Importar.' }),
+      UI.btn('Ahora no', { variant: 'flat', onClick: UI.closeSheet }),
+      UI.btn('No volver a recordármelo', {
+        variant: 'flat',
+        onClick: function () {
+          w.Store.set(function (st) { st.backup.remind = false; }, 'backup');
+          UI.closeSheet();
+          UI.toast('Puedes reactivarlo en Perfil › Ajustes', 'blue', '⚙️', 3400);
+        }
+      })
+    ]);
+  }
+
   /* ------------------------- Arranque ------------------------- */
 
   function boot() {
@@ -160,6 +239,8 @@
       showChrome(true);
       UI.Router.go('home', {}, 'none');
       greet();
+      // Después del saludo, para no encimar dos avisos.
+      setTimeout(maybeRemindBackup, 5200);
     }
 
     // Regeneración de vidas en segundo plano
@@ -191,7 +272,7 @@
       if (gap > 1 && s.bestStreak >= 3) {
         UI.toast('Te extrañamos. Hoy retomas donde lo dejaste.', 'blue', '👋', 3600);
       } else if (s.streak > 0) {
-        UI.toast('Racha de ' + s.streak + ' días. ¡No la rompas hoy!', 'gold', '🔥', 3200);
+        UI.toast('Racha de ' + UI.days(s.streak) + '. ¡No la rompas hoy!', 'gold', '🔥', 3200);
       }
     }, 800);
   }
@@ -206,7 +287,11 @@
     boot: boot,
     onRoute: onRoute,
     showChrome: showChrome,
-    renderChrome: function () { renderTopbar(); }
+    renderChrome: function () { renderTopbar(); },
+    exportBackup: exportBackup,
+    copyBackup: copyBackup,
+    backupSheet: backupSheet,
+    BACKUP_EVERY_DAYS: BACKUP_EVERY_DAYS
   };
 
   if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', boot);

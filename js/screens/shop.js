@@ -36,7 +36,7 @@
 
     UI.sheet([
       el('div', { class: 'row between' }, [
-        el('div', { class: 'h3', text: '🛒 Tienda' }),
+        el('h2', { class: 'h3', text: '🛒 Tienda' }),
         el('div', { class: 'chip chip--gold', text: '🪙 ' + UI.num(s.coins) })
       ]),
       el('div', { class: 'small', text: 'Ganas monedas completando lecciones, misiones y retos semanales.' }),

@@ -15,7 +15,7 @@
     var root = el('div', { class: 'splash' }, [
       el('div', { class: 'mascot mascot--xl', html: w.Mascot.svg('happy') }),
       el('div', { class: 'col', style: { gap: '6px', alignItems: 'center' } }, [
-        el('div', { class: 'splash__logo', text: 'Modo Emprendedor' }),
+        el('h1', { class: 'splash__logo', text: 'Modo Emprendedor' }),
         el('div', { class: 'splash__tag', html: 'Aprende. <b>Construye.</b> Vende.' })
       ]),
       el('p', { class: 'p', style: { maxWidth: '330px' },
@@ -27,8 +27,12 @@
       el('div', { class: 'tiny', style: { marginTop: '-4px' },
         text: 'Sin cuentas ni contraseñas. Tu progreso se guarda en este dispositivo.' }),
       el('div', { class: 'row', style: { gap: '18px', marginTop: '10px', opacity: '.75' } }, [
-        stat('50', 'lecciones'), stat('8', 'retos reales'), stat('1', 'negocio tuyo')
-      ])
+        stat(String(w.LESSONS.length), UI.plural(w.LESSONS.length, 'lección', 'lecciones')),
+        stat(String(C.BOSSES.length), 'retos reales'),
+        stat('1', 'negocio tuyo')
+      ]),
+      el('div', { class: 'tiny', style: { maxWidth: '330px', textTransform: 'none', letterSpacing: '0', opacity: '.8' },
+        text: 'Cada lección termina en una misión que aplicas a tu negocio, y cada nivel cierra con un reto que haces en el mundo real.' })
     ]);
     return root;
   }
@@ -49,6 +53,7 @@
       fr.onload = function () {
         try {
           w.Store.importJSON(fr.result);
+          w.Store.markBackup();   // quien restaura ya tiene una copia: no hay que insistirle
           UI.toast('Progreso restaurado', 'green', '✅');
           w.App.boot();
         } catch (e) { UI.toast('Archivo inválido', 'red', '⚠️'); }
@@ -116,7 +121,7 @@
       el('div', { class: 'ob-mascot-row' }, [
         el('div', { class: 'mascot', html: w.Mascot.svg(i === 0 ? 'happy' : 'neutral') }),
         el('div', { class: 'speech' }, [
-          el('div', { class: 'h4', text: q.q }),
+          el('h1', { class: 'h4', text: q.q }),
           el('div', { class: 'small', style: { marginTop: '4px' }, text: q.sub })
         ])
       ])
@@ -187,7 +192,7 @@
       el('div', { class: 'ob-mascot-row' }, [
         el('div', { class: 'mascot', html: w.Mascot.svg('think') }),
         el('div', { class: 'speech' }, [
-          el('div', { class: 'h4', text: 'Cuéntame de ti' }),
+          el('h1', { class: 'h4', text: 'Cuéntame de ti' }),
           el('div', { class: 'small', style: { marginTop: '4px' },
             text: 'Con esto personalizo los ejemplos y las misiones.' })
         ])
@@ -228,7 +233,7 @@
   function generating() {
     var root = el('div', { class: 'screen screen--center' });
     var mascot = el('div', { class: 'mascot mascot--lg is-think', html: w.Mascot.svg('think') });
-    var title = el('div', { class: 'h3', text: 'Diseñando tu ruta…' });
+    var title = el('h1', { class: 'h3', text: 'Diseñando tu ruta…' });
     var wrap = el('div', { class: 'route-anim', style: { maxWidth: '340px', marginTop: '18px' } });
 
     root.appendChild(mascot);
@@ -243,7 +248,8 @@
       { ico: '🎯', t: 'Punto de partida: ' + goalLabel },
       { ico: '🧰', t: 'Sector: ' + sectorLabel },
       { ico: '⏱️', t: 'Meta diaria: ' + goalXP(draft.time) + ' XP (' + draft.time + ' min)' },
-      { ico: '🗺️', t: 'Ruta de 8 niveles y 58 misiones' },
+      { ico: '🗺️', t: 'Ruta de ' + C.LEVELS.length + ' niveles: ' + w.LESSONS.length +
+                       ' lecciones + ' + C.BOSSES.length + ' retos reales' },
       { ico: '🚀', t: 'Primera lección seleccionada' }
     ];
 

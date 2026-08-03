@@ -57,6 +57,9 @@ img, svg { display: block; max-width: 100%; }
     radial-gradient(900px 700px at 110% 110%, rgba(28,176,246,.14), transparent 60%),
     var(--bg-2);
   overflow: hidden;
+  /* overflow:hidden no impide que el navegador desplace este contenedor al
+     enfocar un campo; sin esto la posición sobrevive al cambio de pantalla. */
+  overflow-anchor: none;
 }
 
 .stage__glow {
@@ -90,6 +93,7 @@ html[data-theme="dark"] .stage__glow { opacity: .3; }
   display: grid;
   grid-template-rows: auto 1fr auto;
   overflow: hidden;
+  overflow-anchor: none;
   box-shadow: var(--sh-pop);
   border-radius: 34px;
   isolation: isolate;
@@ -114,6 +118,10 @@ html[data-theme="dark"] .stage__glow { opacity: .3; }
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  /* El anclaje de desplazamiento reajusta scrollTop cuando cambia el contenido:
+     es justo lo que hacía que una pantalla nueva apareciera a media altura. */
+  overflow-anchor: none;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 }

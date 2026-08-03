@@ -8,6 +8,13 @@
 
   function el(tag, attrs, children) {
     var node = d.createElement(tag);
+    // Admite también el('div', [hijos]) sin objeto de atributos. Sin esto el
+    // array cae en la posición de atributos, el for-in lo recorre por índice
+    // y los hijos se pierden en silencio (setAttribute('0', '[object …]')).
+    if (attrs && (Array.isArray(attrs) || attrs.nodeType || typeof attrs === 'string')) {
+      children = attrs;
+      attrs = null;
+    }
     if (attrs) {
       for (var k in attrs) {
         if (!Object.prototype.hasOwnProperty.call(attrs, k)) continue;
@@ -71,6 +78,12 @@
   function pct(n) { return Math.round(n) + '%'; }
 
   function plural(n, one, many) { return n === 1 ? one : many; }
+
+  /** "1 día" / "3 días". Evita el clásico "1 días". */
+  function days(n) { return n + ' día' + (n === 1 ? '' : 's'); }
+
+  /** Cuenta + sustantivo concordado: count(1,'lección','lecciones') -> "1 lección". */
+  function count(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
 
   function escapeHTML(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -279,6 +292,39 @@
     });
   }
 
+  /* ---------------------------- Desplazamiento ---------------------------- */
+
+  /** Devuelve al inicio todo lo que pueda haber quedado desplazado.
+      No basta con poner #view.scrollTop = 0:
+      · .stage y .phone tienen overflow:hidden, pero el navegador SÍ los
+        desplaza por su cuenta al enfocar un campo (el textarea del mentor,
+        por ejemplo) y esa posición se conserva al cambiar de pantalla;
+      · el anclaje de desplazamiento de Chrome puede restaurar la posición
+        justo después de repintar.
+      Por eso se aplica también en los dos cuadros siguientes. */
+  function resetScroll(node) {
+    var view = d.getElementById('view');
+    var targets = [
+      node && node !== view ? node : null,
+      view,
+      d.getElementById('phone'),
+      qs('.stage'),
+      d.scrollingElement || d.documentElement
+    ];
+    function apply() {
+      for (var i = 0; i < targets.length; i++) {
+        var n = targets[i];
+        if (!n) continue;
+        if (n.scrollTop) n.scrollTop = 0;
+        if (n.scrollLeft) n.scrollLeft = 0;
+      }
+    }
+    apply();
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () { apply(); requestAnimationFrame(apply); });
+    }
+  }
+
   /* ---------------------------- Router ---------------------------- */
 
   var Router = {
@@ -301,12 +347,13 @@
 
       var content = Router.routes[name](Router.params);
       clear(view);
-      view.scrollTop = 0;
       var cls = dir === 'back' ? 'anim-in-left' : (dir === 'none' ? '' : 'anim-in');
       if (content) {
         if (cls && content.classList) content.classList.add(cls);
         view.appendChild(content);
       }
+      // Toda pantalla nueva empieza arriba, pase lo que pase con la anterior.
+      resetScroll(view);
       if (w.App && w.App.onRoute) w.App.onRoute(name, Router.params);
       return content;
     },
@@ -377,7 +424,8 @@
 
   w.UI = {
     el: el, append: append, frag: frag, qs: qs, qsa: qsa, clear: clear,
-    money: money, num: num, pct: pct, plural: plural, escapeHTML: escapeHTML, rich: rich,
+    money: money, num: num, pct: pct, plural: plural, days: days, count: count,
+    escapeHTML: escapeHTML, rich: rich, resetScroll: resetScroll,
     toast: toast, modal: modal, queueModal: queueModal, closeModal: closeModal,
     sheet: sheet, closeSheet: closeSheet,
     confirm: confirm, btn: btn, pbar: pbar, chip: chip, metric: metric,

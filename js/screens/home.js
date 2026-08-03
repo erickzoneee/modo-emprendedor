@@ -11,6 +11,9 @@
     var root = el('div', { class: 'screen home' });
     var ps = w.Engine.pathState();
 
+    // Encabezado de la pantalla para lectores de pantalla: visualmente el
+    // título lo da el mapa, pero la jerarquía tiene que existir igual.
+    root.appendChild(el('h1', { class: 'sr-only', text: 'Tu ruta de emprendimiento' }));
     root.appendChild(dailyCard());
     root.appendChild(weeklyStrip());
 
@@ -46,8 +49,10 @@
       if (dm) openNode(dm.id);
     } }, [
       el('span', { class: 'daily-card__ico' + (doneToday ? '' : ' flame'), text: doneToday ? '✅' : (dm ? dm.icon : '🎉') }),
-      el('span', { class: 'grow' }, [
-        el('span', { class: 'tiny', style: { opacity: '.85', color: '#fff' },
+      // Columna propia: si estos tres textos se dejan en flujo en línea,
+      // sus cajas de línea se solapan y el rótulo se encima con el título.
+      el('span', { class: 'grow daily-card__body' }, [
+        el('span', { class: 'daily-card__k',
           text: doneToday ? 'Meta diaria cumplida' : 'Misión del día' }),
         el('span', { class: 'daily-card__t', text: dm ? dm.title : 'Ruta completada' }),
         el('span', { class: 'daily-card__s', text: dm ? dm.sub : 'Sigue tu plan de 90 días' })
@@ -100,7 +105,7 @@
       strip.appendChild(chip);
     });
     return el('div', { class: 'col', style: { gap: '6px' } }, [
-      el('div', { class: 'tiny', style: { marginTop: '8px' }, text: 'Retos de la semana' }),
+      el('h2', { class: 'tiny', style: { marginTop: '8px' }, text: 'Retos de la semana' }),
       strip
     ]);
   }
@@ -113,7 +118,7 @@
     return el('div', { class: 'unit-head', style: { '--unit-c': lv.color } }, [
       el('div', { class: 'unit-head__meta' }, [
         el('div', { class: 'unit-head__k', text: 'Nivel ' + lv.n + ' · ' + prog.done + '/' + prog.total }),
-        el('div', { class: 'unit-head__t', text: lv.icon + '  ' + lv.title })
+        el('h2', { class: 'unit-head__t', text: lv.icon + '  ' + lv.title })
       ]),
       el('button', {
         class: 'unit-head__btn', type: 'button', 'aria-label': 'Ver detalles del nivel',
@@ -129,7 +134,7 @@
         el('div', { style: { fontSize: '34px' }, text: lv.icon }),
         el('div', { class: 'grow' }, [
           el('div', { class: 'tiny', text: 'Nivel ' + lv.n }),
-          el('div', { class: 'h3', text: lv.title })
+          el('h2', { class: 'h3', text: lv.title })
         ])
       ]),
       el('p', { class: 'p', text: lv.outcome }),
@@ -207,7 +212,7 @@
     var allDone = ps.every(function (x) { return x.state === 'done'; });
     return el('div', { class: 'card', style: { marginTop: '18px', textAlign: 'center' } }, [
       el('div', { style: { fontSize: '34px' }, text: allDone ? '🏆' : '🏁' }),
-      el('div', { class: 'h4', style: { marginTop: '6px' }, text: allDone ? '¡Ruta completada!' : 'Meta final' }),
+      el('h2', { class: 'h4', style: { marginTop: '6px' }, text: allDone ? '¡Ruta completada!' : 'Meta final' }),
       el('p', { class: 'small', style: { marginTop: '6px' },
         text: allDone
           ? 'Tienes idea validada, oferta, precios, identidad, estrategia y primeros clientes. Revisa tu expediente.'
@@ -242,7 +247,7 @@
         }),
         el('div', { class: 'grow' }, [
           el('div', { class: 'tiny', style: { color: lv.color }, text: lv.title }),
-          el('div', { class: 'h3', text: lesson.title })
+          el('h2', { class: 'h3', text: lesson.title })
         ])
       ]),
       el('div', { class: 'row wrap', style: { gap: '8px' } }, [

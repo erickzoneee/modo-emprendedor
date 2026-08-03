@@ -12,6 +12,7 @@
 
   function render() {
     var root = el('div', { class: 'col', style: { minHeight: '100%', position: 'relative', gap: '0' } });
+    root.appendChild(el('h1', { class: 'sr-only', text: 'Chispa, tu mentor' }));
     chatEl = el('div', { class: 'chat', id: 'chat' });
     root.appendChild(chatEl);
     root.appendChild(dock());
@@ -293,7 +294,7 @@
     var out = el('div', { class: 'col', style: { gap: '10px' } });
 
     UI.sheet([
-      el('div', { class: 'h3', text: title }),
+      el('h2', { class: 'h3', text: title }),
       el('div', { class: 'col', style: { gap: '12px' } }, fields.map(function (f) { return f.node; })),
       UI.btn('Calcular', {
         variant: 'brand',
@@ -361,7 +362,7 @@
     var out = el('div', { class: 'col', style: { gap: '10px' } });
 
     UI.sheet([
-      el('div', { class: 'h3', text: m.title }),
+      el('h2', { class: 'h3', text: m.title }),
       el('div', { class: 'field' }, [el('label', { class: 'field__label', text: m.label }), ta]),
       UI.btn('Revisar', {
         variant: 'purple',
@@ -373,17 +374,22 @@
           out.appendChild(el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
             el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg(ev.verdict.mood) }),
             el('div', { class: 'speech' + (ev.score >= 70 ? ' speech--green' : '') }, [
-              el('div', { class: 'small', style: { fontWeight: '900' }, text: ev.verdict.emoji + ' ' + ev.score + '/100 · ' + ev.verdict.title })
+              el('div', { class: 'small', style: { fontWeight: '900' }, text: ev.verdict.emoji + ' ' + ev.score + '/100 · ' + ev.verdict.title }),
+              el('div', { class: 'tiny', style: { marginTop: '4px', textTransform: 'none', letterSpacing: '0' },
+                text: 'Cumples ' + ev.breakdown.passed + ' de ' + ev.breakdown.total +
+                      ' criterios · cada uno vale ' + ev.breakdown.perCriterion + ' puntos' })
             ])
           ]));
+          var pts = ev.breakdown.perCriterion;
           var rub = el('div', { class: 'rubric' });
           ev.results.forEach(function (r, i) {
             rub.appendChild(el('div', { class: 'rubric-item ' + (r.ok ? 'ok' : 'no'), style: { animationDelay: (i * .08) + 's' } }, [
               el('span', { class: 'rubric-item__ico', text: r.ok ? '✅' : '⚠️' }),
-              el('div', [
+              el('div', { class: 'grow', style: { minWidth: '0' } }, [
                 el('div', { class: 'rubric-item__t', text: r.label }),
                 el('div', { class: 'rubric-item__p', text: r.note })
-              ])
+              ]),
+              el('span', { class: 'rubric-item__pts' + (r.ok ? ' is-won' : ''), text: '+' + pts })
             ]));
           });
           out.appendChild(rub);
@@ -522,7 +528,7 @@
     });
 
     UI.sheet([
-      el('div', { class: 'h3', text: '🔬 Auditoría de tu negocio' }),
+      el('h2', { class: 'h3', text: '🔬 Auditoría de tu negocio' }),
       el('div', { class: 'small', text: a.pendientes
         ? 'Revisé las ' + a.resultados.length + ' secciones que tienes escritas. Faltan ' + a.pendientes + ' por llenar.'
         : 'Revisé las 12 secciones de tu expediente.' }),
@@ -537,7 +543,7 @@
               : 'Todavía está muy general. Concretar estas tres cosas cambia por completo tus conversaciones de venta.') })
         ])
       ]),
-      a.prioridades.length ? el('div', { class: 'sep', text: 'Arregla esto primero' }) : null,
+      a.prioridades.length ? el('h3', { class: 'sep', text: 'Arregla esto primero' }) : null,
       el('div', { class: 'rubric' }, a.prioridades.map(function (p, i) {
         return el('div', { class: 'rubric-item no', style: { animationDelay: (i * 0.1) + 's' } }, [
           el('span', { class: 'rubric-item__ico', text: ['1️⃣', '2️⃣', '3️⃣'][i] }),
@@ -547,7 +553,7 @@
           ])
         ]);
       })),
-      el('div', { class: 'sep', text: 'Todas las secciones' }),
+      el('h3', { class: 'sep', text: 'Todas las secciones' }),
       lista,
       UI.btn('Ir a Mi Negocio', { variant: 'brand', onClick: function () { UI.closeSheet(); UI.Router.go('business'); } })
     ]);

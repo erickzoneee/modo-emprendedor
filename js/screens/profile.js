@@ -19,7 +19,7 @@
         el('div', { class: 'mascot mascot--lg', style: { '--m-size': '86px' }, html: w.Mascot.svg('happy') }),
         el('div', { class: 'avatar__lvl', text: 'Nv ' + rank.level })
       ]),
-      el('div', { class: 'h2', text: s.profile.name || 'Emprendedor' }),
+      el('h1', { class: 'h2', text: s.profile.name || 'Emprendedor' }),
       el('div', { class: 'row', style: { gap: '8px' } }, [
         UI.chip(rank.name, 'gold', rank.icon),
         s.profile.businessName ? UI.chip(s.profile.businessName, 'teal', '🏪') : null
@@ -33,24 +33,36 @@
     ]));
 
     /* --------- Estadísticas --------- */
+    root.appendChild(el('h2', { class: 'sep', text: 'Tus números' }));
     root.appendChild(el('div', { class: 'grid-2' }, [
-      UI.metric('Racha actual', s.streak + ' días'),
-      UI.metric('Mejor racha', s.bestStreak + ' días'),
+      UI.metric('Racha actual', UI.days(s.streak)),
+      UI.metric('Mejor racha', UI.days(s.bestStreak)),
       UI.metric('XP total', UI.num(s.xp)),
       UI.metric('Monedas', UI.num(s.coins)),
       UI.metric('Lecciones', s.stats.lessons + '/' + w.LESSONS.length),
-      UI.metric('Misiones reales', String(s.stats.missions)),
+      UI.metric('Retos reales', s.stats.missions + '/' + C.BOSSES.length),
       UI.metric('Progreso ruta', Math.round(prog.pct) + '%'),
       UI.metric('Tiempo invertido', Math.round(s.stats.minutes) + ' min')
     ]));
 
+    // Qué significan exactamente esas cifras: sin esto, "50 lecciones",
+    // "8 retos" y "58 misiones" parecen tres números que no cuadran.
+    root.appendChild(el('div', { class: 'card card--tight', style: { textAlign: 'left' } }, [
+      el('div', { class: 'small', style: { fontWeight: '900' },
+        text: 'La ruta tiene ' + prog.total + ' paradas' }),
+      el('div', { class: 'tiny', style: { marginTop: '6px', textTransform: 'none', letterSpacing: '0', lineHeight: '1.6' },
+        text: w.LESSONS.length + ' lecciones + ' + C.BOSSES.length + ' retos reales = ' + prog.total + '. ' +
+              'Además, cada lección termina con una misión que aplicas a tu propio negocio; los retos reales son los ' +
+              'que se hacen fuera de la app y desbloquean el siguiente nivel.' })
+    ]));
+
     /* --------- Calendario de racha --------- */
-    root.appendChild(el('div', { class: 'sep', text: 'Últimos 28 días' }));
+    root.appendChild(el('h2', { class: 'sep', text: 'Últimos 28 días' }));
     root.appendChild(streakGrid(s));
 
     /* --------- Insignias --------- */
     root.appendChild(el('div', { class: 'row between', style: { marginTop: '8px' } }, [
-      el('div', { class: 'sep grow', text: 'Insignias (' + s.badges.length + '/' + C.BADGES.length + ')' })
+      el('h2', { class: 'sep grow', text: 'Insignias (' + s.badges.length + '/' + C.BADGES.length + ')' })
     ]));
     var grid = el('div', { class: 'grid-4', style: { gap: '14px 8px' } });
     C.BADGES.forEach(function (b) {
@@ -74,7 +86,7 @@
     root.appendChild(grid);
 
     /* --------- Progreso por nivel --------- */
-    root.appendChild(el('div', { class: 'sep', text: 'Niveles' }));
+    root.appendChild(el('h2', { class: 'sep', text: 'Niveles' }));
     var levels = el('div', { class: 'col', style: { gap: '10px' } });
     C.LEVELS.forEach(function (lv) {
       var p = w.Engine.levelProgress(lv.n);
@@ -93,7 +105,7 @@
     root.appendChild(levels);
 
     /* --------- Ajustes --------- */
-    root.appendChild(el('div', { class: 'sep', text: 'Ajustes' }));
+    root.appendChild(el('h2', { class: 'sep', text: 'Ajustes' }));
     root.appendChild(settings(s));
 
     return root;
@@ -152,6 +164,50 @@
     return row;
   }
 
+  /** Estado del respaldo + acciones. Se repinta solo, sin recargar la pantalla. */
+  function backupCard() {
+    var icon = el('span', { style: { fontSize: '22px', flex: 'none' } });
+    var line = el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0' } });
+    var card = el('div', { class: 'card card--tight backup-card' });
+
+    function paint() {
+      var since = w.Store.daysSinceBackup();
+      var alDia = since != null && since < w.App.BACKUP_EVERY_DAYS;
+      icon.textContent = alDia ? '✅' : '⚠️';
+      line.textContent = since == null
+        ? 'Nunca has guardado una copia de tu progreso'
+        : (since === 0 ? 'Respaldado hoy' : 'Último respaldo hace ' + UI.days(since));
+      card.classList.toggle('is-warn', !alDia);
+    }
+
+    card.appendChild(el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+      icon,
+      el('div', { class: 'grow', style: { minWidth: '0' } }, [
+        el('div', { class: 'small', style: { fontWeight: '900' }, text: 'Respaldo de tu progreso' }),
+        line
+      ])
+    ]));
+
+    card.appendChild(el('div', { class: 'grid-2', style: { gap: '10px', marginTop: '12px' } }, [
+      UI.btn('Descargar .json', { variant: 'ghost', size: 'sm', onClick: function () {
+        w.App.exportBackup(); paint();
+      } }),
+      UI.btn('Copiar', { variant: 'ghost', size: 'sm', onClick: function () {
+        w.App.copyBackup(); paint();
+      } })
+    ]));
+
+    card.appendChild(el('div', { style: { marginTop: '10px' } }, [
+      UI.btn('Restaurar desde un archivo', { variant: 'ghost', size: 'sm', onClick: importData })
+    ]));
+
+    card.appendChild(el('div', { class: 'tiny', style: { marginTop: '10px', textTransform: 'none', letterSpacing: '0' },
+      text: 'No hay servidor ni cuentas: esta copia es la única forma de recuperar tu progreso o llevarlo a otro dispositivo. Pégala en tus notas o guárdala en tu nube.' }));
+
+    paint();
+    return card;
+  }
+
   function settings(s) {
     var col = el('div', { class: 'col', style: { gap: '10px' } });
 
@@ -181,14 +237,18 @@
       el('span', { text: '›' })
     ]));
 
-    // Datos
-    col.appendChild(el('div', { class: 'grid-2', style: { gap: '10px', marginTop: '4px' } }, [
-      UI.btn('Exportar progreso', { variant: 'ghost', size: 'sm', onClick: function () {
-        UI.download('modo-emprendedor-respaldo.json', w.Store.exportJSON());
-        UI.toast('Respaldo descargado', 'green', '⬇️');
-      } }),
-      UI.btn('Importar', { variant: 'ghost', size: 'sm', onClick: importData })
-    ]));
+    // Respaldo de datos
+    col.appendChild(backupCard());
+    col.appendChild(toggle('Recordatorios de respaldo',
+      'Te aviso si pasan ' + UI.days(w.App.BACKUP_EVERY_DAYS) + ' sin guardar copia',
+      s.backup ? s.backup.remind !== false : true,
+      function (v) {
+        w.Store.set(function (st) {
+          if (!st.backup) st.backup = { lastAt: 0, promptedDay: null, remind: true };
+          st.backup.remind = v;
+        }, 'settings');
+        UI.toast(v ? 'Recordatorios activados' : 'Recordatorios desactivados', v ? 'green' : 'blue', '🔔');
+      }));
 
     col.appendChild(UI.btn('Reiniciar todo', { variant: 'flat', onClick: function () {
       UI.confirm({
@@ -246,6 +306,7 @@
       fr.onload = function () {
         try {
           w.Store.importJSON(fr.result);
+          w.Store.markBackup();   // quien restaura ya tiene una copia: no hay que insistirle
           UI.toast('Progreso restaurado', 'green', '✅');
           w.App.boot();
         } catch (e) { UI.toast('Archivo inválido', 'red', '⚠️'); }
