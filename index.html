@@ -4,30 +4,45 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FF6B1A">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0D1420">
 <meta name="description" content="Modo Emprendedor — Aprende. Construye. Vende. Una misión al día para pasar de una idea a un negocio real.">
 <title>Modo Emprendedor · Aprende. Construye. Vende.</title>
 
-<!-- Vista previa al compartir el enlace -->
+<!-- Vista previa al compartir el enlace.
+     og:image tiene que ser absoluta: WhatsApp y Facebook no resuelven rutas
+     relativas cuando raspan la página. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Modo Emprendedor">
 <meta property="og:locale" content="es_MX">
 <meta property="og:url" content="https://erickzoneee.github.io/modo-emprendedor/">
 <meta property="og:title" content="Modo Emprendedor — Aprende. Construye. Vende.">
 <meta property="og:description" content="No es un curso: es una misión al día para pasar de una idea a un negocio real. 50 microlecciones, 8 retos del mundo real, simulador de empresa y mentor. Gratis y sin cuentas.">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="https://erickzoneee.github.io/modo-emprendedor/assets/og-image.png">
+<meta property="og:image:secure_url" content="https://erickzoneee.github.io/modo-emprendedor/assets/og-image.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Modo Emprendedor — Aprende. Construye. Vende. Una misión al día para pasar de una idea a un negocio real.">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Modo Emprendedor — Aprende. Construye. Vende.">
 <meta name="twitter:description" content="Una misión al día para pasar de una idea a un negocio real. 50 microlecciones, simulador de empresa y mentor.">
+<meta name="twitter:image" content="https://erickzoneee.github.io/modo-emprendedor/assets/og-image.png">
+<meta name="twitter:image:alt" content="Modo Emprendedor — Aprende. Construye. Vende.">
 
+<!-- App instalable -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Modo Emprendedor">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png">
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900&display=swap" rel="stylesheet">
+<!-- La tipografía viaja con la app: sin esto, sin conexión se dibujaba con otra fuente -->
+<link rel="preload" href="assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
 
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
 
+<link rel="stylesheet" href="css/fonts.css">
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/components.css">
@@ -65,6 +80,7 @@
 <script src="js/core/fx.js"></script>
 <script src="js/core/ui.js"></script>
 <script src="js/core/mascot.js"></script>
+<script src="js/core/ai.js"></script>
 
 <!-- ============ Datos ============ -->
 <script src="js/data/config.js"></script>

@@ -12,23 +12,34 @@ Al terminar la ruta no te llevas un certificado. Te llevas una idea validada, un
 
 ## Cómo abrirla
 
-**Opción 1 — doble clic (la más simple)**
+**Opción 1 — instalarla como app (la mejor en móvil)**
+
+Abre [la app](https://erickzoneee.github.io/modo-emprendedor/) y instálala:
+
+- **Android / Chrome / Edge:** aparece "Instalar", o entra a **Perfil › Ajustes › Instalar la app**.
+- **iPhone:** botón Compartir → *Añadir a pantalla de inicio*.
+
+Queda con icono propio, a pantalla completa y **funciona sin conexión**: la tipografía, el código y las 50 lecciones se guardan en el dispositivo la primera vez que la abres.
+
+**Opción 2 — doble clic**
 
 Abre `index.html` en Chrome, Edge o Firefox. No necesita instalación, ni internet, ni cuenta.
 
-> Nota: algunos navegadores restringen el guardado local en `file://`. Si tu progreso no se guarda entre sesiones, usa la opción 2.
+> Dos avisos sobre `file://`: algunos navegadores restringen ahí el guardado local (si tu progreso no se conserva, usa la opción 3), y los service workers no funcionan, así que por esta vía no se puede instalar.
 
-**Opción 2 — servidor local (recomendada)**
+**Opción 3 — servidor local**
 
 ```bash
 node serve.js
 ```
 
-Y abre `http://localhost:4321`.
+Y abre `http://localhost:4321`. Por aquí sí se puede instalar y probar el modo sin conexión.
 
-**Opción 3 — publicarla**
+**Opción 4 — publicarla**
 
 Es un sitio estático puro. Sube la carpeta completa a Netlify, Vercel, GitHub Pages o cualquier hosting y funciona igual.
+
+> Si la publicas **en una subcarpeta** (como hace GitHub Pages), no hay nada que tocar: el manifest, el service worker y todas las rutas son relativas a propósito.
 
 ---
 
@@ -43,7 +54,7 @@ Es un sitio estático puro. Sube la carpeta completa a Netlify, Vercel, GitHub P
 | **58 paradas en la ruta** | las 50 lecciones + los 8 retos reales |
 | **50 misiones aplicadas** | una por lección, cada una a tu negocio de verdad |
 | **Simulador de empresa** | 12 semanas, 22 eventos, modelo de demanda real |
-| **Mentor con IA** | evalúa tus textos, calcula y practica ventas contigo |
+| **Mentor** | evalúa tus textos, calcula y practica ventas contigo. Local por defecto; con IA real si conectas tu clave |
 | **Expediente Mi Negocio** | 12 secciones que se llenan solas y se exportan |
 
 > **Cómo se cuentan:** el mapa tiene **58 paradas** = **50 lecciones** + **8 retos reales**.
@@ -107,14 +118,34 @@ El modelo calcula demanda a partir de tu precio (elasticidad), tu reputación y 
 
 ## El mentor
 
-Funciona **sin conexión y sin claves de API**. Es un motor local de análisis de texto y reglas de negocio, no un modelo de lenguaje. Lo que hace:
+Tiene **dos motores**. El local siempre está; la IA es opcional.
+
+### Motor local (por defecto)
+
+Funciona **sin conexión y sin claves de API**. Es un motor de análisis de texto y reglas de negocio, no un modelo de lenguaje. Lo que hace:
 
 - **Evalúa tus misiones** contra rúbricas concretas: detecta si dijiste "todos" en vez de un público, si te falta un número, si prometiste un objeto en vez de un resultado, si tus pasos empiezan con verbos, si tu margen es sano…
 - **Calcula**: punto de equilibrio, precio sugerido (piso/mercado/valor), costo real de impresión 3D, CAC contra margen, punto de reorden.
 - **Practica contigo**: manejo de objeciones, entrevista de descubrimiento y una venta completa, turno por turno.
 - **Te da la misión del día** según dónde estás en la ruta.
 
-> Si algún día quieres conectarle un modelo real, el punto de entrada es `Mentor.reply()` en `js/core/mentor.js`. Todo lo demás seguiría funcionando igual.
+### IA real (opcional, con tu propia clave)
+
+En **Perfil › Ajustes › Mentor con IA** puedes conectar una clave de API de Anthropic y entonces las preguntas abiertas del chat las responde Claude, con el contexto de tu perfil y de tu expediente **Mi Negocio**.
+
+Por qué funciona así y no con una clave nuestra: esto es un sitio estático, no hay servidor donde esconder una clave. Cualquier clave incrustada en el JavaScript sería pública y se agotaría en horas. Así que la clave es tuya, se guarda **solo en tu navegador** y se manda **solo a `api.anthropic.com`**.
+
+Lo que conviene saber antes de activarla:
+
+- Tu clave **nunca sale en el respaldo `.json`** de tu progreso: vive en otra entrada de `localStorage` justamente para eso.
+- Con la IA activa, tus mensajes y los datos de tu expediente se envían a Anthropic para poder responder.
+- El consumo lo cobra Anthropic a tu cuenta. Puedes elegir modelo (Haiku 4.5, Sonnet 5 u Opus 5) según cuánto quieras gastar.
+- No la actives en un dispositivo compartido.
+- Si la llamada falla —sin red, clave caducada, sin saldo— **responde el motor local**. Nunca te quedas sin mentor.
+
+Las calculadoras, las prácticas guiadas y la evaluación de misiones siguen siendo locales aunque la IA esté encendida: son deterministas y ahí un modelo daría peores resultados que una rúbrica.
+
+> El punto de entrada de la IA es `AI.ask()` en `js/core/ai.js`; el del motor local, `Mentor.reply()` en `js/core/mentor.js`.
 
 ---
 
@@ -139,8 +170,15 @@ Racha diaria con congeladores · XP y 10 rangos · 5 vidas que se regeneran cada
 ```
 EMPRENDO/
 ├── index.html
+├── manifest.webmanifest     nombre, iconos y accesos directos de la app
+├── sw.js                    service worker: instalable y sin conexión
 ├── serve.js                 servidor local opcional
+├── assets/
+│   ├── fonts/               Nunito (variable, woff2) — no se pide a Google
+│   ├── icons/               192, 512, maskable y apple-touch
+│   └── og-image.png         portada al compartir el enlace (1200×630)
 ├── css/
+│   ├── fonts.css            @font-face de la tipografía local
 │   ├── tokens.css           colores, tipografía, sombras, temas
 │   ├── base.css             reset y layout
 │   ├── components.css       botones, tarjetas, opciones, fichas…
@@ -151,6 +189,7 @@ EMPRENDO/
     │   ├── store.js         estado + persistencia + rachas
     │   ├── engine.js        ruta, XP, vidas, insignias, ligas
     │   ├── mentor.js        rúbricas, análisis de texto, calculadoras
+    │   ├── ai.js            IA opcional con la clave del usuario
     │   ├── ui.js            DOM, router, modales, toasts
     │   ├── fx.js            confeti, partículas, contadores
     │   ├── audio.js         sonido sintetizado con WebAudio
@@ -165,6 +204,8 @@ EMPRENDO/
 ```
 
 Sin dependencias, sin build, sin framework. Scripts clásicos para que funcione incluso abriendo el archivo directamente.
+
+> **Al publicar una versión nueva**, sube `VERSION` en `sw.js`. Ese cambio es lo que hace que quien ya tenga la app instalada reciba los archivos nuevos en vez de seguir viendo la copia guardada.
 
 ---
 
@@ -195,7 +236,9 @@ Los `check` disponibles están en `CHECKS` dentro de `js/core/mentor.js` (29 com
 
 ## Datos y privacidad
 
-Todo se guarda en `localStorage`, solo en tu dispositivo. No hay servidor, no hay cuentas, no hay telemetría. Desde **Perfil** puedes exportar tu progreso a un `.json` y volver a importarlo en otro dispositivo.
+Todo se guarda en `localStorage`, solo en tu dispositivo. No hay servidor, no hay cuentas, no hay telemetría. La tipografía viaja dentro del proyecto, así que **la app no hace ni una sola petición a terceros** mientras no actives la IA. Desde **Perfil** puedes exportar tu progreso a un `.json` y volver a importarlo en otro dispositivo.
+
+La única excepción es el mentor con IA, y solo si tú lo enciendes: en ese caso tus mensajes van a `api.anthropic.com` con tu propia clave. Esa clave se guarda aparte y **no se incluye en el `.json` de respaldo**, para que puedas compartir o subir a la nube ese archivo sin filtrarla.
 
 Como no hay servidor, ese archivo es el único respaldo posible, así que la app **te lo recuerda sola**: si pasan más de 7 días sin una copia y ya tienes progreso real, aparece un aviso con los botones para descargarla o copiarla al portapapeles. En **Perfil › Ajustes** se ve la fecha del último respaldo y el recordatorio se puede desactivar.
 

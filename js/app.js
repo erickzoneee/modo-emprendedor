@@ -213,6 +213,80 @@
     ]);
   }
 
+  /* ------------------------- Instalación (PWA) ------------------------- */
+
+  var deferredPrompt = null;
+
+  /** ¿Ya se está usando como app instalada? Entonces no hay nada que ofrecer. */
+  function isStandalone() {
+    try {
+      return (w.matchMedia && w.matchMedia('(display-mode: standalone)').matches) ||
+             w.navigator.standalone === true;
+    } catch (e) { return false; }
+  }
+
+  function isIOS() {
+    return /iphone|ipad|ipod/i.test(w.navigator.userAgent) ||
+           // iPad moderno se declara como Mac; se distingue por el táctil.
+           (/macintosh/i.test(w.navigator.userAgent) && w.navigator.maxTouchPoints > 1);
+  }
+
+  // Chrome lanza esto cuando la app cumple los requisitos de instalación.
+  // Hay que guardarlo: solo se puede mostrar el diálogo desde un gesto del usuario.
+  w.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferredPrompt = e;
+  });
+
+  w.addEventListener('appinstalled', function () {
+    deferredPrompt = null;
+    UI.toast('¡Instalada! Ya puedes abrirla desde tu pantalla de inicio', 'green', '🚀', 4000);
+  });
+
+  function canInstall() { return !!deferredPrompt; }
+
+  function promptInstall() {
+    if (!deferredPrompt) return Promise.resolve(false);
+    var p = deferredPrompt;
+    deferredPrompt = null;                 // un evento guardado solo sirve una vez
+    p.prompt();
+    return p.userChoice.then(function (r) {
+      return r && r.outcome === 'accepted';
+    }).catch(function () { return false; });
+  }
+
+  /* ------------------------- Service worker ------------------------- */
+
+  function registerSW() {
+    if (!('serviceWorker' in w.navigator)) return;
+    // file:// no admite service workers y https es obligatorio salvo en local.
+    var esLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (location.protocol !== 'https:' && !esLocal) return;
+    // Después de la carga: registrar el SW compite con el arranque de la app.
+    w.addEventListener('load', function () {
+      w.navigator.serviceWorker.register('sw.js').catch(function (e) {
+        console.warn('[sw] no se pudo registrar:', e);
+      });
+    });
+  }
+
+  /* ------------------------- Accesos directos ------------------------- */
+
+  /** Los accesos directos del icono instalado abren ./?go=mentor y similares. */
+  function shortcutRoute() {
+    try {
+      var m = /[?&]go=([a-z]+)/i.exec(location.search || '');
+      if (!m) return null;
+      var destino = m[1].toLowerCase();
+      var valida = TABS.some(function (t) { return t.key === destino; });
+      // La URL se limpia siempre: si no, recargar repetiría el salto.
+      if (w.history && w.history.replaceState) {
+        w.history.replaceState(null, '', location.pathname);
+      }
+      return valida ? destino : null;
+    } catch (e) { return null; }
+  }
+
   /* ------------------------- Arranque ------------------------- */
 
   function boot() {
@@ -232,12 +306,15 @@
     UI.Router.stack = [];
     UI.Router.current = null;
 
+    // Se consulta siempre, incluso en el onboarding: así la URL queda limpia.
+    var atajo = shortcutRoute();
+
     if (!had || !s.onboarded) {
       showChrome(false);
       UI.Router.go('onboarding', {}, 'none');
     } else {
       showChrome(true);
-      UI.Router.go('home', {}, 'none');
+      UI.Router.go(atajo || 'home', {}, 'none');
       greet();
       // Después del saludo, para no encimar dos avisos.
       setTimeout(maybeRemindBackup, 5200);
@@ -291,8 +368,16 @@
     exportBackup: exportBackup,
     copyBackup: copyBackup,
     backupSheet: backupSheet,
-    BACKUP_EVERY_DAYS: BACKUP_EVERY_DAYS
+    BACKUP_EVERY_DAYS: BACKUP_EVERY_DAYS,
+    canInstall: canInstall,
+    promptInstall: promptInstall,
+    isStandalone: isStandalone,
+    isIOS: isIOS
   };
+
+  // Fuera de boot(): boot() puede volver a ejecutarse tras un reinicio, y para
+  // entonces el evento 'load' ya pasó y el registro no llegaría a ocurrir.
+  registerSW();
 
   if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', boot);
   else boot();

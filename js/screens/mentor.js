@@ -169,6 +169,10 @@
     if (/mi expediente|mi negocio/.test(t)) { UI.Router.go('business'); return; }
     if (/mis numeros|mis números/.test(t)) { UI.Router.go('business'); return; }
 
+    // Con la IA encendida contesta el modelo; si falla, contesta el motor local.
+    // Nunca se puede quedar sin respuesta por un problema de red o de clave.
+    if (w.AI && w.AI.isOn()) return askAI(text);
+
     var think = typing();
     setTimeout(function () {
       think.remove();
@@ -177,6 +181,28 @@
       if (r.follow && r.follow.length) paintQuick(r.follow.concat(KB.QUICK.slice(0, 3)));
       w.Sound.select();
     }, 480 + Math.random() * 420);
+  }
+
+  function localFallback(text, aviso) {
+    var r = w.Mentor.reply(text);
+    pushBot(r.text);
+    if (r.follow && r.follow.length) paintQuick(r.follow.concat(KB.QUICK.slice(0, 3)));
+    else paintQuick(KB.QUICK.slice(0, 6));
+    w.Sound.select();
+    if (aviso) UI.toast(aviso, 'red', '⚠️', 4200);
+  }
+
+  function askAI(text) {
+    var think = typing();
+    w.AI.ask(text).then(function (answer) {
+      think.remove();
+      pushBot(answer);
+      paintQuick(KB.QUICK.slice(0, 6));
+      w.Sound.select();
+    }).catch(function (err) {
+      think.remove();
+      localFallback(text, (err && err.message) || 'La IA no respondió.');
+    });
   }
 
   /* ------------------------- Práctica guiada ------------------------- */

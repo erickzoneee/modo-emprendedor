@@ -1,0 +1,40 @@
+/* ==========================================================================
+   Tipografía alojada localmente.
+
+   Nunito viaja dentro del proyecto (assets/fonts/), no se pide a Google.
+   Tres razones, en orden de importancia:
+     1. La app funciona de verdad sin conexión. Con el enlace a Google Fonts
+        seguía abriendo, pero se dibujaba con otra tipografía.
+     2. Una hoja de estilo de terceros bloquea el primer pintado; un archivo
+        local del mismo origen no.
+     3. Pedir la fuente a Google le revela la IP de cada usuario, cosa que
+        esta app —que no tiene servidor ni telemetría— no necesita hacer.
+
+   Es la fuente variable (un solo archivo para los pesos 200–1000), así que
+   pesa menos que los cinco estáticos que hacían falta antes.
+   Origen: https://fonts.googleapis.com/css2?family=Nunito  ·  SIL Open Font License 1.1
+   ========================================================================== */
+
+/* latin-ext — solo se descarga si el texto lo necesita (unicode-range) */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('../assets/fonts/nunito-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+                 U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF,
+                 U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* latin — cubre todo el español: acentos, ñ, ü, ¿, ¡ */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('../assets/fonts/nunito-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+                 U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+                 U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

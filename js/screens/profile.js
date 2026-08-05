@@ -208,8 +208,230 @@
     return card;
   }
 
+  /* ------------------------- Instalar como app ------------------------- */
+
+  var installBox = null;
+  var installHooked = false;
+
+  /** Tarjeta de instalación. Se repinta sola porque 'beforeinstallprompt'
+      puede llegar después de que esta pantalla ya se haya dibujado. */
+  function installCard() {
+    if (w.App.isStandalone()) return null;      // ya está instalada
+    installBox = el('div');
+    if (!installHooked) {
+      installHooked = true;
+      w.addEventListener('beforeinstallprompt', function () {
+        setTimeout(function () {
+          if (installBox && installBox.isConnected) paintInstall(installBox);
+        }, 0);
+      });
+    }
+    paintInstall(installBox);
+    return installBox;
+  }
+
+  function paintInstall(box) {
+    UI.clear(box);
+    if (w.App.isStandalone()) return;
+
+    if (w.App.canInstall()) {
+      box.appendChild(el('div', { class: 'card card--tight' }, [
+        el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+          el('span', { style: { fontSize: '22px', flex: 'none' }, text: '📲' }),
+          el('div', { class: 'grow', style: { minWidth: '0' } }, [
+            el('div', { class: 'small', style: { fontWeight: '900' }, text: 'Instalar la app' }),
+            el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0' },
+              text: 'Icono propio, pantalla completa y funciona sin conexión.' })
+          ])
+        ]),
+        el('div', { style: { marginTop: '12px' } }, [
+          UI.btn('Instalar', { variant: 'brand', size: 'sm', onClick: function () {
+            w.App.promptInstall().then(function (ok) {
+              if (!ok) UI.toast('Puedes instalarla cuando quieras desde aquí', 'blue', '📲');
+              paintInstall(box);
+            });
+          } })
+        ])
+      ]));
+      return;
+    }
+
+    // iOS no tiene diálogo de instalación: se hace a mano desde Compartir.
+    if (w.App.isIOS()) {
+      box.appendChild(el('div', { class: 'card card--tight' }, [
+        el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+          el('span', { style: { fontSize: '22px', flex: 'none' }, text: '📲' }),
+          el('div', { class: 'grow', style: { minWidth: '0' } }, [
+            el('div', { class: 'small', style: { fontWeight: '900' }, text: 'Instalar la app' }),
+            el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', lineHeight: '1.6' },
+              text: 'En iPhone: toca Compartir (el cuadrito con la flecha) y elige “Añadir a pantalla de inicio”.' })
+          ])
+        ])
+      ]));
+    }
+    // En el resto de navegadores no se promete nada que no se pueda cumplir.
+  }
+
+  /* ------------------------- Mentor con IA ------------------------- */
+
+  function aiCard() {
+    if (!w.AI) return null;
+    var card = el('div', { class: 'card card--tight' });
+
+    function paint() {
+      UI.clear(card);
+      var c = w.AI.config();
+      var activo = w.AI.isOn();
+      card.appendChild(el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+        el('span', { style: { fontSize: '22px', flex: 'none' }, text: activo ? '✨' : '🧠' }),
+        el('div', { class: 'grow', style: { minWidth: '0' } }, [
+          el('div', { class: 'small', style: { fontWeight: '900' }, text: 'Mentor con IA' }),
+          el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0' },
+            text: activo
+              ? 'Activo con ' + w.AI.modelName(c.model) + '. Se usa tu clave de Anthropic.'
+              : (c.key ? 'Configurado pero desactivado. Responde el mentor local.'
+                       : 'Opcional. Sin configurar, responde el mentor local: gratis y sin conexión.') })
+        ])
+      ]));
+      card.appendChild(el('div', { style: { marginTop: '12px' } }, [
+        UI.btn(c.key ? 'Ajustar' : 'Conectar mi IA', { variant: 'ghost', size: 'sm',
+          onClick: function () { aiSheet(paint); } })
+      ]));
+    }
+
+    paint();
+    return card;
+  }
+
+  function aiSheet(onChange) {
+    var c = w.AI.config();
+    var last4 = c.key ? c.key.slice(-4) : '';
+
+    var keyInput = el('input', {
+      class: 'input', type: 'password', autocomplete: 'off', spellcheck: 'false',
+      placeholder: c.key ? '•••••••••••••••' + last4 + ' (guardada)' : 'sk-ant-…'
+    });
+
+    var verBtn = el('button', {
+      class: 'btn btn--flat btn--sm', type: 'button', text: 'Ver',
+      onclick: function () {
+        var oculto = keyInput.type === 'password';
+        keyInput.type = oculto ? 'text' : 'password';
+        verBtn.textContent = oculto ? 'Ocultar' : 'Ver';
+      }
+    });
+
+    var modelo = c.model;
+    var lista = el('div', { class: 'col', style: { gap: '8px' } });
+    function paintModelos() {
+      UI.clear(lista);
+      w.AI.MODELS.forEach(function (m) {
+        lista.appendChild(el('button', {
+          class: 'opt' + (m.id === modelo ? ' is-selected' : ''), type: 'button',
+          onclick: function () { modelo = m.id; w.Sound.select(); paintModelos(); }
+        }, [
+          el('span', { class: 'opt__key', text: m.id === modelo ? '✓' : '○' }),
+          el('span', { class: 'opt__body' }, [
+            el('span', { text: m.name }),
+            el('span', { class: 'opt__hint', text: m.hint })
+          ])
+        ]));
+      });
+    }
+    paintModelos();
+
+    var estado = el('div', { class: 'tiny t-center',
+      style: { textTransform: 'none', letterSpacing: '0', minHeight: '18px' } });
+
+    var guardar = UI.btn('Probar y activar', { variant: 'brand', size: 'lg', onClick: function () {
+      var k = (keyInput.value || '').trim() || c.key;
+      if (!k) { UI.toast('Pega tu clave de API primero', 'red', '🔑'); return; }
+      if (!w.AI.looksLikeKey(k)) {
+        estado.textContent = 'Aviso: las claves de Anthropic suelen empezar por “sk-ant-”. Lo intento igual…';
+      } else {
+        estado.textContent = 'Probando la conexión…';
+      }
+      guardar.disabled = true;
+      w.AI.test(k, modelo).then(function () {
+        w.AI.setConfig({ key: k, model: modelo, on: true });
+        guardar.disabled = false;
+        UI.closeSheet();
+        UI.toast('Mentor con IA activado', 'green', '✨', 3200);
+        if (onChange) onChange();
+      }).catch(function (err) {
+        guardar.disabled = false;
+        estado.textContent = (err && err.message) || 'No se pudo conectar.';
+        w.Sound.alert();
+      });
+    } });
+
+    var acciones = [guardar];
+    if (c.key) {
+      acciones.push(UI.btn(c.on ? 'Desactivar (seguir con el mentor local)' : 'Activar sin volver a probar', {
+        variant: 'ghost',
+        onClick: function () {
+          w.AI.setConfig({ on: !c.on, model: modelo });
+          UI.closeSheet();
+          UI.toast(c.on ? 'IA desactivada' : 'IA activada', c.on ? 'blue' : 'green', c.on ? '🧠' : '✨');
+          if (onChange) onChange();
+        }
+      }));
+      acciones.push(UI.btn('Borrar mi clave de este dispositivo', {
+        variant: 'flat',
+        onClick: function () {
+          w.AI.forget();
+          UI.closeSheet();
+          UI.toast('Clave borrada', 'blue', '🗑️');
+          if (onChange) onChange();
+        }
+      }));
+    }
+
+    UI.sheet([
+      el('div', { class: 'row', style: { gap: '12px', alignItems: 'flex-start' } }, [
+        el('span', { style: { fontSize: '30px', flex: 'none' }, text: '✨' }),
+        el('div', { class: 'grow' }, [
+          el('h2', { class: 'h3', text: 'Mentor con IA' }),
+          el('div', { class: 'small', style: { marginTop: '4px' },
+            text: 'Opcional. Sin esto, el mentor sigue funcionando con su motor local: rúbricas, calculadoras y prácticas, gratis y sin conexión.' })
+        ])
+      ]),
+
+      el('div', { class: 'card card--tight', style: { textAlign: 'left' } }, [
+        el('div', { class: 'small', style: { fontWeight: '900' }, text: 'Antes de activarlo, que quede claro' }),
+        el('div', { class: 'tiny', style: { marginTop: '8px', textTransform: 'none', letterSpacing: '0', lineHeight: '1.7' },
+          text: '· Esta app no tiene servidor, así que no puede poner una clave suya: usa la tuya.\n' +
+                '· Tu clave se guarda solo en este navegador y nunca sale en el respaldo .json de tu progreso.\n' +
+                '· Con la IA activa, tus mensajes y los datos de tu expediente se envían a Anthropic para responder.\n' +
+                '· Cada respuesta la cobra Anthropic a tu cuenta, no a nosotros.\n' +
+                '· No la actives en un dispositivo compartido.' })
+      ]),
+
+      el('div', { class: 'field' }, [
+        el('label', { class: 'field__label', text: 'Tu clave de API de Anthropic' }),
+        el('div', { class: 'row', style: { gap: '8px' } }, [
+          el('div', { class: 'grow' }, [keyInput]), verBtn
+        ]),
+        el('span', { class: 'field__hint',
+          text: 'Se crea gratis en console.anthropic.com › API keys. El uso sí se cobra por consumo.' })
+      ]),
+
+      el('div', { class: 'field' }, [
+        el('label', { class: 'field__label', text: 'Modelo' }),
+        lista
+      ]),
+
+      estado
+    ].concat(acciones).concat([
+      UI.btn('Cancelar', { variant: 'flat', onClick: UI.closeSheet })
+    ]));
+  }
+
   function settings(s) {
     var col = el('div', { class: 'col', style: { gap: '10px' } });
+
+    var inst = installCard();
+    if (inst) col.appendChild(inst);
 
     col.appendChild(toggle('Sonido', 'Efectos al responder y celebrar', s.settings.sound, function (v) {
       w.Store.set(function (st) { st.settings.sound = v; }, 'settings');
@@ -225,6 +447,9 @@
       w.Store.set(function (st) { st.settings.theme = v ? 'dark' : 'light'; }, 'settings');
       d.documentElement.setAttribute('data-theme', v ? 'dark' : 'light');
     }));
+
+    var ia = aiCard();
+    if (ia) col.appendChild(ia);
 
     // Meta diaria
     col.appendChild(el('button', { class: 'card card--tight', type: 'button',
