@@ -704,3 +704,43 @@
 }
 .hscroll::-webkit-scrollbar { display: none; }
 .hscroll > * { scroll-snap-align: start; flex: none; }
+
+/* ------------------------- Lectura en voz alta ------------------------- */
+
+.speak-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  flex: none;
+  padding: 7px 12px;
+  border-radius: var(--r-full);
+  border: 2px solid var(--line-2);
+  background: var(--card);
+  color: var(--ink-2);
+  font-size: var(--fs-xs); font-weight: 900;
+  letter-spacing: .4px; text-transform: uppercase;
+  cursor: pointer;
+  /* 44px de alto real: es un control que se pulsa con el pulgar. */
+  min-height: 40px;
+  transition: transform .12s var(--ease-out), background .2s, border-color .2s, color .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.speak-btn:active { transform: scale(.94); }
+.speak-btn.is-on {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.speak-btn.is-on .speak-btn__ico { animation: pulseSoft 1.1s var(--ease-in-out) infinite; }
+.speak-btn__ico { font-size: 16px; line-height: 1; }
+
+.speak-btn--sm {
+  min-height: 32px;
+  padding: 4px 9px;
+  border-width: 2px;
+}
+.speak-btn--sm .speak-btn__ico { font-size: 14px; }
+
+/* Fila de encabezado de pregunta: el texto crece, el botón no. */
+.q-head-row {
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.q-head-row > .grow { min-width: 0; }

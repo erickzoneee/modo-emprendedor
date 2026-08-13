@@ -112,42 +112,27 @@
     return id || cfg.model;
   }
 
-  /* ------------------------- Contexto del negocio ------------------------- */
+  /* ------------------------- Contexto del negocio -------------------------
 
-  var GOALS = { zero: 'empieza de cero, todavía no tiene idea',
-                idea: 'ya tiene una idea sin validar',
-                business: 'ya tiene un negocio funcionando' };
-  var KNOW = { none: 'sin conocimientos previos de negocio',
-               some: 'con algunas nociones', lots: 'con experiencia previa' };
-  var BUDGET = { none: 'sin presupuesto', low: 'presupuesto bajo',
-                 mid: 'presupuesto medio', high: 'presupuesto holgado' };
+     Una sola fuente para TODAS las funciones de IA, no solo para el chat: el
+     perfil del emprendimiento con sus tres niveles (idea, decisiones tomadas,
+     plan y avance). Lo arma js/core/venture.js.
+     ----------------------------------------------------------------------- */
 
-  /** Lo que el modelo necesita saber del usuario para no dar consejo genérico. */
   function businessContext() {
     var s = w.Store ? w.Store.state : null;
     if (!s) return '';
     var L = [];
     var p = s.profile || {};
+    if (p.name && p.name !== 'Emprendedor') L.push('El usuario se llama ' + p.name + '.');
 
-    L.push('DATOS DEL USUARIO');
-    if (p.name && p.name !== 'Emprendedor') L.push('Nombre: ' + p.name);
-    if (p.businessName) L.push('Negocio: ' + p.businessName);
-    if (p.idea) L.push('Idea: ' + p.idea);
-    if (p.sector) L.push('Sector: ' + p.sector);
-    if (GOALS[p.goal]) L.push('Punto de partida: ' + GOALS[p.goal]);
-    if (KNOW[p.knowledge]) L.push('Nivel: ' + KNOW[p.knowledge]);
-    if (p.time) L.push('Tiempo disponible: ' + p.time + ' min/día');
-    if (BUDGET[p.budget]) L.push('Presupuesto: ' + BUDGET[p.budget]);
+    if (w.Venture) {
+      try { L.push(w.Venture.contextText()); }
+      catch (e) { console.warn('[ai] no se pudo leer el perfil del emprendimiento:', e); }
+    }
 
-    try {
-      var prog = w.Engine.overallProgress();
-      L.push('Progreso: ' + prog.done + ' de ' + prog.total + ' paradas de la ruta.');
-      var dm = w.Engine.dailyMission();
-      if (dm) L.push('Le toca ahora: ' + dm.title + (dm.sub ? ' (' + dm.sub + ')' : ''));
-    } catch (e) {}
-
-    // Expediente: lo que el usuario ya definió de su negocio. Es la diferencia
-    // entre un consejo de manual y uno sobre SU negocio.
+    // El expediente sigue entrando aparte: son textos largos que el usuario
+    // escribió y el modelo debe poder citar tal cual.
     var D = w.CONFIG && w.CONFIG.DOSSIER ? w.CONFIG.DOSSIER : [];
     var llenas = [], vacias = [];
     for (var i = 0; i < D.length; i++) {
@@ -163,8 +148,8 @@
         else vacias.push(sec.title);
       } else vacias.push(sec.title);
     }
-    if (llenas.length) L.push('\nSU EXPEDIENTE "MI NEGOCIO" (lo que ya definió)\n' + llenas.join('\n'));
-    if (vacias.length) L.push('\nSecciones que aún NO ha completado: ' + vacias.join(', ') + '.');
+    if (llenas.length) L.push('\nSU EXPEDIENTE "MI NEGOCIO" (textual, se puede citar)\n' + llenas.join('\n'));
+    if (vacias.length) L.push('\nSecciones del expediente aún vacías: ' + vacias.join(', ') + '.');
 
     return L.join('\n');
   }
@@ -197,6 +182,77 @@
       '',
       businessContext()
     ].join('\n');
+  }
+
+  /** Sistema para las tareas de generación (desafíos, ejemplos, análisis).
+      No es una conversación: se pide un texto que se va a incrustar en la app. */
+  function taskPrompt(instruccion) {
+    return [
+      'Eres el motor de contenido de "Modo Emprendedor". Escribes material que se',
+      'inserta directamente en la pantalla de un emprendedor principiante.',
+      '',
+      'REGLAS INNEGOCIABLES',
+      '· Español neutro latinoamericano, de tú.',
+      '· Todo lo que escribas habla del negocio concreto del contexto: su producto,',
+      '  sus clientes, su etapa, su presupuesto y su tiempo real. Prohibido el',
+      '  consejo genérico de manual.',
+      '· No repitas lo que el usuario ya decidió (nivel 2): úsalo. Y no lo',
+      '  contradigas sin explicar por qué convendría cambiarlo.',
+      '· Concreto y accionable: cantidades, plazos y ejemplos de su propio caso.',
+      '· Sin preámbulos, sin presentarte, sin cerrar con un resumen.',
+      '· Formato: texto plano, **negrita** y viñetas con "·". Nada de #, tablas,',
+      '  bloques de código ni listas numeradas de markdown.',
+      '',
+      'TAREA',
+      instruccion,
+      '',
+      businessContext()
+    ].join('\n');
+  }
+
+  /** Generación puntual de contenido personalizado (no es el chat).
+      payload: { instruccion, datos, maxTokens } */
+  function generate(kind, payload) {
+    payload = payload || {};
+    if (!isOn()) return Promise.reject(new Error('La IA no está activa.'));
+    var user = (payload.datos || '') + '\n\nEscribe ahora el texto para: ' + kind + '.';
+    return call([{ role: 'user', content: user.trim() }], {
+      system: taskPrompt(payload.instruccion || 'Escribe el contenido solicitado.'),
+      maxTokens: payload.maxTokens || 400
+    });
+  }
+
+  /** Repreguntas de registro: qué falta saber para personalizar de verdad.
+      Devuelve un array de preguntas cortas (0 a 3). */
+  function intakeQuestions(core, faltantes) {
+    if (!isOn()) return Promise.reject(new Error('La IA no está activa.'));
+    var datos = [
+      'Idea: ' + (core.idea || '(vacío)'),
+      'Producto o servicio: ' + (core.offer || '(vacío)'),
+      'Clientes: ' + (core.customer || '(vacío)'),
+      'Etapa: ' + (core.stage || '(vacío)'),
+      'Objetivo: ' + (core.goalText || core.goalKey || '(vacío)')
+    ].join('\n');
+
+    return call([{ role: 'user', content: datos }], {
+      system: [
+        'Eres el registro de una app para emprendedores. Acabas de recibir lo que el',
+        'usuario escribió sobre su idea. Tu tarea: decidir qué falta saber para poder',
+        'personalizar toda la app a su negocio.',
+        '',
+        'Devuelve como MÁXIMO ' + (faltantes || 2) + ' preguntas, una por línea, sin numerar y sin',
+        'ningún otro texto. Cada pregunta debe ser corta (menos de 14 palabras), en',
+        'español de tú, y sobre algo que él pueda contestar en una frase.',
+        'Si la información ya alcanza para personalizar, devuelve exactamente: OK'
+      ].join('\n'),
+      maxTokens: 160, timeout: 20000
+    }).then(function (r) {
+      if (/^\s*ok\s*$/i.test(r)) return [];
+      return r.split('\n')
+        .map(function (x) { return x.replace(/^[\s\-\*\d\.\)]+/, '').trim(); })
+        .filter(function (x) { return x.length > 6 && x.length < 140; })
+        .slice(0, faltantes || 2);
+    });
   }
 
   /* ------------------------- Historial ------------------------- */
@@ -317,7 +373,8 @@
     MODELS: MODELS,
     config: config, setConfig: setConfig, forget: forget,
     hasKey: hasKey, isOn: isOn, looksLikeKey: looksLikeKey, modelName: modelName,
-    systemPrompt: systemPrompt, businessContext: businessContext,
-    ask: ask, test: test, call: call
+    systemPrompt: systemPrompt, taskPrompt: taskPrompt, businessContext: businessContext,
+    ask: ask, test: test, call: call,
+    generate: generate, intakeQuestions: intakeQuestions
   };
 })(window);

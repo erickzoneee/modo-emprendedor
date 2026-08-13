@@ -292,6 +292,10 @@
   function boot() {
     w.FX.init();
     var had = w.Store.init();
+    // El perfil del emprendimiento se garantiza en el arranque: quien ya venía
+    // usando la app lo recibe migrado desde su perfil y su expediente, sin
+    // perder XP, racha, lecciones ni insignias.
+    try { w.Venture.ensure(); } catch (e) { console.warn('[venture]', e); }
     var s = w.Store.state;
 
     d.documentElement.setAttribute('data-theme', s.settings.theme || 'light');

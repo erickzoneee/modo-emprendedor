@@ -65,11 +65,14 @@ img, svg { display: block; max-width: 100%; }
 .stage__glow {
   position: absolute;
   width: 46vmax; height: 46vmax;
+  max-width: 900px; max-height: 900px;
   border-radius: 50%;
-  filter: blur(90px);
+  /* Un desenfoque enorme sobre una capa propia y animada (will-change) es la
+     receta habitual de las bandas de color en pantallas grandes. Se reduce el
+     radio y se deja que el compositor decida si necesita capa. */
+  filter: blur(70px);
   opacity: .45;
   pointer-events: none;
-  will-change: transform;
 }
 .stage__glow--a {
   background: radial-gradient(circle, rgba(255,107,26,.55), transparent 70%);
@@ -107,6 +110,11 @@ html[data-theme="dark"] .stage__glow { opacity: .3; }
   .phone { border-radius: 0; width: 100vw; height: 100dvh; box-shadow: none; }
   .stage { background: var(--bg); }
   .stage__glow { display: none; }
+}
+
+/* Quien pide menos movimiento no debería tener dos manchas gigantes animadas. */
+@media (prefers-reduced-motion: reduce) {
+  .stage__glow { animation: none; }
 }
 
 /* ------------------------- Viewport ------------------------- */
@@ -147,7 +155,11 @@ html[data-theme="dark"] .stage__glow { opacity: .3; }
   position: fixed; inset: 0;
   pointer-events: none;
   z-index: 9000;
+  /* Fuera de las celebraciones no debe existir como capa: una capa a pantalla
+     completa siempre compuesta puede ensuciar o desteñir lo que hay debajo. */
+  display: none;
 }
+.fx-canvas.is-on { display: block; }
 
 .toast-layer {
   position: fixed;

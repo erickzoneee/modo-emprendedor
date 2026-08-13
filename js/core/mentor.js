@@ -541,19 +541,53 @@
 
   function personalize(answer) {
     var s = w.Store.state;
-    var name = s.profile.businessName;
-    if (name && answer.indexOf('__BIZ__') >= 0) answer = answer.replace(/__BIZ__/g, name);
+    var name = (w.Venture ? w.Venture.terms().negocio : null) || s.profile.businessName;
+    if (name && name !== 'tu negocio' && answer.indexOf('__BIZ__') >= 0) {
+      answer = answer.replace(/__BIZ__/g, name);
+    }
+    answer = answer.replace(/__BIZ__/g, 'tu negocio');
     if (answer.indexOf('__MISSION__') >= 0) {
       var dm = w.Engine.dailyMission();
+      var hoy = w.Personalize ? w.Personalize.recommendation() : null;
       var txt = dm
-        ? 'Tu siguiente paso en la ruta es **' + dm.title + '** (' + dm.sub + ').\n\n' +
-          'Y si solo tienes 10 minutos hoy, haz esto: **habla con una persona que tenga el problema que resuelves**. ' +
-          'No para venderle: para preguntarle cuándo fue la última vez que le pasó y qué hizo.\n\n' +
+        ? 'Tu siguiente paso en la ruta es **' + dm.title + '**.\n\n' +
+          (hoy ? 'Y si solo tienes 10 minutos hoy: **' + hoy + '**\n\n' : '') +
           'Todo lo demás puede esperar.'
-        : 'Ya completaste la ruta. Hoy toca ejecutar tu plan de 90 días: revisa tu indicador y haz las tres acciones de la semana.';
+        : (hoy || 'Ya completaste la ruta. Hoy toca ejecutar tu plan de 90 días: revisa tu indicador y haz las tres acciones de la semana.');
       answer = answer.replace(/__MISSION__/g, txt);
     }
     return answer;
+  }
+
+  /* Qué decisión del perfil corresponde a cada tema del mentor. Sirve para dos
+     cosas: no volver a preguntar lo que ya está decidido, y aterrizar la
+     respuesta de manual en el negocio concreto del usuario. */
+  var INTENT_DECISION = {
+    cliente: 'cliente', oferta: 'oferta', precio: 'precio', costos: 'precio',
+    equilibrio: 'numeros', marketing: 'canales', publicidad: 'canales',
+    vender: 'ventas', objeciones: 'ventas', procesos: 'procesos',
+    delegar: 'procesos', idea: 'idea', validar: 'problema',
+    resenas: 'clientes', recompra: 'clientes', crecer: 'plan',
+    flujo: 'numeros', ticket: 'numeros', inventario: 'procesos'
+  };
+
+  /** El cierre "en tu caso": nunca se devuelve una respuesta de manual sola. */
+  function applied(intentId) {
+    if (!w.Venture || !w.Personalize || !w.Personalize.ready()) return '';
+    var t = w.Personalize.terms();
+    var clave = INTENT_DECISION[intentId];
+    var dec = clave ? w.Venture.decision(clave) : null;
+
+    if (dec && dec.value) {
+      return '\n\n**En tu caso:** ya tienes esto decidido — “' +
+        w.Venture.util.shorten(dec.value, 150) + '”. No empieces de cero: ' +
+        'compáralo con lo de arriba y dime qué parte quieres afinar.';
+    }
+    if (clave) {
+      return '\n\n**En tu caso:** aplícalo a ' + t.tuProducto + ' y a ' + t.cliente +
+        '. Cuando lo tengas, guárdalo en Mi Negocio y dejo de preguntártelo.';
+    }
+    return '\n\n**En tu caso:** ' + w.Personalize.recommendation();
   }
 
   function reply(msg) {
@@ -562,7 +596,7 @@
       return {
         type: 'answer',
         title: intent.title,
-        text: personalize(intent.answer),
+        text: personalize(intent.answer) + (intent.id === 'mision' ? '' : applied(intent.id)),
         follow: intent.follow || []
       };
     }
@@ -580,7 +614,8 @@
       };
     }
     var i = Math.floor(Math.random() * KB.FALLBACK.length);
-    return { type: 'answer', title: null, text: KB.FALLBACK[i], follow: KB.QUICK.slice(0, 4) };
+    return { type: 'answer', title: null, text: personalize(KB.FALLBACK[i]) + applied(null),
+             follow: KB.QUICK.slice(0, 4) };
   }
 
   /* ==================================================================
@@ -606,6 +641,7 @@
     evaluate: evaluate,
     quickFeedback: quickFeedback,
     reply: reply,
+    applied: applied,
     scorePracticeTurn: scorePracticeTurn,
     CALC: CALC,
     CHECKS: CHECKS,

@@ -17,7 +17,7 @@
    ========================================================================== */
 'use strict';
 
-var VERSION = 'modo-emprendedor-v1.1.0';
+var VERSION = 'modo-emprendedor-v1.3.0';
 
 /* Todo lo que hace falta para arrancar sin red. Rutas relativas al ámbito del
    service worker: en GitHub Pages la app vive en /modo-emprendedor/, no en la
@@ -46,7 +46,10 @@ var PRECACHE = [
   './js/core/fx.js',
   './js/core/ui.js',
   './js/core/mascot.js',
+  './js/core/speech.js',
+  './js/core/venture.js',
   './js/core/ai.js',
+  './js/core/personalize.js',
   './js/core/engine.js',
   './js/core/mentor.js',
 
@@ -61,6 +64,7 @@ var PRECACHE = [
   './js/data/lessons-8.js',
   './js/data/sim.js',
   './js/data/mentor-kb.js',
+  './js/data/venture-templates.js',
 
   './js/screens/onboarding.js',
   './js/screens/home.js',
@@ -69,6 +73,7 @@ var PRECACHE = [
   './js/screens/simulator.js',
   './js/screens/mentor.js',
   './js/screens/business.js',
+  './js/screens/venture.js',
   './js/screens/profile.js',
   './js/screens/league.js',
   './js/screens/shop.js',

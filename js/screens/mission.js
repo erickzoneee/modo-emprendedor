@@ -33,6 +33,12 @@
     var saved = w.Store.state.missions[m.id];
     var inputs = {};
 
+    // El desafío se reescribe sobre el negocio del usuario ANTES de pintarlo.
+    // Sin esto diría "define a tu cliente ideal"; con esto dice qué tres
+    // perfiles concretos podrían comprar lo que él vende.
+    var P = w.Personalize.mission(m);
+    var campos = P.fields || m.fields;
+
     var root = el('div', { class: 'col', style: { minHeight: '100%', gap: '0' } });
 
     root.appendChild(el('div', { class: 'lesson-top' }, [
@@ -46,29 +52,49 @@
     var body = el('div', { class: 'screen', style: { paddingTop: '0' } });
     root.appendChild(body);
 
+    var briefEl = el('p', { text: P.brief || m.brief });
+    var leerDesafio = function () {
+      var partes = [m.title, briefEl.textContent];
+      if (P.porque) partes.push('Por qué esto ahora: ' + P.porque);
+      campos.forEach(function (f, i) { partes.push('Campo ' + (i + 1) + ': ' + f.label); });
+      return partes;
+    };
     body.appendChild(el('div', { class: m.boss ? 'mission-hero' : 'mission-hero', style: m.boss ? {} : { background: 'linear-gradient(140deg, var(--brand), var(--brand-2))', boxShadow: '0 6px 0 var(--brand-dark)' } }, [
       el('div', { class: 'mission-hero__tag', text: m.boss ? '👑 Jefe final' : '🎯 Misión del mundo real' }),
       el('div', { class: 'row', style: { gap: '12px' } }, [
         el('span', { style: { fontSize: '34px' }, text: m.icon }),
         el('div', [
           el('h2', { text: m.title }),
-          el('p', { text: m.brief })
+          briefEl
         ])
       ])
     ]));
 
+    // Con la IA activa, se pide una versión aún más ajustada y se sustituye
+    // en caliente. Mientras tanto ya hay un desafío personalizado en pantalla.
+    w.Personalize.upgrade(w.Personalize.missionAI(m), function (txt) {
+      briefEl.textContent = txt;
+    });
+
+    var t = w.Venture.terms();
     body.appendChild(el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
       el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg('think') }),
       el('div', { class: 'speech' }, [
         el('div', { class: 'small',
           text: m.boss
-            ? 'Hazlo primero en la vida real. Después regresa y repórtalo aquí con datos concretos: lo reviso y te digo qué falta.'
-            : 'Contesta con datos reales de tu negocio. Entre más concreto, mejor te puedo ayudar.' })
+            ? 'Hazlo primero en la vida real con ' + t.tuProducto + '. Después regresa y repórtalo aquí con datos concretos: lo reviso y te digo qué falta.'
+            : 'Contesta con datos reales de ' + t.negocio + '. Entre más concreto, mejor te puedo ayudar.' }),
+        P.porque ? el('div', { class: 'tiny', style: { marginTop: '8px', textTransform: 'none', letterSpacing: '0' },
+          text: '¿Por qué esto ahora? ' + P.porque }) : null,
+        (w.Speech && w.Speech.supported() && w.Store.state.settings.speech !== false)
+          ? el('div', { class: 'row', style: { gap: '8px', marginTop: '10px' } },
+              [w.Speech.button(leerDesafio, { text: 'Escuchar el desafío' })])
+          : null
       ])
     ]));
 
     var form = el('div', { class: 'col stagger', style: { gap: '14px' } });
-    m.fields.forEach(function (f) {
+    campos.forEach(function (f) {
       var input;
       if (f.type === 'area') {
         input = el('textarea', { class: 'textarea', placeholder: f.ph || '', rows: '4' });
@@ -301,6 +327,16 @@
 
   function deliver(m, answers, evaluation, already) {
     var first = w.Engine.completeMission(m.id, answers, evaluation, m.dossier);
+
+    // Lo que acaba de escribir pasa al nivel 2 del perfil: a partir de ahora el
+    // mentor lo da por sabido, los desafíos lo usan y el plan se recalcula.
+    try {
+      w.Venture.absorb(m.boss ? 'reto-real' : 'mision', answers, {
+        id: m.id, dossier: m.dossier, title: m.title,
+        score: evaluation.score, boss: !!m.boss
+      });
+    } catch (e) { console.warn('[venture] no se pudo absorber la misión:', e); }
+
     if (first) {
       w.Engine.addXP(m.reward.xp);
       w.Engine.addCoins(m.reward.coins);

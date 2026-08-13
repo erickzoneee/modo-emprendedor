@@ -14,6 +14,7 @@
     // Encabezado de la pantalla para lectores de pantalla: visualmente el
     // título lo da el mapa, pero la jerarquía tiene que existir igual.
     root.appendChild(el('h1', { class: 'sr-only', text: 'Tu ruta de emprendimiento' }));
+    root.appendChild(ventureStrip());
     root.appendChild(dailyCard());
     root.appendChild(weeklyStrip());
 
@@ -36,6 +37,32 @@
     return root;
   }
 
+  /* ------------------------- Encabezado del negocio -------------------------
+     La ruta no es un temario: es la ruta de SU negocio. Esta tira lo recuerda
+     y da acceso directo al perfil del emprendimiento.
+     ------------------------------------------------------------------------ */
+
+  function ventureStrip() {
+    var t = w.Venture.terms();
+    var comp = w.Venture.completeness();
+    var enfoque = w.Personalize.focus();
+
+    return el('button', {
+      class: 'card card--tight', type: 'button',
+      style: { display: 'flex', gap: '10px', alignItems: 'center', textAlign: 'left', width: '100%' },
+      onclick: function () { w.Sound.tap(); UI.Router.go('venture'); }
+    }, [
+      el('span', { style: { fontSize: '22px', flex: 'none' }, text: comp.esenciales.length ? '🧭' : '🚀' }),
+      el('span', { class: 'grow', style: { minWidth: '0' } }, [
+        el('span', { class: 'tiny', style: { display: 'block' },
+          text: t.negocio + ' · ' + t.etapaCorta }),
+        el('span', { class: 'small', style: { display: 'block', fontWeight: '800', lineHeight: '1.35' },
+          text: enfoque || 'Registra tu idea para personalizar la ruta' })
+      ]),
+      el('span', { style: { flex: 'none', fontSize: '18px' }, text: '›' })
+    ]);
+  }
+
   /* ------------------------- Misión del día ------------------------- */
 
   function dailyCard() {
@@ -55,7 +82,9 @@
         el('span', { class: 'daily-card__k',
           text: doneToday ? 'Meta diaria cumplida' : 'Misión del día' }),
         el('span', { class: 'daily-card__t', text: dm ? dm.title : 'Ruta completada' }),
-        el('span', { class: 'daily-card__s', text: dm ? dm.sub : 'Sigue tu plan de 90 días' })
+        // El subtítulo describe lo que va a hacer con SU negocio, no el temario.
+        el('span', { class: 'daily-card__s',
+          text: dm ? w.Personalize.dailyLine(dm, dm.sub) : 'Sigue tu plan de 90 días' })
       ]),
       el('span', { style: { fontSize: '22px' }, text: '›' })
     ]);
@@ -93,7 +122,8 @@
       }, [
         el('div', { class: 'row', style: { gap: '8px' } }, [
           el('span', { style: { fontSize: '20px' }, text: item.claimed ? '✅' : item.ch.icon }),
-          el('span', { class: 'small', style: { fontWeight: '900', lineHeight: '1.15' }, text: item.ch.title })
+          el('span', { class: 'small', style: { fontWeight: '900', lineHeight: '1.15' },
+            text: w.Personalize.weeklyTitle(item.ch) })
         ]),
         el('div', { class: 'row', style: { gap: '8px', marginTop: '10px' } }, [
           UI.pbar(item.pct, done ? 'gold' : 'blue', true),
@@ -202,8 +232,11 @@
       el('div', { class: 'node__label', text: st === 'locked' ? '' : n.data.title })
     ]);
 
+    // La burbuja necesita espacio propio arriba o pisa la etiqueta del nodo anterior.
+    if (st === 'active') wrap.classList.add('has-bubble');
+
     if (item.optional && st !== 'done') {
-      wrap.appendChild(el('div', { class: 'tiny', style: { opacity: '.7' }, text: 'opcional' }));
+      wrap.appendChild(el('div', { class: 'node-optional', text: 'opcional' }));
     }
     return wrap;
   }
@@ -258,6 +291,14 @@
         done ? UI.chip('Completada · ' + (rec ? rec.score : 0) + '%', 'green', '✅') : null
       ]),
       el('p', { class: 'p', text: lesson.concept.title }),
+      // Qué va a hacer con SU negocio al terminarla: la lección no es teoría suelta.
+      (function () {
+        var ej = w.Personalize.example(lesson);
+        return ej ? el('div', { class: 'card card--tight', style: { background: 'var(--brand-soft)', borderColor: 'var(--brand)', textAlign: 'left' } }, [
+          el('div', { class: 'tiny', style: { color: 'var(--brand)' }, text: 'Aplicado a tu idea' }),
+          el('div', { class: 'small', style: { marginTop: '6px' }, text: ej.text })
+        ]) : null;
+      })(),
       hearts <= 0 && !done
         ? el('div', { class: 'card card--tight', style: { background: 'var(--red-soft)', borderColor: 'var(--red)' } }, [
             el('div', { class: 'row', style: { gap: '10px' } }, [
@@ -300,7 +341,7 @@
           ])
         ])
       ]),
-      el('p', { class: 'p', text: boss.brief }),
+      el('p', { class: 'p', text: w.Personalize.mission(boss).brief || boss.brief }),
       el('div', { class: 'row wrap', style: { gap: '8px' } }, [
         UI.chip('+' + boss.xp + ' XP', 'gold', '⚡'),
         UI.chip('+' + boss.coins + ' 🪙', 'gold'),

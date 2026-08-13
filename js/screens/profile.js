@@ -32,6 +32,12 @@
       ])
     ]));
 
+    /* --------- Mi emprendimiento ---------
+       Es lo primero después de la cabecera a propósito: el perfil de la idea es
+       lo que personaliza el resto de la app, no un ajuste secundario. */
+    root.appendChild(el('h2', { class: 'sep', text: 'Mi emprendimiento' }));
+    root.appendChild(ventureCard());
+
     /* --------- Estadísticas --------- */
     root.appendChild(el('h2', { class: 'sep', text: 'Tus números' }));
     root.appendChild(el('div', { class: 'grid-2' }, [
@@ -109,6 +115,38 @@
     root.appendChild(settings(s));
 
     return root;
+  }
+
+  function ventureCard() {
+    var t = w.Venture.terms();
+    var comp = w.Venture.completeness();
+    var dec = w.Venture.decisions().length;
+
+    var card = el('button', {
+      class: 'card' + (comp.esenciales.length ? '' : ' card--tight'), type: 'button',
+      style: { textAlign: 'left', width: '100%', display: 'block' },
+      onclick: function () { w.Sound.tap(); UI.Router.go('venture'); }
+    }, [
+      el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+        el('span', { style: { fontSize: '24px', flex: 'none' }, text: '🧭' }),
+        el('div', { class: 'grow', style: { minWidth: '0' } }, [
+          el('div', { class: 'small', style: { fontWeight: '900' }, text: t.negocio }),
+          el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', lineHeight: '1.5' },
+            text: w.Venture.util.shorten(w.Venture.summary(), 130) })
+        ]),
+        el('span', { style: { flex: 'none', fontSize: '18px' }, text: '›' })
+      ]),
+      el('div', { class: 'row wrap', style: { gap: '8px', marginTop: '12px' } }, [
+        UI.chip('Perfil ' + comp.pct + '%', comp.pct >= 80 ? 'green' : 'gold', '🧩'),
+        UI.chip(UI.count(dec, 'decisión', 'decisiones'), 'teal', '✅'),
+        UI.chip(t.etapaCorta, 'blue', '📍')
+      ]),
+      comp.esenciales.length
+        ? el('div', { class: 'tiny', style: { marginTop: '10px', color: 'var(--gold-dark)', textTransform: 'none', letterSpacing: '0' },
+            text: '⚠️ Faltan ' + comp.esenciales.length + ' datos. Sin ellos, los desafíos y las recomendaciones son menos precisos.' })
+        : null
+    ]);
+    return card;
   }
 
   function streakGrid(s) {
@@ -270,6 +308,134 @@
       ]));
     }
     // En el resto de navegadores no se promete nada que no se pueda cumplir.
+  }
+
+  /* ------------------------- Lectura en voz alta ------------------------- */
+
+  function speechCard() {
+    if (!w.Speech || !w.Speech.supported()) {
+      // Se dice por qué no está, en vez de esconder la función sin explicación.
+      return el('div', { class: 'card card--tight', style: { textAlign: 'left' } }, [
+        el('div', { class: 'small', style: { fontWeight: '900' }, text: '🔊 Lectura en voz alta' }),
+        el('div', { class: 'tiny', style: { marginTop: '6px', textTransform: 'none', letterSpacing: '0' },
+          text: 'Este navegador no trae síntesis de voz. Prueba con Chrome, Edge o Safari.' })
+      ]);
+    }
+    var card = el('div', { class: 'card card--tight', style: { textAlign: 'left' } });
+
+    function paint() {
+      UI.clear(card);
+      var a = w.Speech.settings();
+      var voz = w.Speech.currentVoice();
+
+      card.appendChild(el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+        el('span', { style: { fontSize: '22px', flex: 'none' }, text: '🔊' }),
+        el('div', { class: 'grow', style: { minWidth: '0' } }, [
+          el('div', { class: 'small', style: { fontWeight: '900' }, text: 'Lectura en voz alta' }),
+          el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0' },
+            text: voz ? 'Voz: ' + voz.name + ' (' + voz.lang + ')'
+                      : 'No encontré ninguna voz en español instalada en este dispositivo.' })
+        ])
+      ]));
+
+      card.appendChild(el('div', { style: { marginTop: '12px' } }, [
+        toggle('Mostrar el botón de escuchar', 'En lecciones, desafíos y respuestas del mentor',
+          a.speech !== false, function (v) { w.Speech.set({ speech: v }); UI.Router.refresh(); })
+      ]));
+
+      card.appendChild(el('div', { style: { marginTop: '10px' } }, [
+        toggle('Leer solo al abrir', 'Empieza a leer cada paso sin que toques nada',
+          !!a.autoRead, function (v) {
+            w.Speech.set({ autoRead: v });
+            // Se ceba el motor dentro del gesto: iOS no deja hablar sin él.
+            if (v) w.Speech.speak('Lectura automática activada.');
+          })
+      ]));
+
+      // Velocidad
+      var vel = el('div', { class: 'row wrap', style: { gap: '8px', marginTop: '12px' } });
+      [[0.8, 'Lenta'], [1, 'Normal'], [1.25, 'Rápida'], [1.5, 'Muy rápida']].forEach(function (o) {
+        var sel = Math.abs((a.speechRate || 1) - o[0]) < 0.01;
+        vel.appendChild(el('button', {
+          class: 'chip' + (sel ? ' chip--brand' : ''), type: 'button',
+          style: { border: 'none', cursor: 'pointer' }, text: o[1],
+          onclick: function () {
+            w.Speech.set({ speechRate: o[0] });
+            w.Speech.speak('Así se escucha a esta velocidad.');
+            paint();
+          }
+        }));
+      });
+      card.appendChild(el('div', { class: 'field' }, [
+        el('label', { class: 'field__label', text: 'Velocidad' }), vel
+      ]));
+
+      var voces = w.Speech.voices();
+      if (voces.length > 1) {
+        card.appendChild(el('div', { style: { marginTop: '4px' } }, [
+          UI.btn('Elegir otra voz (' + voces.length + ' disponibles)', {
+            variant: 'ghost', size: 'sm', onClick: function () { voiceSheet(paint); }
+          })
+        ]));
+      }
+
+      card.appendChild(el('div', { style: { marginTop: '10px' } }, [
+        UI.btn('Probar la voz', {
+          variant: 'ghost', size: 'sm',
+          onClick: function () {
+            var t = w.Venture.terms();
+            w.Speech.speak('Hola. Voy a leerte las lecciones y los desafíos de ' + t.negocio + '.');
+          }
+        })
+      ]));
+
+      card.appendChild(el('div', { class: 'tiny', style: { marginTop: '10px', textTransform: 'none', letterSpacing: '0' },
+        text: 'La voz la pone tu propio dispositivo: no cuesta nada, no se envía nada a internet y funciona sin conexión.' }));
+    }
+
+    paint();
+    return card;
+  }
+
+  function voiceSheet(onChange) {
+    var voces = w.Speech.voices();
+    var actual = w.Speech.currentVoice();
+    var list = el('div', { class: 'col', style: { gap: '8px' } });
+
+    list.appendChild(el('button', {
+      class: 'opt' + (!w.Speech.settings().voice ? ' is-selected' : ''), type: 'button',
+      onclick: function () { w.Speech.set({ voice: '' }); UI.closeSheet(); onChange(); }
+    }, [
+      el('span', { class: 'opt__key', text: '✨' }),
+      el('span', { class: 'opt__body' }, [
+        el('span', { text: 'Automática' }),
+        el('span', { class: 'opt__hint', text: 'La mejor voz en español que encuentre' })
+      ])
+    ]));
+
+    voces.forEach(function (v) {
+      list.appendChild(el('button', {
+        class: 'opt' + (actual && actual.voiceURI === v.voiceURI ? ' is-selected' : ''), type: 'button',
+        onclick: function () {
+          w.Speech.set({ voice: v.voiceURI });
+          w.Speech.speak('Esta es la voz ' + v.name + '.');
+          UI.closeSheet();
+          onChange();
+        }
+      }, [
+        el('span', { class: 'opt__key', text: v.localService ? '📶' : '☁️' }),
+        el('span', { class: 'opt__body' }, [
+          el('span', { text: v.name }),
+          el('span', { class: 'opt__hint', text: v.lang + (v.localService ? ' · funciona sin conexión' : ' · necesita internet') })
+        ])
+      ]));
+    });
+
+    UI.sheet([
+      el('h2', { class: 'h3', text: 'Voz de lectura' }),
+      el('div', { class: 'small', text: 'Las voces las instala tu sistema, no la app. Si no ves ninguna en español, agrégala desde los ajustes de tu teléfono.' }),
+      list
+    ]);
   }
 
   /* ------------------------- Mentor con IA ------------------------- */
@@ -447,6 +613,9 @@
       w.Store.set(function (st) { st.settings.theme = v ? 'dark' : 'light'; }, 'settings');
       d.documentElement.setAttribute('data-theme', v ? 'dark' : 'light');
     }));
+
+    var voz = speechCard();
+    if (voz) col.appendChild(voz);
 
     var ia = aiCard();
     if (ia) col.appendChild(ia);

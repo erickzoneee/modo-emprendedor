@@ -249,6 +249,32 @@
       sub: 'Quiero vender más y organizarlo mejor.' }
   ];
 
+  /* Etapa real del emprendimiento. Sustituye al antiguo "punto de partida":
+     es más precisa y se sigue traduciendo a GOALS para la ruta. */
+  var STAGES = [
+    { key: 'idea',      emoji: '💡', title: 'Solo la idea',
+      sub: 'Todavía no vendo nada.' },
+    { key: 'starting',  emoji: '🌱', title: 'Comenzando',
+      sub: 'Estoy preparando el arranque o hice mis primeras ventas.' },
+    { key: 'operating', emoji: '🏪', title: 'Operando',
+      sub: 'Ya vendo con cierta regularidad.' },
+    { key: 'growing',   emoji: '📈', title: 'Creciendo',
+      sub: 'Ya vendo y quiero escalar.' }
+  ];
+
+  var OBJECTIVES = [
+    { key: 'validar', emoji: '🧪', title: 'Comprobar si mi idea funciona',
+      sub: 'Antes de invertir tiempo o dinero.' },
+    { key: 'primera', emoji: '🤝', title: 'Conseguir mi primer cliente',
+      sub: 'Que alguien me pague por primera vez.' },
+    { key: 'vender',  emoji: '💰', title: 'Vender más y con constancia',
+      sub: 'Ya vendo, pero a saltos.' },
+    { key: 'ordenar', emoji: '📊', title: 'Ordenar y controlar el negocio',
+      sub: 'Números, procesos y precios claros.' },
+    { key: 'escalar', emoji: '🚀', title: 'Crecer, delegar y escalar',
+      sub: 'Que no dependa solo de mí.' }
+  ];
+
   var SECTORS = [
     { key: 'hechoamano', emoji: '🧵', title: 'Hecho a mano / fabricación', ex: 'impresión 3D, artesanía, resina, carpintería' },
     { key: 'comida',     emoji: '🍰', title: 'Comida y bebida',            ex: 'repostería, comida preparada, café' },
@@ -308,6 +334,7 @@
     LEVELS: LEVELS, BOSSES: BOSSES, DOSSIER: DOSSIER, BADGES: BADGES,
     LEAGUES: LEAGUES, BOT_NAMES: BOT_NAMES, SHOP: SHOP, WEEKLY: WEEKLY,
     GOALS: GOALS, SECTORS: SECTORS, KNOWLEDGE: KNOWLEDGE, TIMES: TIMES, BUDGETS: BUDGETS,
+    STAGES: STAGES, OBJECTIVES: OBJECTIVES,
     rankFor: rankFor
   };
 

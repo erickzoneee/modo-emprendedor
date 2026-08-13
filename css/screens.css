@@ -168,11 +168,23 @@ html[data-theme="dark"] .node.is-locked { --node-sh: #1A2434; }
 }
 
 .node__label {
-  font-size: 10px; font-weight: 900;
-  color: var(--ink-3);
+  /* 10px sobre --ink-3 daba 3:1 de contraste: los nombres de las paradas eran
+     ilegibles sobre el fondo claro. Con --ink-2 y 11px se leen de verdad. */
+  font-size: 11px; font-weight: 900;
+  color: var(--ink-2);
   text-align: center;
-  max-width: 116px;
-  line-height: 1.2;
+  max-width: 120px;
+  line-height: 1.25;
+}
+
+/* La burbuja "Empezar" se dibuja 40px por encima del nodo, es decir, encima de
+   la etiqueta de la parada anterior. Se le reserva ese espacio. */
+.path-node-wrap.has-bubble { margin-top: 34px; }
+
+.node-optional {
+  font-size: 10px; font-weight: 900;
+  letter-spacing: .6px; text-transform: uppercase;
+  color: var(--ink-3);
 }
 .node-crown {
   position: absolute; top: -12px; right: -6px;

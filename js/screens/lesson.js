@@ -42,6 +42,9 @@
   function buildSequence(lesson) {
     var seq = [{ type: 'concept' }];
     if (lesson.cas) seq.push({ type: 'case' });
+    // El caso de ejemplo es de otro negocio; este paso lo traduce al del usuario
+    // antes de que empiecen los ejercicios.
+    if (w.Personalize.example(lesson)) seq.push({ type: 'apply' });
     lesson.steps.forEach(function (st) { seq.push(st); });
     seq.push({ type: 'done' });
     return seq;
@@ -137,18 +140,49 @@
 
     if (state === 'ok' || state === 'ko') {
       f.classList.add(state === 'ok' ? 'is-ok' : 'is-ko');
+      var leerFeedback = function () {
+        var partes = [opts.title];
+        if (opts.text) partes.push(opts.text);
+        (opts.details || []).forEach(function (x) {
+          partes.push((x.ok ? 'Correcta: ' : 'Incorrecta: ') + x.t + (x.why ? '. ' + x.why : ''));
+        });
+        return partes;
+      };
+
       msg.appendChild(el('div', { class: 'lesson-foot__msg' }, [
         el('span', { class: 'lesson-foot__ico', text: opts.icon || (state === 'ok' ? '🎉' : '💡') }),
         el('div', { class: 'grow', style: { minWidth: '0' } }, [
           el('div', { class: 'lesson-foot__t', text: opts.title }),
           opts.text ? el('div', { class: 'lesson-foot__p', html: UI.rich(opts.text) }) : null
-        ])
+        ]),
+        speakBtn(leerFeedback, { small: true })
       ]));
       if (opts.details && opts.details.length) msg.appendChild(whyList(opts.details));
+      if (w.Speech && w.Speech.canAuto()) w.Speech.autoSpeak(leerFeedback());
     }
     btn.className = 'btn btn--block btn--lg ' + (state === 'ko' ? 'btn--red' : 'btn--green');
     btn.querySelector('span:last-child').textContent = opts && opts.label ? opts.label : 'Continuar';
     btn.disabled = !!(opts && opts.disabled);
+
+    reserveFootSpace();
+  }
+
+  /** El pie es sticky: al crecer con la retroalimentación, el contenido de
+      arriba se desplaza por debajo y la última opción quedaba tapada sin forma
+      de verla. Se le reserva al cuerpo tanto espacio como ocupe el pie. */
+  function reserveFootSpace() {
+    aplicarReserva();
+    // Segunda pasada por si el alto cambia al asentarse la tipografía o al
+    // abrirse el desglose. Con timeout, no con rAF: en una pestaña que no está
+    // componiendo (segundo plano) los rAF no llegan y el hueco no se aplicaría.
+    setTimeout(aplicarReserva, 60);
+  }
+
+  function aplicarReserva() {
+    var foot = d.getElementById('lesson-foot');
+    var body = d.getElementById('lesson-body');
+    if (!foot || !body || !foot.isConnected || !body.isConnected) return;
+    body.style.paddingBottom = (foot.offsetHeight + 16) + 'px';
   }
 
   /** Desglose "por qué esta sí y las otras no".
@@ -198,6 +232,7 @@
     var body = d.getElementById('lesson-body');
     if (!body) return;
     UI.clear(body);
+    body.style.paddingBottom = '';     // se recalcula al pintar el pie del paso nuevo
     updateBar();
     var step = S.seq[S.i];
     S.phase = 'answer';
@@ -206,6 +241,7 @@
     switch (step.type) {
       case 'concept': built = viewConcept(); break;
       case 'case':    built = viewCase(); break;
+      case 'apply':   built = viewApply(); break;
       case 'quiz':    built = exQuiz(step); break;
       case 'tf':      built = exTF(step); break;
       case 'multi':   built = exMulti(step); break;
@@ -229,6 +265,10 @@
     if (built.check) setFoot('idle', { label: built.label || 'Comprobar', disabled: !built.startEnabled });
     else setFoot('idle', { label: 'Continuar' });
     updateHintBtn();
+
+    // Cambiar de paso corta la lectura anterior; luego, si procede, lee el nuevo.
+    if (w.Speech && w.Speech.supported()) w.Speech.stop();
+    autoRead(step);
   }
 
   function next() {
@@ -291,6 +331,10 @@
 
   function viewConcept() {
     var l = S.lesson;
+    var escuchar = speakBtn(function () {
+      return [l.concept.title].concat(l.concept.body || []).concat(l.concept.keys || []);
+    }, { text: 'Escuchar' });
+
     var node = el('div', { class: 'col stagger' }, [
       el('div', { class: 'row', style: { gap: '12px', alignItems: 'flex-start' } }, [
         el('div', { class: 'mascot', html: w.Mascot.svg('happy') }),
@@ -298,6 +342,7 @@
           el('div', { class: 'h4', text: l.title })
         ])
       ]),
+      escuchar ? el('div', { class: 'row', style: { gap: '8px' } }, [escuchar]) : null,
       el('div', { class: 'concept-card' }, [
         el('div', { class: 'concept-card__tag', text: l.concept.tag || 'Concepto' }),
         el('h2', { class: 'h3', text: l.concept.title }),
@@ -313,8 +358,45 @@
     return { node: node, check: null };
   }
 
+  /** "Aplicado a tu idea": el concepto llevado al negocio real del usuario. */
+  function viewApply() {
+    var lesson = S.lesson;
+    var ej = w.Personalize.example(lesson);
+    var t = w.Venture.terms();
+
+    var texto = el('p', { style: { marginTop: '8px' }, html: UI.rich(ej ? ej.text : '') });
+    var tag = el('div', { class: 'tiny', style: { color: 'var(--brand)' },
+      text: ej && ej.ia ? 'Aplicado a tu idea ✨' : 'Aplicado a tu idea' });
+
+    var node = el('div', { class: 'col stagger' }, [
+      el('div', { class: 'row', style: { gap: '12px', alignItems: 'flex-start' } }, [
+        el('div', { class: 'mascot', html: w.Mascot.svg('think') }),
+        el('div', { class: 'speech' }, [
+          el('div', { class: 'small', text: 'Esto es lo que significa para ' + t.negocio + '.' })
+        ])
+      ]),
+      el('div', { class: 'concept-card', style: { borderColor: 'var(--brand)' } }, [
+        tag,
+        el('h2', { class: 'h4', style: { marginTop: '4px' }, text: t.tiene.producto ? t.negocio : 'Tu negocio' }),
+        texto
+      ]),
+      (function () {
+        var b = speakBtn(function () { return texto.textContent; }, { text: 'Escuchar' });
+        return b ? el('div', { class: 'row', style: { gap: '8px' } }, [b]) : null;
+      })()
+    ]);
+
+    w.Personalize.upgrade(w.Personalize.exampleAI(lesson), function (txt) {
+      texto.innerHTML = UI.rich(txt);
+      tag.textContent = 'Aplicado a tu idea ✨';
+    });
+
+    return { node: node, check: null };
+  }
+
   function viewCase() {
     var c = S.lesson.cas;
+    var escuchar = speakBtn(function () { return [c.title, c.text]; }, { text: 'Escuchar' });
     var node = el('div', { class: 'col stagger' }, [
       el('div', { class: 'case-card' }, [
         el('div', { class: 'case-card__head' }, [
@@ -325,7 +407,8 @@
           ])
         ]),
         el('p', { html: UI.rich(c.text) })
-      ])
+      ]),
+      escuchar ? el('div', { class: 'row', style: { gap: '8px' } }, [escuchar]) : null
     ]);
     return { node: node, check: null };
   }
@@ -335,10 +418,68 @@
      ================================================================== */
 
   function qHead(step, sub) {
-    return el('div', { class: 'col', style: { gap: '6px' } }, [
+    var texto = el('div', { class: 'col grow', style: { gap: '6px' } }, [
       el('h2', { class: 'q-title', text: step.q }),
       (step.sub || sub) ? el('div', { class: 'q-sub', text: step.sub || sub }) : null
     ]);
+    // Botón de escucha: lee la pregunta y todas sus opciones, numeradas.
+    var boton = speakBtn(function () { return readableStep(step, sub); });
+    if (!boton) return texto;
+    return el('div', { class: 'q-head-row' }, [texto, boton]);
+  }
+
+  /* ==================================================================
+     LECTURA EN VOZ ALTA
+     ================================================================== */
+
+  function speakBtn(getText, opts) {
+    if (!w.Speech || !w.Speech.supported()) return null;
+    if (w.Store.state.settings.speech === false) return null;
+    return w.Speech.button(getText, opts || {});
+  }
+
+  /** Qué se lee de un ejercicio: el enunciado y, numeradas, las respuestas.
+      Sin numerar no hay forma de seguirlas escuchando. */
+  function readableStep(step, sub) {
+    var partes = [step.q];
+    if (step.sub || sub) partes.push(step.sub || sub);
+
+    if (step.type === 'tf') {
+      partes.push('Afirmación: ' + step.statement);
+      partes.push('Responde verdadero o falso.');
+    }
+    if (step.opts && step.opts.length) {
+      partes.push(step.opts.length + ' opciones.');
+      step.opts.forEach(function (o, i) { partes.push('Opción ' + (i + 1) + '. ' + (o.t || o)); });
+    }
+    if (step.items && step.items.length) {
+      partes.push(step.items.length + ' elementos para ordenar.');
+      step.items.forEach(function (x, i) { partes.push((i + 1) + '. ' + x); });
+    }
+    if (step.pairs && step.pairs.length) {
+      step.pairs.forEach(function (p, i) { partes.push('Pareja ' + (i + 1) + '. ' + p[0] + '. Se une con: ' + p[1]); });
+    }
+    if (step.words && step.words.length) {
+      partes.push('Palabras disponibles: ' + step.words.join(', ') + '.');
+    }
+    if (step.ph && step.type === 'write') partes.push('Por ejemplo: ' + step.ph);
+    return partes;
+  }
+
+  /** Lectura automática del paso, si el usuario la dejó activada. */
+  function autoRead(step) {
+    if (!w.Speech || !w.Speech.canAuto()) return;
+    if (step.type === 'concept') {
+      var l = S.lesson;
+      w.Speech.autoSpeak([l.concept.title].concat(l.concept.body || []));
+    } else if (step.type === 'case' && S.lesson.cas) {
+      w.Speech.autoSpeak([S.lesson.cas.title, S.lesson.cas.text]);
+    } else if (step.type === 'apply') {
+      var ej = w.Personalize.example(S.lesson);
+      if (ej) w.Speech.autoSpeak(ej.text);
+    } else if (step.q) {
+      w.Speech.autoSpeak(readableStep(step));
+    }
   }
 
   /* ---------- quiz (una respuesta) ---------- */
@@ -1008,6 +1149,7 @@
   }
 
   function exit() {
+    if (w.Speech) w.Speech.stop();
     w.App.showChrome(true);
     UI.Router.go('home', {}, 'back');
   }
@@ -1068,6 +1210,11 @@
       w.Sound.streak();
     }
 
+    // Pregunta de reflexión sobre SU negocio. Si la contesta, se guarda en el
+    // perfil y el mentor la tendrá en cuenta a partir de la siguiente respuesta.
+    var pregunta = w.Personalize.reflection(lesson);
+    if (pregunta) wrap.appendChild(reflectionCard(lesson, pregunta));
+
     var actions = el('div', { class: 'col', style: { width: '100%', gap: '10px', marginTop: '10px' } });
     if (lesson.mission) {
       actions.appendChild(UI.btn('Ir a la misión real', {
@@ -1080,6 +1227,31 @@
     }
     wrap.appendChild(actions);
     body.appendChild(wrap);
+  }
+
+  function reflectionCard(lesson, pregunta) {
+    var ta = el('textarea', { class: 'textarea', rows: '3', maxlength: '300', placeholder: 'Escríbelo en una frase…' });
+    var box = el('div', { class: 'card', style: { width: '100%', textAlign: 'left' } }, [
+      el('div', { class: 'tiny', style: { color: 'var(--brand)' }, text: 'Para pensar sobre tu negocio' }),
+      el('div', { class: 'small', style: { fontWeight: '900', marginTop: '6px' }, text: pregunta }),
+      ta
+    ]);
+    box.appendChild(UI.btn('Guardar en mi emprendimiento', {
+      variant: 'ghost', size: 'sm',
+      onClick: function () {
+        var txt = (ta.value || '').trim();
+        if (!txt) { UI.toast('Escribe algo primero', 'red', '✍️'); return; }
+        w.Venture.recordDecision('reflexion:' + lesson.id, pregunta + ' → ' + txt, {
+          label: 'Reflexión · ' + lesson.title, from: 'leccion'
+        });
+        UI.toast('Guardado en tu perfil', 'green', '🧠');
+        w.Sound.coin();
+        UI.clear(box);
+        box.appendChild(el('div', { class: 'small', style: { fontWeight: '900' }, text: '🧠 Anotado en tu emprendimiento' }));
+        box.appendChild(el('div', { class: 'small', style: { marginTop: '6px' }, text: txt }));
+      }
+    }));
+    return box;
   }
 
   function statBox(label, value, color, shadow) {

@@ -35,10 +35,26 @@
       ])
     ]));
 
+    // El expediente es el detalle; el perfil del emprendimiento es el contexto
+    // que alimenta al resto de la app. Se enlazan en los dos sentidos.
+    root.appendChild(el('button', {
+      class: 'card card--tight', type: 'button',
+      style: { display: 'flex', gap: '10px', alignItems: 'center', textAlign: 'left', width: '100%' },
+      onclick: function () { w.Sound.tap(); UI.Router.go('venture'); }
+    }, [
+      el('span', { style: { fontSize: '22px', flex: 'none' }, text: '🧭' }),
+      el('span', { class: 'grow', style: { minWidth: '0' } }, [
+        el('span', { class: 'small', style: { display: 'block', fontWeight: '900' }, text: 'Mi emprendimiento' }),
+        el('span', { class: 'tiny', style: { display: 'block', textTransform: 'none', letterSpacing: '0' },
+          text: w.Venture.util.shorten(w.Venture.summary(), 110) })
+      ]),
+      el('span', { style: { flex: 'none', fontSize: '18px' }, text: '›' })
+    ]));
+
     var list = el('div', { class: 'col stagger', style: { gap: '10px' } });
     C.DOSSIER.forEach(function (sec) {
       var data = s.dossier[sec.key];
-      var preview = data ? summarize(data) : sec.hint;
+      var preview = data ? summarize(data) : w.Personalize.dossierHint(sec);
       var item = el('button', {
         class: 'doss-item' + (data ? ' is-filled' : ''), type: 'button',
         onclick: function () { w.Sound.tap(); openSection(sec, data); }
@@ -82,7 +98,7 @@
         el('span', { style: { fontSize: '30px' }, text: sec.icon }),
         el('div', { class: 'grow' }, [
           el('h2', { class: 'h3', text: sec.title }),
-          el('div', { class: 'small', text: sec.hint })
+          el('div', { class: 'small', text: w.Personalize.dossierHint(sec) })
         ])
       ])
     ];
@@ -137,7 +153,7 @@
   }
 
   function editSection(sec, data) {
-    var ta = el('textarea', { class: 'textarea', rows: '7', placeholder: sec.hint });
+    var ta = el('textarea', { class: 'textarea', rows: '7', placeholder: w.Personalize.dossierHint(sec) });
     if (data && data.answers) {
       ta.value = Object.keys(data.answers).map(function (k) {
         return labelize(k) + ': ' + data.answers[k];
@@ -145,7 +161,7 @@
     }
     UI.sheet([
       el('h2', { class: 'h3', text: 'Editar · ' + sec.title }),
-      el('div', { class: 'small', text: sec.hint }),
+      el('div', { class: 'small', text: w.Personalize.dossierHint(sec) }),
       ta,
       UI.btn('Guardar', {
         variant: 'green',
@@ -155,6 +171,8 @@
           w.Store.set(function (s) {
             s.dossier[sec.key] = { answers: { texto: txt }, score: null, at: Date.now(), from: 'manual' };
           }, 'dossier');
+          // Escribirlo a mano cuenta igual: entra al nivel 2 del perfil.
+          w.Venture.absorb('expediente', { texto: txt }, { dossier: sec.key, title: sec.title });
           w.Engine.checkBadges();
           UI.closeSheet();
           UI.toast('Guardado', 'green', '💾');
@@ -169,10 +187,44 @@
 
   function buildPlan() {
     var s = w.Store.state;
+    var v = w.Venture.active();
+    var t = w.Venture.terms();
     var out = [];
     out.push('MI NEGOCIO — ' + (s.profile.businessName || 'Plan de emprendimiento'));
     out.push('Generado con Modo Emprendedor · ' + new Date().toLocaleDateString('es-MX'));
     out.push('');
+
+    // El plan exportado empieza por el perfil: sin él, las secciones no se
+    // entienden fuera de la app.
+    out.push('===================================');
+    out.push('PERFIL DEL EMPRENDIMIENTO');
+    out.push('===================================');
+    out.push(w.Venture.summary());
+    out.push('');
+    out.push('Idea: ' + (v.core.idea || '(pendiente)'));
+    out.push('Producto o servicio: ' + (v.core.offer || '(pendiente)'));
+    out.push('Clientes: ' + (v.core.customer || '(pendiente)'));
+    out.push('Etapa: ' + t.etapaCorta);
+    out.push('Objetivo: ' + (t.objetivo || '(pendiente)'));
+    out.push('Recursos: ' + [t.presupuesto, t.minutos ? t.minutos + ' min/día' : '', t.experiencia]
+      .filter(Boolean).join(' · '));
+    out.push('');
+
+    // Análisis calculados sobre sus datos: valor, cliente, mercado, modelo,
+    // ventas, costos y marca.
+    w.Personalize.KINDS.forEach(function (k) {
+      var a = w.Personalize.analysis(k.key);
+      out.push('-----------------------------------');
+      out.push(a.title.toUpperCase());
+      out.push('-----------------------------------');
+      if (a.ia) out.push(a.ia);
+      else {
+        a.lines.forEach(function (l) { out.push('· ' + l); });
+        a.gaps.forEach(function (g) { out.push('PENDIENTE: ' + g); });
+      }
+      out.push('');
+    });
+
     C.DOSSIER.forEach(function (sec) {
       var data = s.dossier[sec.key];
       out.push('===================================');
@@ -187,6 +239,28 @@
       }
       out.push('');
     });
+    out.push('===================================');
+    out.push('OBJETIVOS, TAREAS Y RESULTADOS');
+    out.push('===================================');
+    if (v.objectives.length) {
+      v.objectives.forEach(function (o) {
+        out.push((o.done ? '[x] ' : '[ ] ') + o.text + (o.metric ? ' — ' + o.metric : ''));
+      });
+    } else out.push('(sin objetivos escritos)');
+    out.push('');
+    var abiertas = v.tasks.filter(function (x) { return !x.done; });
+    out.push('Tareas pendientes:');
+    if (abiertas.length) abiertas.forEach(function (x) { out.push('· ' + x.text); });
+    else out.push('(ninguna)');
+    out.push('');
+    if (v.results.length) {
+      out.push('Resultados logrados:');
+      v.results.slice(-10).forEach(function (r) {
+        out.push('· ' + r.text + ' (' + new Date(r.at).toLocaleDateString('es-MX') + ')');
+      });
+      out.push('');
+    }
+
     var p = w.Engine.overallProgress();
     out.push('-----------------------------------');
     out.push('Progreso en la ruta: ' + p.done + '/' + p.total + ' paradas completadas');

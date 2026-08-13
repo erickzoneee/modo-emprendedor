@@ -6,12 +6,27 @@
 
   var canvas, ctx, parts = [], raf = null, dpr = 1;
 
+  var hooked = false;
+
   function initCanvas() {
     canvas = d.getElementById('fx-canvas');
     if (!canvas) return;
     ctx = canvas.getContext('2d');
     resize();
-    w.addEventListener('resize', resize, { passive: true });
+    show(false);
+    // boot() puede repetirse (reinicio, importación): un solo enganche basta.
+    if (!hooked) {
+      hooked = true;
+      w.addEventListener('resize', resize, { passive: true });
+    }
+  }
+
+  /** El canvas ocupa toda la ventana con z-index 9000. Dejarlo compuesto de
+      forma permanente cuesta memoria y, en algunos equipos, tiñe o ensucia lo
+      que hay debajo. Solo existe mientras haya partículas vivas. */
+  function show(on) {
+    if (!canvas) return;
+    canvas.classList.toggle('is-on', !!on);
   }
 
   function resize() {
@@ -64,6 +79,7 @@
 
   function start() {
     if (raf) return;
+    show(true);
     var loop = function () {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       for (var i = parts.length - 1; i >= 0; i--) {
@@ -94,7 +110,7 @@
         ctx.restore();
       }
       if (parts.length) { raf = requestAnimationFrame(loop); }
-      else { raf = null; ctx.clearRect(0, 0, canvas.width, canvas.height); }
+      else { raf = null; ctx.clearRect(0, 0, canvas.width, canvas.height); show(false); }
     };
     raf = requestAnimationFrame(loop);
   }

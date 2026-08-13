@@ -87,6 +87,8 @@
     var root = el('div', { class: 'screen' });
     root.appendChild(el('h1', { class: 'sr-only',
       text: 'Simulador de empresa · semana ' + s.week + ' de ' + CFG.weeks }));
+    var ensayo = ensayoStrip();
+    if (ensayo) root.appendChild(ensayo);
     root.appendChild(header(s));
 
     if (phase === 'plan') root.appendChild(planView(s));
@@ -97,6 +99,21 @@
   }
 
   /* ------------------------- Encabezado ------------------------- */
+
+  /** El simulador usa cifras de laboratorio a propósito (están calibradas para
+      enseñar), pero el usuario debe tener claro qué está ensayando: las mismas
+      decisiones que tomará con SU negocio. */
+  function ensayoStrip() {
+    if (!w.Personalize.ready()) return null;
+    var t = w.Venture.terms();
+    return el('div', { class: 'card card--tight', style: { textAlign: 'left', marginBottom: '10px' } }, [
+      el('div', { class: 'tiny', style: { color: 'var(--brand)' }, text: 'Ensayo para ' + t.negocio }),
+      el('div', { class: 'small', style: { marginTop: '4px' },
+        text: 'Aquí practicas con dinero de mentira las tres decisiones que vas a tomar con ' +
+              t.tuProducto + ': qué precio pones, cuánto material compras y cuánto inviertes en llegar a ' +
+              t.cliente + '.' })
+    ]);
+  }
 
   function header(s) {
     var box = el('div', { class: 'sim-head' }, [
@@ -319,7 +336,12 @@
     for (var i = 0; i < w.SIM.TIPS.length; i++) {
       if (w.SIM.TIPS[i].when(s)) return w.SIM.TIPS[i].msg;
     }
-    if (s.week === 1) return 'Bienvenido. Decide precio, cuánto material compras y cuánto inviertes en publicidad. Cada decisión afecta ventas, reputación y efectivo.';
+    if (s.week === 1) {
+      var t = w.Personalize.ready() ? w.Venture.terms() : null;
+      return 'Bienvenido. Decide precio, cuánto material compras y cuánto inviertes en publicidad. ' +
+        'Cada decisión afecta ventas, reputación y efectivo' +
+        (t ? ' — exactamente como te va a pasar con ' + t.tuProducto + '.' : '.');
+    }
     return 'Vas bien. Recuerda: el efectivo y la utilidad no son lo mismo. Puedes ganar en papel y quedarte sin dinero.';
   }
 

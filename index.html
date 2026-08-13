@@ -80,7 +80,7 @@
 <script src="js/core/fx.js"></script>
 <script src="js/core/ui.js"></script>
 <script src="js/core/mascot.js"></script>
-<script src="js/core/ai.js"></script>
+<script src="js/core/speech.js"></script>
 
 <!-- ============ Datos ============ -->
 <script src="js/data/config.js"></script>
@@ -94,8 +94,14 @@
 <script src="js/data/lessons-8.js"></script>
 <script src="js/data/sim.js"></script>
 <script src="js/data/mentor-kb.js"></script>
+<script src="js/data/venture-templates.js"></script>
 
-<!-- ============ Motor ============ -->
+<!-- ============ Motor ============
+     venture.js va antes que ai.js y personalize.js: es la fuente de contexto
+     que ambos consultan. personalize.js lee las plantillas al cargarse. -->
+<script src="js/core/venture.js"></script>
+<script src="js/core/ai.js"></script>
+<script src="js/core/personalize.js"></script>
 <script src="js/core/engine.js"></script>
 <script src="js/core/mentor.js"></script>
 
@@ -107,6 +113,7 @@
 <script src="js/screens/simulator.js"></script>
 <script src="js/screens/mentor.js"></script>
 <script src="js/screens/business.js"></script>
+<script src="js/screens/venture.js"></script>
 <script src="js/screens/profile.js"></script>
 <script src="js/screens/league.js"></script>
 <script src="js/screens/shop.js"></script>

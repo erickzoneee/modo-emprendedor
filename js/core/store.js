@@ -80,6 +80,12 @@
       badges: [],
       unlockedLevels: 1,
 
+      // Perfil del emprendimiento: la fuente de contexto de toda la app.
+      // Es un mapa desde el principio aunque solo haya uno activo: añadir
+      // varios después es cambiar activeId, no migrar datos.
+      // Lo construye y lo mantiene js/core/venture.js.
+      ventures: { activeId: null, list: {} },
+
       // Expediente "Mi Negocio"
       dossier: {},
 
@@ -95,7 +101,14 @@
       // Retos semanales
       weekly: { week: null, progress: {}, claimed: [] },
 
-      settings: { sound: true, haptics: true, theme: 'light', reduceMotion: false },
+      settings: {
+        sound: true, haptics: true, theme: 'light', reduceMotion: false,
+        // Lectura en voz alta (js/core/speech.js)
+        speech: true,        // muestra los botones de altavoz
+        speechRate: 1,       // velocidad de lectura
+        voice: '',           // voz elegida; vacío = la mejor en español que haya
+        autoRead: false      // leer solo al abrir cada paso, sin tocar nada
+      },
 
       // Respaldo: el progreso vive solo en este dispositivo, así que hay que
       // recordarlo activamente antes de que alguien pierda todo.

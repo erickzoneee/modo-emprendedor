@@ -29,27 +29,47 @@
     return root;
   }
 
+  /** El saludo ya parte de lo que el mentor sabe: no arranca de cero nunca. */
   function greeting() {
     var s = w.Store.state;
     var name = s.profile.name && s.profile.name !== 'Emprendedor' ? s.profile.name : null;
-    var biz = s.profile.businessName;
+    var t = w.Venture.terms();
+    var dec = w.Venture.decisions().length;
     var dm = w.Engine.dailyMission();
-    return 'Hola' + (name ? ' ' + name : '') + ' 👋 Soy **Chispa**, tu mentor.\n\n' +
-      (biz ? 'Trabajamos sobre **' + biz + '**. ' : '') +
-      'Puedo revisar tu oferta, calcular precios y punto de equilibrio, practicar objeciones contigo o decirte qué hacer hoy.\n\n' +
-      (dm ? 'Ahora mismo te toca: **' + dm.title + '**.' : '') +
-      '\n\n¿Por dónde empezamos?';
+
+    var L = ['Hola' + (name ? ' ' + name : '') + ' 👋 Soy **Chispa**, tu mentor.'];
+    L.push('');
+    if (w.Personalize.ready()) {
+      L.push('Trabajamos sobre **' + t.negocio + '**: ' + t.producto +
+             (t.tiene.cliente ? ' para ' + t.cliente : '') + '.');
+      if (dec) L.push('Ya tengo anotadas **' + dec + '** decisiones tuyas, así que no te voy a preguntar lo mismo dos veces.');
+    } else {
+      L.push('Todavía no me has contado tu idea. Regístrala en **Mi emprendimiento** y todo lo que te diga hablará de tu negocio.');
+    }
+    L.push('');
+    L.push('Puedo revisar tu oferta, calcular tu precio y tu punto de equilibrio, practicar objeciones contigo o decirte qué hacer hoy.');
+    if (dm) { L.push(''); L.push('Ahora mismo te toca: **' + dm.title + '**.'); }
+    L.push('');
+    L.push('¿Por dónde empezamos?');
+    return L.join('\n');
   }
 
   /* ------------------------- Burbujas ------------------------- */
 
   function bubble(who, text, instant) {
     var isMe = who === 'me';
-    var b = el('div', { class: 'msg msg--' + (isMe ? 'me' : 'bot') + (instant ? '' : ' msg-in') }, [
+    var burbuja = el('div', { class: 'msg__bub', html: UI.rich(text) });
+    // Solo las respuestas del mentor se leen: lo que escribió el usuario ya lo sabe.
+    var escuchar = (!isMe && w.Speech && w.Speech.supported() && w.Store.state.settings.speech !== false)
+      ? w.Speech.button(function () { return text; }, { small: true })
+      : null;
+
+    return el('div', { class: 'msg msg--' + (isMe ? 'me' : 'bot') + (instant ? '' : ' msg-in') }, [
       isMe ? null : el('div', { class: 'msg__av', html: w.Mascot.svg('happy') }),
-      el('div', { class: 'msg__bub', html: UI.rich(text) })
+      escuchar
+        ? el('div', { class: 'col', style: { gap: '6px', alignItems: 'flex-start', minWidth: '0' } }, [burbuja, escuchar])
+        : burbuja
     ]);
-    return b;
   }
 
   function pushBot(text, instant, save) {
@@ -166,6 +186,7 @@
     // Revisión de textos del expediente
     if (/revisar mi oferta|revisa mi oferta/.test(t)) return openReview('oferta');
     if (/revisar mi cliente|revisa mi cliente|mi cliente ideal/.test(t) && /revis/.test(t)) return openReview('cliente');
+    if (/mi emprendimiento|mi perfil|mi idea registrada/.test(t)) { UI.Router.go('venture'); return; }
     if (/mi expediente|mi negocio/.test(t)) { UI.Router.go('business'); return; }
     if (/mis numeros|mis números/.test(t)) { UI.Router.go('business'); return; }
 
@@ -381,7 +402,14 @@
   function openReview(kind) {
     var m = REVIEW_MISSIONS[kind];
     var saved = w.Store.state.dossier[m.dossier];
-    var ta = el('textarea', { class: 'textarea', rows: '5', placeholder: m.ph });
+    var t = w.Venture.terms();
+    // El ejemplo del campo se escribe con SU producto, no con el de la demo.
+    var ejemplo = w.Personalize.ready()
+      ? (kind === 'oferta'
+          ? 'Ayudo a ' + t.tuCliente + ' a [resultado] con ' + t.producto + ', en [plazo], con [garantía], por $[precio].'
+          : 'Le vendo a ' + t.tuCliente + ' que necesita [X] porque [causa], y los encuentro en [lugar real].')
+      : m.ph;
+    var ta = el('textarea', { class: 'textarea', rows: '5', placeholder: ejemplo });
     if (saved && saved.answers) {
       ta.value = Object.keys(saved.answers).map(function (k) { return saved.answers[k]; }).join(' ');
     }
@@ -431,6 +459,8 @@
               w.Store.set(function (s) {
                 s.dossier[m.dossier] = { answers: { texto: txt }, score: ev.score, at: Date.now(), from: 'mentor' };
               }, 'dossier');
+              // También al perfil: es una decisión tomada, no solo una nota.
+              w.Venture.absorb('mentor', { texto: txt }, { dossier: m.dossier, score: ev.score, title: m.title });
               w.Engine.checkBadges();
               UI.closeSheet();
               UI.toast('Guardado en Mi Negocio', 'green', '📂');
