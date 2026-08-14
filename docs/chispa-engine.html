@@ -1,0 +1,413 @@
+<title>Chispa Engine — investigación, prototipo y resultados</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --ground:#F6F8F6; --surface:#FFFFFF; --sunken:#EDF1EE;
+    --ink:#121A16; --ink-2:#3C4A43; --muted:#5B6660;
+    --line:#DDE4DF; --line-2:#C7D2CB;
+    --accent:#1F6B4A; --accent-soft:#E4F0E9;
+    --warn:#9A5F08;  --warn-soft:#FAF0DC;
+    --stop:#A8342A;  --stop-soft:#FAE7E4;
+    --shadow:0 1px 2px rgba(18,26,22,.06), 0 8px 24px -12px rgba(18,26,22,.18);
+    --measure:68ch;
+    --sans: ui-sans-serif, system-ui, "Segoe UI Variable Text", "Segoe UI", Roboto, Arial, sans-serif;
+    --serif: ui-serif, "Iowan Old Style", "Source Serif 4", Charter, Georgia, serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#0E1310; --surface:#151C18; --sunken:#1B241E;
+      --ink:#EAF0EC; --ink-2:#C2CFC7; --muted:#93A099;
+      --line:#253029; --line-2:#33413A;
+      --accent:#4FBF8B; --accent-soft:#16291F;
+      --warn:#D79B3A;  --warn-soft:#2A2214;
+      --stop:#E0736A;  --stop-soft:#2C1917;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0E1310; --surface:#151C18; --sunken:#1B241E;
+    --ink:#EAF0EC; --ink-2:#C2CFC7; --muted:#93A099;
+    --line:#253029; --line-2:#33413A;
+    --accent:#4FBF8B; --accent-soft:#16291F;
+    --warn:#D79B3A;  --warn-soft:#2A2214;
+    --stop:#E0736A;  --stop-soft:#2C1917;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--serif);
+       font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:56px 24px 96px;display:flex;flex-direction:column;gap:44px}
+  .measure{max-width:var(--measure)}
+  h1,h2,h3,.label,.chip,table,.lv__n,.fig__l{font-family:var(--sans)}
+  h1{font-size:clamp(30px,4.4vw,44px);line-height:1.08;letter-spacing:-.022em;font-weight:800;margin:0;text-wrap:balance}
+  h2{font-size:clamp(21px,2.6vw,27px);line-height:1.2;letter-spacing:-.015em;font-weight:750;margin:0 0 4px;text-wrap:balance}
+  h3{font-size:17px;line-height:1.3;font-weight:700;margin:0 0 6px}
+  p{margin:0 0 14px} p:last-child{margin-bottom:0}
+  a{color:var(--accent);text-underline-offset:3px}
+  .label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .lede{font-size:19px;line-height:1.55;color:var(--ink-2)}
+  code,.num{font-family:var(--mono);font-size:.9em;font-variant-numeric:tabular-nums}
+  code{background:var(--sunken);padding:1px 5px;border-radius:4px}
+  section{display:flex;flex-direction:column;gap:18px}
+  .head{display:flex;flex-direction:column;gap:6px}
+  .masthead{display:flex;flex-direction:column;gap:18px;padding-bottom:32px;border-bottom:2px solid var(--ink)}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 20px;font-family:var(--sans);font-size:13px;color:var(--muted)}
+  .verdict{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);
+           border-radius:6px;padding:26px 28px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:16px}
+  .figures{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:2px;
+           background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .fig{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+  .fig__n{font-family:var(--mono);font-size:25px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .fig__l{font-size:12.5px;color:var(--muted);line-height:1.35}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.04em;
+        text-transform:uppercase;padding:3px 9px;border-radius:999px;white-space:nowrap;border:1px solid transparent}
+  .chip--go{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+  .chip--warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+  .chip--stop{background:var(--stop-soft);color:var(--stop);border-color:var(--stop)}
+  .scroller{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface);box-shadow:var(--shadow)}
+  table{border-collapse:collapse;width:100%;min-width:700px;font-size:13.5px;line-height:1.45}
+  thead th{position:sticky;top:0;background:var(--sunken);color:var(--ink);text-align:left;font-weight:700;
+           font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:11px 14px;
+           border-bottom:1px solid var(--line-2);white-space:nowrap;z-index:1}
+  tbody td,tbody th{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-2)}
+  tbody th{text-align:left;font-weight:700;color:var(--ink);white-space:nowrap}
+  tbody tr:last-child td,tbody tr:last-child th{border-bottom:0}
+  td.n,th.n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:14px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px 20px;
+        display:flex;flex-direction:column;gap:8px;font-size:15px}
+  .card p{font-size:15px;line-height:1.55;color:var(--ink-2)}
+  .note{background:var(--warn-soft);border:1px solid var(--warn);border-radius:6px;padding:16px 20px;font-size:15.5px;color:var(--ink)}
+  .note--stop{background:var(--stop-soft);border-color:var(--stop)}
+  .note--go{background:var(--accent-soft);border-color:var(--accent)}
+  .note strong{display:block;margin-bottom:4px;font-family:var(--sans)}
+  ul,ol{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:7px}
+  li{color:var(--ink-2)} li strong{color:var(--ink)}
+
+  /* ---- Diagrama de capas ---- */
+  .stack{display:flex;flex-direction:column;gap:0;border:1px solid var(--line);border-radius:6px;
+         overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+  .lv{display:grid;grid-template-columns:52px 1fr auto;gap:16px;align-items:center;
+      padding:15px 18px;border-bottom:1px solid var(--line)}
+  .lv:last-child{border-bottom:0}
+  .lv__n{font-family:var(--mono);font-size:13px;font-weight:600;width:34px;height:34px;
+         display:grid;place-items:center;border-radius:999px;border:1px solid currentColor}
+  .lv__b{min-width:0}
+  .lv__t{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink)}
+  .lv__d{font-size:14px;color:var(--ink-2);line-height:1.45}
+  .lv--go .lv__n{color:var(--accent)}
+  .lv--warn .lv__n{color:var(--warn)}
+  .lv--stop .lv__n{color:var(--stop)}
+  .lv__tag{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap;text-align:right}
+  @media(max-width:640px){.lv{grid-template-columns:40px 1fr;gap:12px}.lv__tag{grid-column:2;text-align:left}}
+
+  footer{font-family:var(--sans);font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:20px}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="label">Investigación técnica · prototipo medido</div>
+  <h1>Chispa Engine</h1>
+  <p class="lede measure">Un motor propio que resuelve con reglas, fórmulas y conocimiento antes de
+    plantearse llamar a una IA. Se construyó un laboratorio aislado, se descargó un modelo abierto real
+    y se midió en un equipo real. Esto es lo que salió.</p>
+  <div class="meta">
+    <span>14 de agosto de 2026</span>
+    <span>Prototipo: <code>lab/</code> · 2.421 líneas</span>
+    <span>La app no se modificó</span>
+  </div>
+</header>
+
+<!-- ===================== VEREDICTO ===================== -->
+<section>
+  <div class="verdict">
+    <div class="label">Conclusión</div>
+    <h2>Tu hipótesis se confirma, y con margen: el modelo local debe ser opcional dentro de una arquitectura híbrida. Nunca la única vía, nunca automático.</h2>
+    <p class="measure">Lo inesperado no es eso, sino <strong>cuánto gana el motor determinista</strong>.
+      En el banco de ocho casos, Chispa Engine sin ningún modelo generativo pasó 20 de 20 criterios en
+      <strong>1 milisegundo</strong>. El modelo local que sí cabe en un teléfono pasó 7 de 23 en
+      <strong>17,5 segundos</strong>, respondió en inglés y no fue capaz de devolver un JSON válido.</p>
+    <div class="figures">
+      <div class="fig"><span class="fig__n" style="color:var(--accent)">20/20</span><span class="fig__l">criterios del motor determinista, en 1 ms</span></div>
+      <div class="fig"><span class="fig__n" style="color:var(--stop)">7/23</span><span class="fig__l">criterios del modelo local de 0,36B, en 17,5 s</span></div>
+      <div class="fig"><span class="fig__n">376 MB</span><span class="fig__l">el modelo más pequeño que existe en WebLLM</span></div>
+      <div class="fig"><span class="fig__n" style="color:var(--stop)">100–450 MB</span><span class="fig__l">lo que iOS le permite a una página web</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 1 · QUÉ ES ===================== -->
+<section>
+  <div class="head"><span class="label">1 · Explicación técnica</span><h2>Qué es Chispa Engine</h2></div>
+  <p class="measure">No es un chatbot con reglas pegadas encima. Es un <strong>despachador</strong>: recibe
+    lo que escribe el usuario y decide con qué responderle, parándose en el primer nivel que resuelva de
+    verdad. El modelo generativo es el último recurso, no el primero, y cuando entra recibe los hechos ya
+    resueltos y solo los redacta.</p>
+  <p class="measure">La diferencia práctica se ve en tu propio ejemplo. A “¿en cuánto debo vender mi
+    producto?” el motor <strong>no busca una respuesta</strong>: detecta la intención <code>calcular_precio</code>,
+    mira qué datos ya conoce, pregunta uno por uno solo los que faltan, ejecuta una fórmula programada,
+    explica el resultado con los números del usuario y guarda el precio como decisión del emprendimiento.
+    Cero llamadas a una IA, cero ambigüedad, resultado verificable a mano.</p>
+
+  <div class="note--go note">
+    <strong>Medido en el prototipo</strong>
+    Con materiales $48, 35 minutos, hora a $90, empaque $15 y margen del 55%, el motor pide seis datos en
+    seis preguntas y devuelve: precio <strong>$260</strong>, costo directo $115,50, utilidad $144,50,
+    margen real 56%. Total: <strong>1 ms</strong>. Y el precio queda guardado como decisión, así que no
+    vuelve a preguntarlo.
+  </div>
+</section>
+
+<!-- ===================== 2 · DIAGRAMA ===================== -->
+<section>
+  <div class="head"><span class="label">2 · Arquitectura</span><h2>Los siete niveles, en orden de decisión</h2></div>
+  <p class="measure">Cada nivel intenta resolver; si lo consigue, la cadena se detiene. Los cuatro primeros
+    no gastan un solo byte de red.</p>
+  <div class="stack">
+    <div class="lv lv--go"><span class="lv__n">1</span><div class="lv__b"><div class="lv__t">Intención</div><div class="lv__d">Qué quiere hacer. Frase completa más raíces de cuatro letras, que es lo que salva las variantes verbales del español.</div></div><span class="lv__tag">&lt;1 ms · local</span></div>
+    <div class="lv lv--go"><span class="lv__n">2</span><div class="lv__b"><div class="lv__t">Perfil y memoria</div><div class="lv__d">Los tres niveles del emprendimiento que Emprendo ya guarda: idea, decisiones tomadas, plan y avance.</div></div><span class="lv__tag">&lt;1 ms · local</span></div>
+    <div class="lv lv--go"><span class="lv__n">3</span><div class="lv__b"><div class="lv__t">Huecos</div><div class="lv__d">Qué dato falta para responder bien. Se pregunta <em>uno</em>, no siete: un formulario largo se abandona.</div></div><span class="lv__tag">&lt;1 ms · local</span></div>
+    <div class="lv lv--go"><span class="lv__n">4</span><div class="lv__b"><div class="lv__t">Fórmula</div><div class="lv__d">Precio, margen, punto de equilibrio. Un número calculado es auditable; uno redactado por un LLM es una opinión con formato de número.</div></div><span class="lv__tag">1 ms · local</span></div>
+    <div class="lv lv--go"><span class="lv__n">5</span><div class="lv__b"><div class="lv__t">Conocimiento</div><div class="lv__d">Índice invertido sobre la base, filtrado por sector y etapa. Devuelve fragmentos, nunca la base entera.</div></div><span class="lv__tag">0 ms · local</span></div>
+    <div class="lv lv--go"><span class="lv__n">6</span><div class="lv__b"><div class="lv__t">Plantilla</div><div class="lv__d">Compone la respuesta con los datos reales. Aquí se resuelve la mayoría de los casos.</div></div><span class="lv__tag">&lt;1 ms · local</span></div>
+    <div class="lv lv--warn"><span class="lv__n">7</span><div class="lv__b"><div class="lv__t">Generativo</div><div class="lv__d">Solo si aporta lo que una plantilla no puede. Orden: modelo local si está instalado → IA gratuita en la nube → clave personal → y si todo falla, vuelve al nivel 6.</div></div><span class="lv__tag">segundos · opcional</span></div>
+  </div>
+  <p class="measure">La regla que sostiene todo: <strong>el modelo nunca es la fuente de la verdad</strong>.
+    El prompt que se le entrega lleva el perfil, las decisiones ya tomadas y los fragmentos de conocimiento
+    aplicables, con la instrucción explícita de no añadir hechos que no estén ahí y de no contradecir lo decidido.</p>
+</section>
+
+<!-- ===================== 3 · VS ENTRENAR ===================== -->
+<section>
+  <div class="head"><span class="label">3 · Una distinción que importa</span><h2>Motor propio no es modelo propio</h2></div>
+  <div class="scroller"><table>
+    <thead><tr><th></th><th>Chispa Engine</th><th>Entrenar un modelo propio</th></tr></thead>
+    <tbody>
+      <tr><th>Qué se construye</th><td>Reglas, fórmulas, conocimiento y plantillas que se combinan</td><td>Pesos de una red neuronal</td></tr>
+      <tr><th>Qué hace falta</th><td>Escribir conocimiento y código</td><td>Miles de ejemplos etiquetados y GPUs</td></tr>
+      <tr><th class="n">Coste</th><td class="n">$0</td><td class="n">miles de dólares por intento</td></tr>
+      <tr><th>Corregir un error</th><td>Editar una línea y se arregla para siempre</td><td>Reentrenar y volver a evaluar todo</td></tr>
+      <tr><th>Explicar por qué respondió eso</th><td>Se puede señalar la regla exacta</td><td>No se puede</td></tr>
+      <tr><th>Inventar datos</th><td>Imposible por construcción</td><td>Es su modo de fallo natural</td></tr>
+      <tr><th>Conocimiento nuevo</th><td>Se añade una entrada al JSON</td><td>Reentrenamiento</td></tr>
+    </tbody>
+  </table></div>
+  <p class="measure">Para Emprendo, entrenar un modelo sería resolver el problema equivocado. Lo que hace
+    que un consejo sirva no es la fluidez del texto: es que use el precio real del usuario, su cliente real
+    y lo que ya decidió. Eso es recuperación y composición, no generación.</p>
+</section>
+
+<!-- ===================== 4,7 · MODELOS ===================== -->
+<section>
+  <div class="head"><span class="label">4 y 7 · Modelos locales</span><h2>Tamaños reales, leídos del catálogo oficial</h2></div>
+  <p class="measure">El laboratorio no lleva estos números escritos a mano: los lee en vivo de
+    <code>prebuiltAppConfig</code> de WebLLM cada vez que se abre, para no mentir cuando cambien.</p>
+  <div class="scroller"><table>
+    <thead><tr><th>Modelo</th><th class="n">Memoria</th><th>Licencia</th><th>Comercial</th><th>Español</th><th>Veredicto</th></tr></thead>
+    <tbody>
+      <tr><th>SmolLM2 0,36B</th><td class="n">376 MB</td><td>Apache 2.0</td><td>libre</td><td>Roto: inventa palabras y contesta en inglés</td><td><span class="chip chip--stop">Inservible</span></td></tr>
+      <tr><th>Llama 3.2 1B</th><td class="n">879 MB</td><td>Llama Community</td><td>condicionado</td><td>Correcto en frases simples</td><td><span class="chip chip--warn">Mínimo</span></td></tr>
+      <tr><th>Qwen2.5 0,5B</th><td class="n">945 MB</td><td>Apache 2.0</td><td>libre</td><td>Aceptable, se pierde en instrucciones largas</td><td><span class="chip chip--warn">Mínimo</span></td></tr>
+      <tr><th>Qwen3 0,6B</th><td class="n">1.403 MB</td><td>Apache 2.0</td><td>libre</td><td>Bueno para su tamaño, multilingüe de serie</td><td><span class="chip chip--warn">Aceptable</span></td></tr>
+      <tr><th>Qwen2.5 1,5B</th><td class="n">1.630 MB</td><td>Apache 2.0</td><td>libre</td><td>Bueno; aguanta contexto y formato</td><td><span class="chip chip--go">Recomendado</span></td></tr>
+      <tr><th>Gemma 2 2B</th><td class="n">1.895 MB</td><td>Gemma Terms</td><td>condicionado</td><td>Bueno, redacta natural</td><td><span class="chip chip--warn">Alternativa</span></td></tr>
+      <tr><th>Llama 3.2 3B</th><td class="n">2.264 MB</td><td>Llama Community</td><td>condicionado</td><td>Muy bueno para local</td><td><span class="chip chip--warn">Solo GPU grande</span></td></tr>
+      <tr><th>Qwen2.5 3B</th><td class="n">2.504 MB</td><td>revisar variante</td><td>revisar</td><td>El mejor de la lista</td><td><span class="chip chip--warn">Solo GPU grande</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <strong>Solo medí SmolLM2-360M de verdad</strong>
+    Es el único que descargué y ejecuté. Lo de los demás son expectativas apoyadas en evaluaciones públicas,
+    no pruebas mías. El laboratorio existe precisamente para que los corras tú con un botón: el banco de
+    pruebas ya está escrito y puntúa solo.
+  </div>
+</section>
+
+<!-- ===================== 5,6 · RECOMENDACIÓN ===================== -->
+<section>
+  <div class="head"><span class="label">5 y 6 · Recomendación por dispositivo</span><h2>Qué modelo para qué equipo</h2></div>
+  <div class="cards">
+    <div class="card">
+      <span class="chip chip--stop">Celulares</span>
+      <h3>Ninguno. Y no es pesimismo.</h3>
+      <p>En iPhone y iPad es <strong>imposible</strong>: iOS limita una página web a entre 100 y 450 MB y
+        cierra la pestaña sin lanzar ningún error que se pueda atrapar. El modelo más pequeño pide 376 MB
+        y el más pequeño <em>utilizable</em> pide 879 MB.</p>
+      <p>Abrirlo en Chrome no cambia nada: en iOS todos los navegadores usan WebKit por regla de la App
+        Store, y donde la ley europea ya lo permite, más de dos años después ninguno ha publicado su propio
+        motor. Además el límite lo pone el sistema al proceso, no el motor.</p>
+      <p>En Android de gama media, con 4–6 GB de RAM, cargaría y se arrastraría. El laboratorio lo bloquea
+        por debajo de 6 GB.</p>
+    </div>
+    <div class="card">
+      <span class="chip chip--go">Computadoras</span>
+      <h3>Qwen2.5 1,5B</h3>
+      <p>1.630 MB, Apache 2.0 sin condiciones, buen español y el mejor equilibrio entre lo que cabe y lo
+        que sirve. Por debajo de 1B la calidad se derrumba; por encima de 2 GB muchas GPUs integradas ya
+        no pueden reservar el buffer.</p>
+      <p>Con GPU dedicada y buffer de más de 2,5 GB, <strong>Qwen2.5 3B</strong> es notablemente mejor,
+        pero deja fuera a la mayoría.</p>
+      <p class="measure"><strong>Dato incómodo:</strong> este equipo tiene una NVIDIA reciente y su límite
+        de buffer de almacenamiento es de 2.048 MB, lo que ya descarta ambos modelos de 3B. El techo no lo
+        pone la RAM, lo pone WebGPU.</p>
+    </div>
+    <div class="card">
+      <span class="chip chip--go">Para todos</span>
+      <h3>Embeddings, no generación</h3>
+      <p>Un modelo de búsqueda semántica multilingüe pesa <strong>25–30 MB</strong>, corre en WASM sin
+        WebGPU y cabe en cualquier equipo, iPhone incluido. Es 30 veces más pequeño que el generador más
+        pequeño y aporta más: mejor recuperación en el nivel 5, que es de donde salen los hechos.</p>
+      <p>Si va a haber IA local en Emprendo, este es el sitio por donde empezar.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 8 · COMPATIBILIDAD ===================== -->
+<section>
+  <div class="head"><span class="label">8 · Matriz de compatibilidad</span><h2>Qué funciona dónde</h2></div>
+  <div class="scroller"><table>
+    <thead><tr><th>Plataforma</th><th>WebGPU</th><th>Motor (niveles 1-6)</th><th>Embeddings</th><th>Modelo generativo</th></tr></thead>
+    <tbody>
+      <tr><th>Windows · Chrome/Edge</th><td>Sí, 113+</td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--go">Sí, hasta el límite del buffer</span></td></tr>
+      <tr><th>macOS · Chrome/Edge</th><td>Sí</td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--go">Sí</span></td></tr>
+      <tr><th>macOS · Safari 26+</th><td>Parcial</td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--warn">A probar</span></td></tr>
+      <tr><th>Android · Chrome 151+</th><td>Sí</td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--warn">Solo gama alta, ≥6 GB</span></td></tr>
+      <tr><th>iPhone · cualquier navegador</th><td>Sí, iOS 26+</td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--stop">No, por memoria</span></td></tr>
+      <tr><th>iPad · cualquier navegador</th><td>Sí, iPadOS 26+</td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--stop">No, por memoria</span></td></tr>
+      <tr><th>Firefox</th><td>Tras bandera</td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--stop">No</span></td></tr>
+      <tr><th>Sin conexión</th><td>—</td><td><span class="chip chip--go">Sí</span></td><td><span class="chip chip--go">Sí, ya descargado</span></td><td><span class="chip chip--go">Sí, ya descargado</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ===================== 13 · PRUEBAS ===================== -->
+<section>
+  <div class="head"><span class="label">13 · Pruebas realizadas</span><h2>Resultados medidos, no estimados</h2></div>
+  <p class="measure">Equipo: Windows, Chrome, 16 GB de RAM, 16 núcleos, NVIDIA Blackwell con WebGPU,
+    <code>shader-f16</code> disponible, buffer máximo 2.048 MB, 2.953 MB libres para el sitio.</p>
+
+  <div class="scroller"><table>
+    <thead><tr><th class="n">#</th><th>Caso</th><th>Chispa Engine</th><th>SmolLM2-360M local</th></tr></thead>
+    <tbody>
+      <tr><td class="n">1</td><th>Plan para impresión 3D</th><td>3/3 · 0 ms</td><td>1/3 · 3.774 ms</td></tr>
+      <tr><td class="n">2</td><th>Precio con datos incompletos</th><td>3/3 · 0 ms</td><td>3/3 · 0 ms <em>(lo resolvió el motor)</em></td></tr>
+      <tr><td class="n">3</td><th>Cliente ideal</th><td>3/3 · 0 ms</td><td>1/3 · 3.934 ms</td></tr>
+      <tr><td class="n">4</td><th>Desafío sobre su idea</th><td>3/3 · 0 ms</td><td>0/3 · 3.169 ms</td></tr>
+      <tr><td class="n">5</td><th>Evaluar propuesta de valor</th><td>3/3 · 1 ms</td><td>1/3 · 3.642 ms</td></tr>
+      <tr><td class="n">6</td><th>Recordar una decisión</th><td>3/3 · 0 ms</td><td>1/3 · 3.188 ms</td></tr>
+      <tr><td class="n">7</td><th>No inventar lo ausente</th><td>2/2 · 0 ms</td><td>2/2 · 3.365 ms</td></tr>
+      <tr><td class="n">8</td><th>JSON válido</th><td>no aplica</td><td>0/3 · 356 ms</td></tr>
+      <tr><td class="n"></td><th>Total</th><td><strong>20/20 · 1 ms</strong></td><td><strong>7/23 · 17.505 ms</strong></td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note note--stop">
+    <strong>Lo que de verdad contestó el modelo de 0,36B</strong>
+    Caso 1: “<em>Conto en contracciamiento así mismo, que el negocio de impresión 3D que ha sido definito…</em>”.
+    Caso 4, en inglés: “<em>Sure. I can assist you in the following steps for your project. First, you will
+    need to set up your project…</em>”, repitiéndose en bucle. Caso 3: una lista sin sentido de letras y
+    categorías. No es “un poco flojo”: no funciona.
+  </div>
+
+  <div class="figures">
+    <div class="fig"><span class="fig__n">376 MB</span><span class="fig__l">descarga del modelo probado</span></div>
+    <div class="fig"><span class="fig__n">~4 min</span><span class="fig__l">primera descarga a ~0,7 MB/s</span></div>
+    <div class="fig"><span class="fig__n">1,3 s</span><span class="fig__l">arranque posterior desde caché</span></div>
+    <div class="fig"><span class="fig__n">12,3</span><span class="fig__l">tokens por segundo en GPU dedicada</span></div>
+  </div>
+  <p class="measure">La descarga se guarda en tres cachés (<code>webllm/config</code>, <code>webllm/wasm</code>,
+    <code>webllm/model</code>) y el botón de borrar las eliminó las tres, dejando el almacenamiento de la app
+    intacto. Cancelar durante la descarga y liberar la memoria de GPU también funcionan.</p>
+</section>
+
+<!-- ===================== 9 · DESCARGA ===================== -->
+<section>
+  <div class="head"><span class="label">9 · IA local de Chispa</span><h2>Cómo debe presentarse la descarga</h2></div>
+  <p class="measure">Nada se baja solo y nada entra en el precache de la PWA. Antes del primer byte, la
+    pantalla muestra: nombre del modelo, peso exacto leído del catálogo, espacio libre del dispositivo,
+    si este equipo puede con él (y si no, por qué), qué calidad esperar en español, y el aviso de batería
+    y memoria. Durante: barra de progreso y botón de cancelar. Después: liberar memoria y borrar del
+    dispositivo, por separado.</p>
+  <p class="measure"><strong>Regla dura:</strong> si el diagnóstico dice que no, el botón no aparece.
+    Se explica el motivo en vez de dejar que el usuario tumbe su navegador para descubrirlo.</p>
+</section>
+
+<!-- ===================== 11 · BASE ===================== -->
+<section>
+  <div class="head"><span class="label">11 · Base de conocimiento</span><h2>Cómo se guarda el conocimiento</h2></div>
+  <p class="measure">JSON estructurado con índice invertido en memoria. En el prototipo: 17 entradas,
+    405 términos indexados, búsquedas en <strong>0 ms</strong>. Cada entrada lleva
+    <code>id</code>, <code>tipo</code> (concepto, regla, fórmula, error, ejemplo, diagnóstico, desafío,
+    plantilla, criterio), <code>titulo</code>, <code>cuerpo</code>, <code>claves</code>,
+    <code>sectores</code>, <code>etapas</code>, <code>formula</code>, <code>relacionados</code>,
+    <code>fuente</code> y <code>revisado</code>.</p>
+  <div class="scroller"><table>
+    <thead><tr><th>Opción</th><th>Cuándo conviene</th><th>Decisión</th></tr></thead>
+    <tbody>
+      <tr><th>JSON + índice invertido</th><td>Hasta unas 500 entradas. Cero dependencias, cero descarga, 0 ms</td><td><span class="chip chip--go">Ahora</span></td></tr>
+      <tr><th>Embeddings locales</th><td>Cuando el usuario pregunte con palabras que no están en las claves</td><td><span class="chip chip--warn">Fase 3</span></td></tr>
+      <tr><th>IndexedDB</th><td>Solo si la base pasa de ~2 MB o se actualiza sin desplegar</td><td><span class="chip chip--warn">Más adelante</span></td></tr>
+      <tr><th>Búsqueda semántica en la nube</th><td>Nunca: rompe el funcionamiento sin conexión</td><td><span class="chip chip--stop">Descartado</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ===================== 12,16 · RIESGOS ===================== -->
+<section>
+  <div class="head"><span class="label">12 y 16 · Riesgos y plan B</span><h2>Lo que puede salir mal</h2></div>
+  <div class="cards">
+    <div class="card"><h3>Falsa promesa de “IA local”</h3><p>Anunciarla y que la mitad de los usuarios no pueda usarla es peor que no anunciarla. El texto debe decir “si tu equipo puede”.</p></div>
+    <div class="card"><h3>Cerrar el navegador del usuario</h3><p>Superar el límite de memoria no lanza excepción: la pestaña muere. Por eso el bloqueo es previo y conservador.</p></div>
+    <div class="card"><h3>Datos móviles</h3><p>879 MB en un plan prepago es un daño real. La descarga debe avisar y, si se puede detectar, exigir Wi-Fi.</p></div>
+    <div class="card"><h3>Licencias</h3><p>Solo Qwen y SmolLM son Apache 2.0 sin condiciones. Llama y Gemma traen términos propios que hay que leer antes de distribuir.</p></div>
+    <div class="card"><h3>Prompt injection</h3><p>Al ser el usuario quien escribe, el riesgo es que se salte el tono, no que filtre datos: no hay nada que filtrar en local. Aun así, la salida se valida antes de guardarla como decisión.</p></div>
+    <div class="card"><h3>Alternativa automática</h3><p>Si el equipo no es compatible, no hay mensaje de error: el nivel 7 pasa a la nube gratuita, y si tampoco, se queda en el nivel 6. El usuario nunca ve una función rota.</p></div>
+  </div>
+</section>
+
+<!-- ===================== 14,15 · PLAN ===================== -->
+<section>
+  <div class="head"><span class="label">14 y 15 · Implementación</span><h2>Por fases, de lo seguro a lo incierto</h2></div>
+  <ol>
+    <li><strong>Fase 1 — el motor en la app.</strong> Llevar niveles 1 a 6 a Emprendo:
+      <code>js/core/chispa.js</code>, <code>js/data/kb.js</code>, fórmulas en <code>js/core/mentor.js</code>.
+      Sin descargas, sin red, sin costo. Es donde está casi todo el valor y ya está probado.</li>
+    <li><strong>Fase 2 — la nube gratuita.</strong> El Worker de Cloudflare del informe anterior como nivel 7 por defecto.</li>
+    <li><strong>Fase 3 — embeddings locales.</strong> 25 MB opcionales para mejorar la recuperación. Funciona en todos los dispositivos.</li>
+    <li><strong>Fase 4 — modelo generativo local.</strong> Solo si las pruebas con Qwen2.5 1,5B en el laboratorio salen bien. Reutiliza <code>lab/js/local-model.js</code> casi tal cual.</li>
+    <li><strong>Fase 5 — app nativa.</strong> Es la única vía que desbloquea el modelo local en iPhone: una app de App Store recibe un presupuesto de memoria mucho mayor que una pestaña.</li>
+  </ol>
+  <p class="measure">Archivos ya escritos y desplegados en <code>lab/</code>: <code>device.js</code> (diagnóstico),
+    <code>kb.js</code> (base e índice), <code>engine.js</code> (despachador, fórmulas, plantillas),
+    <code>local-model.js</code> (catálogo y descarga), <code>llm-worker.js</code>, <code>bench.js</code>
+    (los ocho casos) y <code>main.js</code>. Fuera de <code>lab/</code> solo se tocaron dos líneas:
+    <code>sw.js</code> excluye <code>/lab/</code> del service worker y <code>serve.js</code> sirve índices
+    de carpeta como hace GitHub Pages.</p>
+</section>
+
+<!-- ===================== 17 · FUENTES ===================== -->
+<section>
+  <div class="head"><span class="label">17 · Fuentes</span><h2>De dónde sale cada dato</h2></div>
+  <ul>
+    <li><a href="https://github.com/mlc-ai/web-llm">WebLLM · motor, workers y backends de caché</a> — tamaños leídos en vivo de <code>prebuiltAppConfig</code></li>
+    <li><a href="https://caniuse.com/webgpu">WebGPU · soporte por navegador</a></li>
+    <li><a href="https://webkit.org/blog/16993/news-from-wwdc25-web-technology-coming-this-fall-in-safari-26-beta/">WebKit · WebGPU en Safari 26, iOS y iPadOS</a></li>
+    <li><a href="https://lapcatsoftware.com/articles/2026/1/7.html">Límites de memoria de página en Safari iOS, medidos</a></li>
+    <li><a href="https://open-web-advocacy.org/blog/apples-browser-engine-ban-persists-even-under-the-dma/">Motores alternativos en iOS: por qué ninguno se ha publicado</a></li>
+    <li><a href="https://developer.apple.com/support/alternative-browser-engines">Apple · motores alternativos en la Unión Europea</a></li>
+    <li><a href="https://huggingface.co/docs/transformers.js/index">Transformers.js · embeddings en el navegador</a></li>
+    <li><a href="https://onnxruntime.ai/docs/tutorials/web/">ONNX Runtime Web · ejecución WASM y WebGPU</a></li>
+    <li><a href="https://huggingface.co/Xenova/multilingual-e5-small">multilingual-e5-small · embeddings multilingües en ONNX</a></li>
+    <li><a href="https://qwenlm.github.io/blog/qwen3/">Qwen3 · licencia Apache 2.0</a></li>
+    <li><a href="https://developer.chrome.com/docs/ai/prompt-api">Chrome · Prompt API integrada y sus requisitos</a></li>
+  </ul>
+</section>
+
+<footer>
+  Chispa Engine · investigación y prototipo · 14 de agosto de 2026 ·
+  Nada de esto está integrado en Emprendo: el laboratorio vive en <code>lab/</code> y la app no se modificó.
+</footer>
+
+</div>
