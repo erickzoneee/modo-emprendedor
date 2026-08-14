@@ -26,7 +26,9 @@ const MIME = {
 
 http.createServer((req, res) => {
   let urlPath = decodeURIComponent(req.url.split('?')[0]);
-  if (urlPath === '/') urlPath = '/index.html';
+  // GitHub Pages sirve el index.html de cualquier carpeta; este servidor tiene
+  // que hacer lo mismo o /lab/ daría 404 solo en local.
+  if (urlPath.endsWith('/')) urlPath += 'index.html';
 
   const filePath = path.join(ROOT, path.normalize(urlPath));
   if (!filePath.startsWith(ROOT)) {

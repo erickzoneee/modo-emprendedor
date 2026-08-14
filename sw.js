@@ -17,7 +17,7 @@
    ========================================================================== */
 'use strict';
 
-var VERSION = 'modo-emprendedor-v1.3.0';
+var VERSION = 'modo-emprendedor-v1.3.1';
 
 /* Todo lo que hace falta para arrancar sin red. Rutas relativas al ámbito del
    service worker: en GitHub Pages la app vive en /modo-emprendedor/, no en la
@@ -121,6 +121,11 @@ self.addEventListener('fetch', function (e) {
   var url;
   try { url = new URL(req.url); } catch (err) { return; }
   if (url.origin !== self.location.origin) return;
+
+  // El laboratorio (/lab/) queda fuera por completo: no se precarga, no se
+  // guarda y no se sirve desde aquí. Así sus pruebas no ensucian la caché de
+  // la app ni reciben versiones viejas de sus propios archivos.
+  if (url.pathname.indexOf('/lab/') >= 0) return;
 
   // Navegación: red primero para que un despliegue nuevo se note al momento.
   if (req.mode === 'navigate') {

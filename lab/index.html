@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E1310">
+<meta name="robots" content="noindex">
+<title>Chispa Engine · laboratorio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧪</text></svg>">
+<link rel="stylesheet" href="lab.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="top__in">
+    <span class="pill">Laboratorio</span>
+    <h1>Chispa Engine</h1>
+    <p>Banco de pruebas aislado. No toca la app, ni tu progreso, ni el service worker.
+       Todo lo que guarda vive bajo la clave <code>chispa-lab:</code> y se borra desde aquí.</p>
+    <a class="back" href="../">← Volver a Modo Emprendedor</a>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ 1 · DISPOSITIVO ============ -->
+  <section id="sec-device">
+    <div class="head">
+      <span class="label">1 · Diagnóstico</span>
+      <h2>Qué puede hacer este equipo</h2>
+      <p class="sub">Se mide en tu dispositivo real, no en una tabla. Ábrelo también en tu celular.</p>
+    </div>
+    <div id="device-out" class="card"><p class="muted">Midiendo…</p></div>
+    <details class="danger">
+      <summary>Prueba de memoria real (puede cerrar la pestaña)</summary>
+      <p>Reserva memoria en pasos de 32 MB hasta que el navegador diga basta. En iOS, cuando se pasa,
+         <strong>la pestaña muere sin aviso</strong>: no hay excepción que atrapar. Es exactamente lo que
+         le pasaría a un modelo local. Guarda lo que tengas antes de pulsar.</p>
+      <div class="row">
+        <label>Tope <input id="mem-top" type="number" value="512" min="64" max="4096" step="32"></label>
+        <button id="mem-run" class="btn btn--danger">Medir hasta romper</button>
+      </div>
+      <div id="mem-out" class="mono"></div>
+    </details>
+  </section>
+
+  <!-- ============ 2 · MOTOR ============ -->
+  <section id="sec-engine">
+    <div class="head">
+      <span class="label">2 · Chispa Engine</span>
+      <h2>El motor sin modelo generativo</h2>
+      <p class="sub">Detecta intención, consulta el perfil, pregunta solo lo que falta, calcula con fórmulas
+         y responde con plantillas. Funciona sin conexión, sin descargas y sin costo.</p>
+    </div>
+
+    <div class="card">
+      <h3>Perfil del emprendimiento de prueba</h3>
+      <div class="grid2">
+        <label>Negocio <input id="p-negocio" placeholder="Lumina 3D"></label>
+        <label>Zona <input id="p-lugar" placeholder="Guadalajara"></label>
+        <label class="wide">Producto <input id="p-producto" placeholder="lámparas de mesa impresas en 3D"></label>
+        <label class="wide">Cliente <input id="p-cliente" placeholder="personas que están decorando"></label>
+        <label>Sector
+          <select id="p-sector">
+            <option value="">—</option>
+            <option value="hechoamano">Hecho a mano</option>
+            <option value="comida">Comida</option>
+            <option value="servicios">Servicios</option>
+            <option value="digital">Digital</option>
+            <option value="reventa">Reventa</option>
+          </select>
+        </label>
+        <label>Etapa
+          <select id="p-etapa">
+            <option value="">—</option>
+            <option value="idea">Solo la idea</option>
+            <option value="starting">Comenzando</option>
+            <option value="operating">Operando</option>
+            <option value="growing">Creciendo</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <button id="p-demo" class="btn btn--ghost">Cargar perfil de prueba</button>
+        <button id="p-clear" class="btn btn--ghost">Borrar memoria del laboratorio</button>
+      </div>
+      <div id="p-memoria" class="mono small"></div>
+    </div>
+
+    <div class="card">
+      <div id="chat" class="chat"></div>
+      <div class="chat-quick" id="quick"></div>
+      <div class="row">
+        <input id="chat-in" placeholder="¿En cuánto debo vender mi producto?" autocomplete="off">
+        <button id="chat-send" class="btn">Enviar</button>
+      </div>
+      <label class="check">
+        <input type="checkbox" id="usar-modelo"> Usar el modelo local para redactar cuando el motor lo permita
+      </label>
+    </div>
+  </section>
+
+  <!-- ============ 3 · CONOCIMIENTO ============ -->
+  <section id="sec-kb">
+    <div class="head">
+      <span class="label">3 · Base de conocimiento</span>
+      <h2>Recuperar solo lo relevante</h2>
+      <p class="sub">Índice invertido con filtro por sector y etapa. Es lo que se le pasa al modelo cuando
+         hay modelo: fragmentos, no la base entera.</p>
+    </div>
+    <div class="card">
+      <div class="row">
+        <input id="kb-q" placeholder="cuanto cobro por mis lamparas" autocomplete="off">
+        <button id="kb-go" class="btn">Buscar</button>
+      </div>
+      <div id="kb-out"></div>
+      <p class="muted small" id="kb-meta"></p>
+    </div>
+  </section>
+
+  <!-- ============ 4 · MODELO LOCAL ============ -->
+  <section id="sec-model">
+    <div class="head">
+      <span class="label">4 · IA local de Chispa</span>
+      <h2>Descarga opcional</h2>
+      <p class="sub">Nada se baja solo. Cada modelo muestra su peso real leído del catálogo oficial de WebLLM
+         y si este equipo puede con él.</p>
+    </div>
+    <div class="card">
+      <button id="cat-load" class="btn">Consultar el catálogo de modelos</button>
+      <p class="muted small">Descarga la biblioteca WebLLM desde un CDN (~1 MB). Los pesos del modelo no se
+         bajan hasta que elijas uno.</p>
+      <div id="cat-out"></div>
+    </div>
+    <div class="card" id="dl-card" hidden>
+      <h3 id="dl-name"></h3>
+      <div class="bar"><div class="bar__fill" id="dl-fill"></div></div>
+      <p class="mono small" id="dl-text"></p>
+      <div class="row">
+        <button id="dl-cancel" class="btn btn--ghost">Cancelar</button>
+        <button id="dl-free" class="btn btn--ghost">Liberar memoria</button>
+        <button id="dl-delete" class="btn btn--danger">Borrar del dispositivo</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5 · PRUEBAS ============ -->
+  <section id="sec-bench">
+    <div class="head">
+      <span class="label">5 · Banco de pruebas</span>
+      <h2>Los ocho casos</h2>
+      <p class="sub">Mismo perfil, mismas entradas, revisión automática. El caso 8 no admite opinión:
+         o el JSON parsea o no parsea.</p>
+    </div>
+    <div class="card">
+      <div class="row">
+        <button id="bench-engine" class="btn">Correr contra Chispa Engine</button>
+        <button id="bench-model" class="btn btn--ghost">Correr contra el modelo local</button>
+      </div>
+      <div id="bench-out"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>Prototipo aislado · sin service worker propio · sin acceso al progreso de Emprendo</p>
+</footer>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
