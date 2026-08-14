@@ -221,6 +221,7 @@
     if (isOn()) {
       return call([{ role: 'user', content: user }], { system: sistema, maxTokens: tope });
     }
+    if (hayLocal()) return pedirLocal(user, sistema, tope);
     if (hayWorker()) {
       return w.AIWorker.pedir(user, { sistema: sistema, maxTokens: tope });
     }
@@ -369,15 +370,29 @@
      ------------------------------------------------------------------------ */
 
   function hayWorker() { return !!(w.AIWorker && w.AIWorker.disponible()); }
+  function hayLocal() { return !!(w.LocalAI && w.LocalAI.disponible()); }
 
   /** ¿Puede responder alguna IA ahora mismo? Es lo que debe preguntar el resto
       de la app: `isOn()` solo habla de la clave personal. */
-  function disponible() { return isOn() || hayWorker(); }
+  function disponible() { return isOn() || hayLocal() || hayWorker(); }
 
   function proveedor() {
     if (isOn()) return 'clave';
+    if (hayLocal()) return 'local';
     if (hayWorker()) return 'gratuita';
     return null;
+  }
+
+  /* El modelo local va por delante de la nube: ya está descargado, no gasta
+     cuota de nadie, funciona sin conexión y no manda los datos del negocio a
+     ningún sitio. Solo la clave personal lo adelanta, porque configurarla es
+     una decisión explícita de querer un modelo mejor. */
+  function pedirLocal(texto, sistema, tope) {
+    return w.LocalAI.generar(texto, { sistema: sistema, maxTokens: tope })
+      .then(function (r) {
+        if (!r || !r.texto) throw new Error('El modelo local devolvió una respuesta vacía.');
+        return r.texto;
+      });
   }
 
   /** Historial reciente en el formato que espera el Worker. */
@@ -398,6 +413,7 @@
   /** Pregunta del chat, con el contexto del negocio y el historial reciente. */
   function ask(text) {
     if (isOn()) return call(buildMessages(text));
+    if (hayLocal()) return pedirLocal(text, systemPrompt(), 400);
     if (hayWorker()) {
       return w.AIWorker.pedir(text, {
         sistema: systemPrompt(),

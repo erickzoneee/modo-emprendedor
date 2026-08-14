@@ -560,6 +560,224 @@
     ]));
   }
 
+  /* ------------------------- IA local de Chispa ------------------------- */
+
+  function iaLocalCard() {
+    if (!w.LocalAI || !w.LocalAI.soportado()) return null;
+    var card = el('div', { class: 'card card--tight', style: { textAlign: 'left' } });
+
+    function paint() {
+      UI.clear(card);
+      var instalado = w.LocalAI.instalado();
+      var enMemoria = w.LocalAI.listo();
+      var m = instalado ? w.LocalAI.modelo(instalado) : null;
+
+      card.appendChild(el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+        el('span', { style: { fontSize: '22px', flex: 'none' }, text: enMemoria ? '🧠' : '💾' }),
+        el('div', { class: 'grow', style: { minWidth: '0' } }, [
+          el('div', { class: 'small', style: { fontWeight: '900' }, text: 'IA local de Chispa' }),
+          el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', lineHeight: '1.5' },
+            text: instalado
+              ? (m ? m.nombre : instalado) + (enMemoria ? ' · cargada y lista' : ' · descargada, se carga al usarla')
+              : 'Un modelo que corre dentro de tu dispositivo: sin conexión, sin costo y sin que tus datos salgan de aquí.' })
+        ])
+      ]));
+
+      var acciones = el('div', { class: 'row wrap', style: { gap: '8px', marginTop: '12px' } });
+      acciones.appendChild(UI.btn(instalado ? 'Administrar' : 'Ver si tu equipo puede', {
+        variant: instalado ? 'ghost' : 'brand', size: 'sm', block: false,
+        onClick: function () { localSheet(paint); }
+      }));
+      card.appendChild(acciones);
+    }
+
+    paint();
+    return card;
+  }
+
+  /** Todo lo que hay que saber ANTES de descargar cientos de megabytes.
+      Si el equipo no puede, no aparece ningún botón: se explica por qué. */
+  function localSheet(onChange) {
+    var cuerpo = el('div', { class: 'col', style: { gap: '12px' } });
+    var sheet = UI.sheet([
+      el('div', { class: 'row', style: { gap: '12px', alignItems: 'flex-start' } }, [
+        el('span', { style: { fontSize: '30px', flex: 'none' }, text: '🧠' }),
+        el('div', { class: 'grow' }, [
+          el('h2', { class: 'h3', text: 'IA local de Chispa' }),
+          el('div', { class: 'small', style: { marginTop: '4px' },
+            text: 'Se descarga una vez y después funciona sin internet. Nada de lo que escribas sale de tu dispositivo.' })
+        ])
+      ]),
+      cuerpo
+    ]);
+
+    cuerpo.appendChild(el('div', { class: 'row center', style: { padding: '20px' } }, [
+      el('span', { class: 'dots' }, [el('i'), el('i'), el('i')])
+    ]));
+
+    w.LocalAI.diagnosticar(true).then(function (d) {
+      return w.LocalAI.catalogo().then(function (lista) { pintarDiagnostico(d, lista); });
+    }).catch(function (e) {
+      UI.clear(cuerpo);
+      cuerpo.appendChild(el('div', { class: 'small', text: 'No se pudo revisar el equipo: ' + e.message }));
+    });
+
+    function pintarDiagnostico(d, lista) {
+      UI.clear(cuerpo);
+
+      // Ficha del equipo: lo que se comprobó, en cristiano.
+      cuerpo.appendChild(el('div', { class: 'card card--tight', style: { textAlign: 'left' } }, [
+        el('div', { class: 'tiny', text: 'Tu equipo' }),
+        el('div', { class: 'small', style: { marginTop: '6px', lineHeight: '1.6' },
+          text: d.os + ' · ' + d.navegador +
+                (d.ram ? ' · ' + d.ram + ' GB de memoria' : '') +
+                (d.nucleos ? ' · ' + d.nucleos + ' núcleos' : '') +
+                '\nWebGPU: ' + (d.gpu.disponible ? 'sí' + (d.gpu.maxBufferMB ? ' (hasta ' + d.gpu.maxBufferMB + ' MB por bloque)' : '') : 'no') +
+                (d.disco ? '\nEspacio libre para este sitio: ' + d.disco.libreMB + ' MB' : '') })
+      ]));
+
+      if (!d.puede) {
+        cuerpo.appendChild(el('div', { class: 'card card--tight', style: { background: 'var(--red-soft)', borderColor: 'var(--red)' } }, [
+          el('div', { class: 'small', style: { fontWeight: '900', color: 'var(--red-dark)' },
+            text: 'Este equipo no puede con la IA local' }),
+          el('div', { class: 'small', style: { marginTop: '6px' }, text: d.motivo })
+        ]));
+        cuerpo.appendChild(el('div', { class: 'small', style: { marginTop: '4px' },
+          text: 'No pasa nada: Chispa responde igual con sus reglas, sus fórmulas y su base de conocimiento. ' +
+                'Y si conectas la IA gratuita de Emprendo, también tienes modelo, solo que en la nube.' }));
+        cuerpo.appendChild(UI.btn('Entendido', { variant: 'ghost', onClick: UI.closeSheet }));
+        return;
+      }
+
+      d.avisos.forEach(function (a) {
+        cuerpo.appendChild(el('div', { class: 'tiny', style: { color: 'var(--gold-dark)', textTransform: 'none', letterSpacing: '0' }, text: '⚠️ ' + a }));
+      });
+
+      var instalado = w.LocalAI.instalado();
+
+      cuerpo.appendChild(el('div', { class: 'card card--tight', style: { background: 'var(--gold-soft)', borderColor: 'var(--gold)' } }, [
+        el('div', { class: 'small', style: { fontWeight: '900', color: 'var(--gold-dark)' }, text: 'Antes de descargar' }),
+        el('div', { class: 'tiny', style: { marginTop: '8px', textTransform: 'none', letterSpacing: '0', lineHeight: '1.7' },
+          text: '· Es una descarga grande: hazla con wifi, no con datos.\n' +
+                '· Mientras genera, el equipo trabaja al máximo: gasta batería y calienta.\n' +
+                '· La calidad es la de un modelo pequeño. Sirve para redactar y proponer; ' +
+                'para los números sigue mandando la fórmula de Chispa, que no se equivoca.\n' +
+                '· Puedes borrarlo cuando quieras y recuperar el espacio.' })
+      ]));
+
+      lista.forEach(function (m) {
+        var fila = el('div', { class: 'card card--tight', style: { textAlign: 'left', opacity: m.cabe ? '1' : '.6' } }, [
+          el('div', { class: 'row', style: { gap: '8px' } }, [
+            el('span', { class: 'small grow', style: { fontWeight: '900' }, text: m.nombre }),
+            m.recomendado ? UI.chip('Recomendado', 'green') : null,
+            instalado === m.id ? UI.chip('Instalado', 'teal', '✓') : null
+          ]),
+          el('div', { class: 'tiny', style: { marginTop: '6px', textTransform: 'none', letterSpacing: '0' },
+            text: m.mb + ' MB de descarga · licencia ' + m.licencia }),
+          el('div', { class: 'small', style: { marginTop: '6px' }, text: m.calidad }),
+          m.cabe ? null : el('div', { class: 'tiny', style: { marginTop: '6px', color: 'var(--red-dark)', textTransform: 'none', letterSpacing: '0' }, text: m.porque })
+        ]);
+
+        if (m.cabe && instalado !== m.id) {
+          fila.appendChild(el('div', { style: { marginTop: '10px' } }, [
+            UI.btn('Descargar ' + m.mb + ' MB', { variant: 'brand', size: 'sm',
+              onClick: function () { descargar(m); } })
+          ]));
+        }
+        cuerpo.appendChild(fila);
+      });
+
+      if (instalado) {
+        cuerpo.appendChild(el('h3', { class: 'sep', text: 'Modelo instalado' }));
+
+        // Al recargar la app el modelo sigue en disco pero no en memoria, y
+        // nada lo carga solo: hacerlo al arrancar le costaría memoria de GPU a
+        // todo el mundo. Se carga cuando el usuario lo pide, en un segundo.
+        if (!w.LocalAI.listo()) {
+          cuerpo.appendChild(UI.btn('Cargar en memoria (unos segundos)', {
+            variant: 'brand', size: 'sm',
+            onClick: function () {
+              var m2 = w.LocalAI.modelo(instalado);
+              descargar(m2 || { id: instalado, nombre: 'el modelo', mb: 0 });
+            }
+          }));
+        }
+
+        cuerpo.appendChild(UI.btn('Liberar memoria (sigue descargado)', {
+          variant: 'ghost', size: 'sm',
+          onClick: function () {
+            w.LocalAI.liberar().then(function () {
+              UI.toast('Memoria liberada', 'blue', '🧹');
+              if (onChange) onChange();
+            });
+          }
+        }));
+        cuerpo.appendChild(UI.btn('Borrar del dispositivo', {
+          variant: 'flat',
+          onClick: function () {
+            UI.confirm({
+              title: '¿Borrar la IA local?',
+              text: 'Se libera todo el espacio. Puedes volver a descargarla cuando quieras.',
+              ok: 'Sí, borrar', danger: true, mood: 'think'
+            }).then(function (si) {
+              if (!si) return;
+              w.LocalAI.borrar().then(function () {
+                UI.toast('Modelo borrado', 'green', '🗑️');
+                UI.closeSheet();
+                if (onChange) onChange();
+              });
+            });
+          }
+        }));
+      }
+    }
+
+    function descargar(m) {
+      UI.clear(cuerpo);
+      var barra = UI.pbar(0, 'brand');
+      var linea = el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', minHeight: '32px' },
+        text: 'Preparando la descarga…' });
+
+      cuerpo.appendChild(el('div', { class: 'col', style: { gap: '10px' } }, [
+        el('div', { class: 'small', style: { fontWeight: '900' }, text: 'Descargando ' + m.nombre }),
+        barra, linea,
+        el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0' },
+          text: 'Puedes seguir usando la app; no cierres esta pantalla.' })
+      ]));
+
+      var cancelarBtn = UI.btn('Cancelar la descarga', { variant: 'flat', onClick: function () {
+        w.LocalAI.cancelar().then(function () {
+          UI.closeSheet();
+          UI.toast('Descarga cancelada', 'blue', '✋');
+          if (onChange) onChange();
+        });
+      } });
+      cuerpo.appendChild(cancelarBtn);
+
+      w.LocalAI.instalar(m.id, function (p) {
+        if (barra.setFill) barra.setFill(p.porcentaje);
+        linea.textContent = p.porcentaje + '% · ' + (p.texto || '');
+      }).then(function () {
+        UI.closeSheet();
+        UI.toast('IA local lista. Chispa la usará cuando aporte algo.', 'green', '🧠', 4200);
+        w.Sound.complete();
+        if (onChange) onChange();
+      }).catch(function (e) {
+        if (/cancelad/i.test(e.message)) return;
+        UI.clear(cuerpo);
+        cuerpo.appendChild(el('div', { class: 'card card--tight', style: { background: 'var(--red-soft)', borderColor: 'var(--red)' } }, [
+          el('div', { class: 'small', style: { color: 'var(--red-dark)', fontWeight: '800' }, text: 'No se pudo instalar' }),
+          el('div', { class: 'small', style: { marginTop: '6px' }, text: e.message })
+        ]));
+        cuerpo.appendChild(el('div', { class: 'small', text: 'Chispa sigue funcionando igual sin esto.' }));
+        cuerpo.appendChild(UI.btn('Cerrar', { variant: 'ghost', onClick: UI.closeSheet }));
+        if (onChange) onChange();
+      });
+    }
+
+    return sheet;
+  }
+
   /* ------------------------- Mentor con IA ------------------------- */
 
   function aiCard() {
@@ -742,6 +960,9 @@
     // La gratuita primero: es la que va a usar casi todo el mundo.
     var gratis = iaGratuitaCard();
     if (gratis) col.appendChild(gratis);
+
+    var local = iaLocalCard();
+    if (local) col.appendChild(local);
 
     var ia = aiCard();
     if (ia) col.appendChild(ia);

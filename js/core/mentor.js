@@ -638,6 +638,9 @@
 
   w.Mentor = {
     PASS_MARK: PASS_MARK,
+    // Chispa lo consulta para saber si existe una respuesta escrita a mano
+    // para este tema antes de conformarse con un fragmento de la base.
+    matchIntent: matchIntent,
     evaluate: evaluate,
     quickFeedback: quickFeedback,
     reply: reply,

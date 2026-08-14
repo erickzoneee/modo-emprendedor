@@ -705,9 +705,15 @@
      ninguna clave.
      ================================================================== */
 
+  /* Además de los artículos y preposiciones habituales, aquí van los verbos
+     que en una pregunta no dicen nada del tema. "Qué hago con el inventario"
+     y "cuánto hago de utilidad" comparten "hago" y no tienen nada que ver:
+     dejarlo en el índice hacía que una entrada ganara por esa casualidad. */
   var VACIAS = ('de la el los las un una unos unas y o que en a al del mi mis tu tus su sus se por para ' +
     'con sin es son lo me te le como mas muy si no ya pero porque esto esta este ser hay sobre desde ' +
-    'cuando donde cual quien tiene tengo hacer').split(' ');
+    'cuando donde cual quien tiene tengo hacer hago haces hace hacen haga puedo puede puedes debo debes ' +
+    'quiero quieres sabes dime dame ayuda ayudame mejor forma manera cosa cosas algo alguien nada todo ' +
+    'ahora luego antes despues entonces bien mal poco mucho otra otro cada solo aqui alli asi').split(' ');
 
   function normalizar(s) {
     return String(s == null ? '' : s)
@@ -771,6 +777,9 @@
 
     var rs = raices(texto);
     var puntos = {};
+    var aciertos = {};      // id -> cuántas raíces distintas de la consulta cubre
+    var totalRaices = 0;
+    for (var q0 in rs) if (Object.prototype.hasOwnProperty.call(rs, q0)) totalRaices++;
 
     function sumar(mapa, factor) {
       for (var r in rs) {
@@ -781,6 +790,8 @@
         var peso = factor / Math.log(2 + ids.length);
         for (var i = 0; i < ids.length; i++) {
           puntos[ids[i]] = (puntos[ids[i]] || 0) + peso;
+          if (!aciertos[ids[i]]) aciertos[ids[i]] = {};
+          aciertos[ids[i]][r] = true;
         }
       }
     }
@@ -820,6 +831,16 @@
       // pregunta por algo que "todavía no le toca", es porque le importa hoy;
       // esconderlo sería peor que responderlo. Solo pesa menos.
       var p = puntos[id];
+
+      /* Cobertura: compartir una palabra de cinco no es una coincidencia, es
+         una casualidad. Sin esto, "qué hago con el inventario" devolvía
+         "Producir antes de validar" solo porque ambas contienen "hago". */
+      if (totalRaices > 1) {
+        var cubiertas = 0;
+        for (var k in aciertos[id]) if (Object.prototype.hasOwnProperty.call(aciertos[id], k)) cubiertas++;
+        p *= 0.35 + 0.65 * (cubiertas / totalRaices);
+      }
+
       if (filtro.sector && e.sectores.indexOf(filtro.sector) >= 0) p *= 1.6;
       else if (!sectorOk) p *= 0.5;
       if (filtro.etapa && e.etapas.indexOf(filtro.etapa) >= 0) p *= 1.25;

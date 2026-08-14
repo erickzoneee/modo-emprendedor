@@ -17,7 +17,7 @@
    ========================================================================== */
 'use strict';
 
-var VERSION = 'modo-emprendedor-v1.5.0';
+var VERSION = 'modo-emprendedor-v1.6.0';
 
 /* Todo lo que hace falta para arrancar sin red. Rutas relativas al ámbito del
    service worker: en GitHub Pages la app vive en /modo-emprendedor/, no en la
@@ -49,6 +49,9 @@ var PRECACHE = [
   './js/core/speech.js',
   './js/core/venture.js',
   './js/core/ai-worker.js',
+  // js/local/motor.mjs NO va aquí a propósito: la IA local se descarga solo si
+  // el usuario la pide, y la app debe pesar lo mismo para quien no la quiera.
+  './js/core/local-ai.js',
   './js/core/ai.js',
   './js/core/personalize.js',
   './js/core/chispa.js',

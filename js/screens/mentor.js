@@ -231,24 +231,59 @@
     return respuestaLocal(text, r);
   }
 
-  /** Sin IA disponible, el conocimiento recuperado sigue sirviendo: es mejor
-      una entrada concreta de la base que una respuesta genérica. */
+  /** Sin IA disponible hay dos cosas que sí existen, y en este orden:
+
+      1. una respuesta escrita a mano para ese tema, de las 26 del mentor. Están
+         desarrolladas y explican el porqué; un fragmento suelto de la base no
+         se les acerca.
+      2. si no hay ninguna, el conocimiento recuperado, que al menos es del tema.
+
+      Lo que nunca se usa mientras haya algo mejor es el comodín genérico. */
   function respuestaLocal(text, r) {
     var think = typing();
     setTimeout(function () {
       think.remove();
+
+      var escrita = w.Mentor.matchIntent ? w.Mentor.matchIntent(text) : null;
+      if (escrita) {
+        var loc = w.Mentor.reply(text);
+        pushBot(loc.text);
+        // El conocimiento recuperado se ofrece como complemento, no lo pisa.
+        var extra = complemento(r, escrita);
+        if (extra) setTimeout(function () { pushBot(extra); }, 500);
+        paintQuick(loc.follow && loc.follow.length ? loc.follow.slice(0, 3).concat(sugerenciasChispa().slice(0, 2))
+                                                  : sugerenciasChispa());
+        w.Sound.select();
+        return;
+      }
+
       if (r && r.fuentes && r.fuentes.length) {
         var f = r.fuentes[0];
         pushBot('**' + f.titulo + '**\n\n' + f.cuerpo +
-          '\n\nSi quieres, dime “calcular precio”, “mi cliente ideal” o “un desafío para hoy” y lo trabajamos con tus números.');
+          '\n\nSi quieres, dime “calcular un precio”, “tu cliente ideal” o “un desafío para hoy” y lo trabajamos con tus números.');
         paintQuick(sugerenciasChispa());
-      } else {
-        var loc = w.Mentor.reply(text);
-        pushBot(loc.text);
-        paintQuick(loc.follow && loc.follow.length ? loc.follow.concat(KB.QUICK.slice(0, 3)) : sugerenciasChispa());
+        w.Sound.select();
+        return;
       }
+
+      var fb = w.Mentor.reply(text);
+      pushBot(fb.text);
+      paintQuick(sugerenciasChispa());
       w.Sound.select();
     }, 380);
+  }
+
+  /** Una segunda entrada de la base, solo si aporta algo distinto de lo ya
+      dicho. Repetir el mismo consejo con otras palabras cansa. */
+  function complemento(r, intencionEscrita) {
+    if (!r || !r.fuentes || !r.fuentes.length) return null;
+    var f = r.fuentes[0];
+    // Los ejemplos y los errores concretos son lo que más suma a una
+    // explicación general; las reglas suelen decir lo mismo otra vez.
+    if (f.tipo !== 'ejemplo' && f.tipo !== 'error' && f.tipo !== 'diagnostico') return null;
+    var titulo = w.Mentor.util.norm(f.titulo);
+    if (titulo && w.Mentor.util.norm(intencionEscrita.title || '').indexOf(titulo) >= 0) return null;
+    return '**' + f.titulo + '**\n\n' + f.cuerpo;
   }
 
   function sugerenciasChispa() {

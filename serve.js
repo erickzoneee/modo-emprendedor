@@ -13,6 +13,9 @@ const ROOT = __dirname;
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  // Sin este tipo el navegador se niega a ejecutar un módulo ES: la IA local
+  // fallaría solo en local, no en GitHub Pages, que sí lo sirve bien.
+  '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   // Sin este tipo, Chrome ignora el manifest y la app no se puede instalar.
