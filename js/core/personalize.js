@@ -405,7 +405,8 @@
      PUENTE CON LA IA
      ================================================================== */
 
-  function aiOn() { return !!(w.AI && w.AI.isOn() && w.AI.generate); }
+  /** Cualquier IA sirve: la gratuita de Emprendo o la clave del usuario. */
+  function aiOn() { return !!(w.AI && w.AI.disponible() && w.AI.generate); }
 
   /** Pinta el texto determinista y lo sustituye si la IA devuelve algo mejor.
       `apply(text, fuente)` se llama una o dos veces; nunca deja hueco vacío. */

@@ -214,18 +214,23 @@
       payload: { instruccion, datos, maxTokens } */
   function generate(kind, payload) {
     payload = payload || {};
-    if (!isOn()) return Promise.reject(new Error('La IA no está activa.'));
-    var user = (payload.datos || '') + '\n\nEscribe ahora el texto para: ' + kind + '.';
-    return call([{ role: 'user', content: user.trim() }], {
-      system: taskPrompt(payload.instruccion || 'Escribe el contenido solicitado.'),
-      maxTokens: payload.maxTokens || 400
-    });
+    var user = ((payload.datos || '') + '\n\nEscribe ahora el texto para: ' + kind + '.').trim();
+    var sistema = taskPrompt(payload.instruccion || 'Escribe el contenido solicitado.');
+    var tope = payload.maxTokens || 400;
+
+    if (isOn()) {
+      return call([{ role: 'user', content: user }], { system: sistema, maxTokens: tope });
+    }
+    if (hayWorker()) {
+      return w.AIWorker.pedir(user, { sistema: sistema, maxTokens: tope });
+    }
+    return sinIA();
   }
 
   /** Repreguntas de registro: qué falta saber para personalizar de verdad.
       Devuelve un array de preguntas cortas (0 a 3). */
   function intakeQuestions(core, faltantes) {
-    if (!isOn()) return Promise.reject(new Error('La IA no está activa.'));
+    if (!disponible()) return Promise.reject(new Error('La IA no está activa.'));
     var datos = [
       'Idea: ' + (core.idea || '(vacío)'),
       'Producto o servicio: ' + (core.offer || '(vacío)'),
@@ -234,19 +239,22 @@
       'Objetivo: ' + (core.goalText || core.goalKey || '(vacío)')
     ].join('\n');
 
-    return call([{ role: 'user', content: datos }], {
-      system: [
-        'Eres el registro de una app para emprendedores. Acabas de recibir lo que el',
-        'usuario escribió sobre su idea. Tu tarea: decidir qué falta saber para poder',
-        'personalizar toda la app a su negocio.',
-        '',
-        'Devuelve como MÁXIMO ' + (faltantes || 2) + ' preguntas, una por línea, sin numerar y sin',
-        'ningún otro texto. Cada pregunta debe ser corta (menos de 14 palabras), en',
-        'español de tú, y sobre algo que él pueda contestar en una frase.',
-        'Si la información ya alcanza para personalizar, devuelve exactamente: OK'
-      ].join('\n'),
-      maxTokens: 160, timeout: 20000
-    }).then(function (r) {
+    var sistema = [
+      'Eres el registro de una app para emprendedores. Acabas de recibir lo que el',
+      'usuario escribió sobre su idea. Tu tarea: decidir qué falta saber para poder',
+      'personalizar toda la app a su negocio.',
+      '',
+      'Devuelve como MÁXIMO ' + (faltantes || 2) + ' preguntas, una por línea, sin numerar y sin',
+      'ningún otro texto. Cada pregunta debe ser corta (menos de 14 palabras), en',
+      'español de tú, y sobre algo que él pueda contestar en una frase.',
+      'Si la información ya alcanza para personalizar, devuelve exactamente: OK'
+    ].join('\n');
+
+    var peticion = isOn()
+      ? call([{ role: 'user', content: datos }], { system: sistema, maxTokens: 160, timeout: 20000 })
+      : w.AIWorker.pedir(datos, { sistema: sistema, maxTokens: 160, timeout: 20000 });
+
+    return peticion.then(function (r) {
       if (/^\s*ok\s*$/i.test(r)) return [];
       return r.split('\n')
         .map(function (x) { return x.replace(/^[\s\-\*\d\.\)]+/, '').trim(); })
@@ -348,9 +356,56 @@
     });
   }
 
+  /* ------------------------- Elección de proveedor -------------------------
+
+     Dos vías, y el orden importa:
+
+       1. la clave personal del usuario, si la configuró y está encendida;
+       2. la IA gratuita de Emprendo (el Worker), para todos los demás.
+
+     La clave personal va primero a propósito, aunque cueste dinero: quien la
+     configuró lo hizo para tener un modelo mejor, y usar el gratuito por
+     detrás sin avisar sería tomar por él una decisión que ya tomó.
+     ------------------------------------------------------------------------ */
+
+  function hayWorker() { return !!(w.AIWorker && w.AIWorker.disponible()); }
+
+  /** ¿Puede responder alguna IA ahora mismo? Es lo que debe preguntar el resto
+      de la app: `isOn()` solo habla de la clave personal. */
+  function disponible() { return isOn() || hayWorker(); }
+
+  function proveedor() {
+    if (isOn()) return 'clave';
+    if (hayWorker()) return 'gratuita';
+    return null;
+  }
+
+  /** Historial reciente en el formato que espera el Worker. */
+  function historialReciente() {
+    var hist = (w.Store && w.Store.state.chat) || [];
+    var out = [];
+    hist.slice(-4).forEach(function (m) {
+      if (!m || !m.text) return;
+      out.push({ role: m.who === 'me' ? 'user' : 'assistant', content: String(m.text) });
+    });
+    return out;
+  }
+
+  function sinIA() {
+    return Promise.reject(new Error('No hay ninguna IA configurada.'));
+  }
+
   /** Pregunta del chat, con el contexto del negocio y el historial reciente. */
   function ask(text) {
-    return call(buildMessages(text));
+    if (isOn()) return call(buildMessages(text));
+    if (hayWorker()) {
+      return w.AIWorker.pedir(text, {
+        sistema: systemPrompt(),
+        historial: historialReciente(),
+        maxTokens: 400
+      });
+    }
+    return sinIA();
   }
 
   /** Comprobación barata de que la clave y el modelo funcionan. */
@@ -373,6 +428,7 @@
     MODELS: MODELS,
     config: config, setConfig: setConfig, forget: forget,
     hasKey: hasKey, isOn: isOn, looksLikeKey: looksLikeKey, modelName: modelName,
+    disponible: disponible, proveedor: proveedor,
     systemPrompt: systemPrompt, taskPrompt: taskPrompt, businessContext: businessContext,
     ask: ask, test: test, call: call,
     generate: generate, intakeQuestions: intakeQuestions

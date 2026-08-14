@@ -463,7 +463,7 @@
     ]));
 
     // Si el usuario ya tiene su IA configurada, las repreguntas las afina ella.
-    if (w.AI && w.AI.isOn()) {
+    if (w.AI && w.AI.disponible()) {
       w.AI.intakeQuestions(draftCore(), followUps.length).then(function (qs) {
         if (!qs || !qs.length) return;
         var campos = UI.qsa('.field__label', col);

@@ -227,7 +227,7 @@
     }
 
     // Nivel 7: el motor no tiene plantilla, pero sí los hechos.
-    if (w.AI && w.AI.isOn()) return askAI(text, r.prompt);
+    if (w.AI && w.AI.disponible()) return askAI(text, r.prompt);
     return respuestaLocal(text, r);
   }
 

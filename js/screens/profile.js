@@ -438,6 +438,128 @@
     ]);
   }
 
+  /* ------------------------- IA gratuita de Emprendo ------------------------- */
+
+  function iaGratuitaCard() {
+    if (!w.AIWorker) return null;
+    var card = el('div', { class: 'card card--tight', style: { textAlign: 'left' } });
+
+    function paint() {
+      UI.clear(card);
+      var c = w.AIWorker.config();
+      var activa = w.AIWorker.disponible();
+      var quedan = w.AIWorker.restante();
+
+      card.appendChild(el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+        el('span', { style: { fontSize: '22px', flex: 'none' }, text: activa ? '⚡' : '☁️' }),
+        el('div', { class: 'grow', style: { minWidth: '0' } }, [
+          el('div', { class: 'small', style: { fontWeight: '900' }, text: 'IA gratuita de Emprendo' }),
+          el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', lineHeight: '1.5' },
+            text: activa
+              ? 'Activa. Te quedan ' + quedan + ' de ' + w.AIWorker.TOPE_DIARIO + ' consultas hoy.'
+              : 'Sin configurar. Chispa responde igual con sus reglas y cálculos; la IA solo entra cuando aporta algo que una plantilla no puede.' })
+        ])
+      ]));
+
+      if (activa) {
+        card.appendChild(el('div', { style: { marginTop: '10px' } }, [
+          UI.pbar((quedan / w.AIWorker.TOPE_DIARIO) * 100, quedan > 5 ? 'green' : 'gold', true)
+        ]));
+      }
+
+      card.appendChild(el('div', { class: 'row wrap', style: { gap: '8px', marginTop: '12px' } }, [
+        UI.btn(c.url ? 'Ajustar' : 'Conectar', { variant: 'ghost', size: 'sm', block: false,
+          onClick: function () { workerSheet(paint); } })
+      ]));
+    }
+
+    paint();
+    return card;
+  }
+
+  function workerSheet(onChange) {
+    var c = w.AIWorker.config();
+    var input = el('input', {
+      class: 'input', type: 'url', autocomplete: 'off', spellcheck: 'false',
+      placeholder: 'https://chispa.tu-cuenta.workers.dev'
+    });
+    input.value = c.url || '';
+
+    var estado = el('div', { class: 'tiny t-center',
+      style: { textTransform: 'none', letterSpacing: '0', minHeight: '18px' } });
+
+    var guardar = UI.btn('Probar y activar', { variant: 'brand', size: 'lg', onClick: function () {
+      var url = (input.value || '').trim();
+      if (!url) { UI.toast('Pega la dirección primero', 'red', '🔗'); return; }
+      estado.textContent = 'Probando la conexión…';
+      guardar.disabled = true;
+      w.AIWorker.probar(url).then(function () {
+        w.AIWorker.setConfig({ url: url, on: true });
+        guardar.disabled = false;
+        UI.closeSheet();
+        UI.toast('IA de Emprendo activada', 'green', '⚡', 3200);
+        if (onChange) onChange();
+      }).catch(function (err) {
+        guardar.disabled = false;
+        estado.textContent = (err && err.message) || 'No se pudo conectar.';
+        w.Sound.alert();
+      });
+    } });
+
+    var acciones = [guardar];
+    if (c.url) {
+      acciones.push(UI.btn(c.on ? 'Desactivar' : 'Activar sin volver a probar', {
+        variant: 'ghost',
+        onClick: function () {
+          w.AIWorker.setConfig({ on: !c.on });
+          UI.closeSheet();
+          UI.toast(c.on ? 'IA de Emprendo desactivada' : 'IA de Emprendo activada', c.on ? 'blue' : 'green', '⚡');
+          if (onChange) onChange();
+        }
+      }));
+      acciones.push(UI.btn('Olvidar esta dirección', {
+        variant: 'flat',
+        onClick: function () {
+          w.AIWorker.olvidar();
+          UI.closeSheet();
+          UI.toast('Dirección borrada', 'blue', '🗑️');
+          if (onChange) onChange();
+        }
+      }));
+    }
+
+    UI.sheet([
+      el('div', { class: 'row', style: { gap: '12px', alignItems: 'flex-start' } }, [
+        el('span', { style: { fontSize: '30px', flex: 'none' }, text: '⚡' }),
+        el('div', { class: 'grow' }, [
+          el('h2', { class: 'h3', text: 'IA gratuita de Emprendo' }),
+          el('div', { class: 'small', style: { marginTop: '4px' },
+            text: 'La IA que no cuesta nada ni a ti ni a nadie. No necesitas cuenta ni clave: solo la dirección del servidor de Emprendo.' })
+        ])
+      ]),
+
+      el('div', { class: 'card card--tight', style: { textAlign: 'left' } }, [
+        el('div', { class: 'small', style: { fontWeight: '900' }, text: 'Qué conviene saber' }),
+        el('div', { class: 'tiny', style: { marginTop: '8px', textTransform: 'none', letterSpacing: '0', lineHeight: '1.7' },
+          text: '· Tus mensajes y los datos de tu emprendimiento se envían a ese servidor para responder.\n' +
+                '· Tiene un tope de ' + w.AIWorker.TOPE_DIARIO + ' consultas al día por dispositivo.\n' +
+                '· Cuando se acaba, Chispa sigue respondiendo con sus reglas y cálculos, que es lo que hace la mayor parte del tiempo.\n' +
+                '· Si prefieres un modelo más potente, puedes conectar tu propia clave más abajo: esa tiene prioridad.' })
+      ]),
+
+      el('div', { class: 'field' }, [
+        el('label', { class: 'field__label', text: 'Dirección del servidor' }),
+        input,
+        el('span', { class: 'field__hint',
+          text: 'La imprime «npx wrangler deploy» al desplegar la carpeta worker/ del proyecto. Las instrucciones están en worker/README.md.' })
+      ]),
+
+      estado
+    ].concat(acciones).concat([
+      UI.btn('Cancelar', { variant: 'flat', onClick: UI.closeSheet })
+    ]));
+  }
+
   /* ------------------------- Mentor con IA ------------------------- */
 
   function aiCard() {
@@ -616,6 +738,10 @@
 
     var voz = speechCard();
     if (voz) col.appendChild(voz);
+
+    // La gratuita primero: es la que va a usar casi todo el mundo.
+    var gratis = iaGratuitaCard();
+    if (gratis) col.appendChild(gratis);
 
     var ia = aiCard();
     if (ia) col.appendChild(ia);

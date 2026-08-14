@@ -17,7 +17,7 @@
    ========================================================================== */
 'use strict';
 
-var VERSION = 'modo-emprendedor-v1.4.0';
+var VERSION = 'modo-emprendedor-v1.5.0';
 
 /* Todo lo que hace falta para arrancar sin red. Rutas relativas al ámbito del
    service worker: en GitHub Pages la app vive en /modo-emprendedor/, no en la
@@ -48,6 +48,7 @@ var PRECACHE = [
   './js/core/mascot.js',
   './js/core/speech.js',
   './js/core/venture.js',
+  './js/core/ai-worker.js',
   './js/core/ai.js',
   './js/core/personalize.js',
   './js/core/chispa.js',
@@ -113,7 +114,14 @@ self.addEventListener('activate', function (e) {
 
 /* ---------------------------- Peticiones ---------------------------- */
 
+/* En local no se intercepta nada. El service worker sirve la copia guardada al
+   editar un archivo, así que en desarrollo lo único que hace es enseñar
+   versiones viejas. Se sigue registrando —para poder probar la instalación—
+   pero no toca las peticiones. */
+var EN_LOCAL = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
+
 self.addEventListener('fetch', function (e) {
+  if (EN_LOCAL) return;
   var req = e.request;
 
   // Solo GET. Y solo del mismo origen: las llamadas a la API de Anthropic

@@ -1,0 +1,39 @@
+{
+  // Configuración del Worker de Chispa. Ver worker/README.md para desplegarlo.
+  "name": "chispa",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+
+  // El binding de Workers AI. No lleva clave: se autentica solo contra la
+  // cuenta de Cloudflare desde dentro del Worker. Ese es el motivo de que
+  // exista este archivo y no una llamada directa desde el navegador.
+  "ai": { "binding": "AI" },
+
+  // Ventana corta contra ráfagas y raspado. El periodo solo admite 10 o 60
+  // segundos: no es una cuota diaria, es un cortafuegos.
+  "ratelimits": [
+    {
+      "name": "LIMITE_IP",
+      "namespace_id": "1001",
+      "simple": { "limit": 12, "period": 60 }
+    }
+  ],
+
+  "vars": {
+    // Cambia ORIGENES por tu dominio antes de desplegar. Con "*" cualquier
+    // web podría colgar su chat de tu cuota.
+    "ORIGENES": "https://erickzoneee.github.io,http://localhost:4321",
+
+    // Qwen3-30B es el más eficiente por neuron del catálogo y el más fuerte en
+    // instrucciones multilingües: ~104 usuarios/día dentro de la cuota gratuita
+    // frente a ~16 con Llama 3.3-70B. Para cambiarlo:  npx wrangler ai models
+    "MODELO": "@cf/qwen/qwen3-30b-a3b-fp8",
+
+    // Techos del servidor. Puestos aquí a propósito: en el cliente el usuario
+    // podría subirlos y agotar la cuota de todos.
+    "MAX_ENTRADA": "6000",
+    "MAX_SALIDA": "400"
+  },
+
+  "observability": { "enabled": true }
+}
