@@ -43,7 +43,12 @@ http.createServer((req, res) => {
     }
     res.writeHead(200, {
       'Content-Type': MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream',
-      'Cache-Control': 'no-cache'
+      // 'no-cache' permite guardar la copia y revalidarla; con un servidor sin
+      // ETag eso deja al navegador sirviendo archivos viejos tras cada edición.
+      // En desarrollo lo que hace falta es no guardar nada.
+      'Cache-Control': 'no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
     });
     res.end(data);
   });

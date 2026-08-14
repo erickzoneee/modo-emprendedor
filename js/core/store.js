@@ -98,6 +98,10 @@
       // Historial del mentor
       chat: [],
 
+      // Conversación en curso de Chispa: la pregunta que quedó a medias y los
+      // datos que ya respondió. Vive aquí para sobrevivir a cerrar la app.
+      chispa: { pendiente: null, datos: {} },
+
       // Retos semanales
       weekly: { week: null, progress: {}, claimed: [] },
 

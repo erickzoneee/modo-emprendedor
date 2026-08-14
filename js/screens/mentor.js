@@ -143,7 +143,9 @@
     }
 
     quickRow = el('div', { class: 'chat-quick' });
-    paintQuick(KB.QUICK.slice(0, 6));
+    // Las sugerencias iniciales son lo que Chispa resuelve de verdad, no una
+    // lista de temas: cada una lleva a un cálculo o a una plantilla concreta.
+    paintQuick(w.Chispa ? sugerenciasChispa() : KB.QUICK.slice(0, 6));
 
     return el('div', { class: 'chat-dock' }, [
       quickRow,
@@ -170,38 +172,105 @@
 
     var t = w.Mentor.util.norm(text);
 
-    // Calculadoras
-    if (/(calcular|calcula).*(precio)|^precio sugerido/.test(t)) return openCalc('precio');
-    if (/(calcular|calcula).*(equilibrio)|punto de equilibrio/.test(t)) return openCalc('equilibrio');
-    if (/(costo|calcular).*(3d|impresion|impresión)|impresion 3d|impresión 3d/.test(t) && /calc|costo/.test(t)) return openCalc('3d');
-    if (/costo de impresion 3d|costo de impresión 3d/.test(t)) return openCalc('3d');
-    if (/cac|costo de adquisicion|calcular mi cac/.test(t)) return openCalc('cac');
-    if (/reorden|cuanto material compro|calcular mi reorden/.test(t)) return openCalc('reorden');
+    // Cancelar una serie de preguntas a medias.
+    if (w.Chispa && w.Chispa.pendiente() && /^(cancelar|olvidalo|dejalo|ya no|salir|cancela)/.test(t)) {
+      w.Chispa.cancelar();
+      pushBot('Listo, lo dejamos. Lo que ya me habías dicho queda guardado por si lo retomamos.');
+      paintQuick(KB.QUICK.slice(0, 6));
+      return;
+    }
 
-    // Prácticas
+    // Acciones explícitas: no son preguntas, son atajos a una pantalla.
     if (/practicar objeciones|objeciones.*practic/.test(t)) return startPractice('objeciones');
-    if (/simular un cliente|entrevista|simula un cliente|practicar entrevista/.test(t)) return startPractice('entrevista');
+    if (/simular un cliente|simula un cliente|practicar entrevista/.test(t)) return startPractice('entrevista');
     if (/practicar una venta|simular una venta|practicar venta/.test(t)) return startPractice('venta');
-
-    // Revisión de textos del expediente
-    if (/revisar mi oferta|revisa mi oferta/.test(t)) return openReview('oferta');
-    if (/revisar mi cliente|revisa mi cliente|mi cliente ideal/.test(t) && /revis/.test(t)) return openReview('cliente');
     if (/mi emprendimiento|mi perfil|mi idea registrada/.test(t)) { UI.Router.go('venture'); return; }
     if (/mi expediente|mi negocio/.test(t)) { UI.Router.go('business'); return; }
     if (/mis numeros|mis números/.test(t)) { UI.Router.go('business'); return; }
 
-    // Con la IA encendida contesta el modelo; si falla, contesta el motor local.
-    // Nunca se puede quedar sin respuesta por un problema de red o de clave.
-    if (w.AI && w.AI.isOn()) return askAI(text);
+    // Calculadoras de formulario que Chispa no cubre todavía.
+    if (/costo de impresion 3d|costo de impresión 3d/.test(t)) return openCalc('3d');
+    if (/cac|costo de adquisicion|calcular mi cac/.test(t)) return openCalc('cac');
+    if (/reorden|cuanto material compro|calcular mi reorden/.test(t)) return openCalc('reorden');
 
+    return chispa(text);
+  }
+
+  /* ------------------------- Chispa Engine -------------------------
+     Reglas, fórmulas y conocimiento antes que cualquier modelo. Si el motor
+     resuelve, se termina ahí: es instantáneo, gratis y verificable. Solo lo
+     que ninguna plantilla puede resolver llega al nivel 7.
+     ---------------------------------------------------------------- */
+
+  function chispa(text) {
+    var r = null;
+    try { r = w.Chispa.responder(text); }
+    catch (e) { console.warn('[chispa]', e); }
+
+    if (!r) return respuestaLocal(text);
+
+    // Niveles 1 a 6: responde el motor.
+    if (r.nivel <= 6 && r.texto) {
+      var think = typing();
+      setTimeout(function () {
+        think.remove();
+        pushBot(r.texto);
+        if (r.pregunta) {
+          paintQuick(['Cancelar']);
+          enfocarEntrada(r.pregunta);
+        } else {
+          paintQuick(seguimiento(r));
+        }
+        w.Sound.select();
+      }, 240);
+      return;
+    }
+
+    // Nivel 7: el motor no tiene plantilla, pero sí los hechos.
+    if (w.AI && w.AI.isOn()) return askAI(text, r.prompt);
+    return respuestaLocal(text, r);
+  }
+
+  /** Sin IA disponible, el conocimiento recuperado sigue sirviendo: es mejor
+      una entrada concreta de la base que una respuesta genérica. */
+  function respuestaLocal(text, r) {
     var think = typing();
     setTimeout(function () {
       think.remove();
-      var r = w.Mentor.reply(text);
-      pushBot(r.text);
-      if (r.follow && r.follow.length) paintQuick(r.follow.concat(KB.QUICK.slice(0, 3)));
+      if (r && r.fuentes && r.fuentes.length) {
+        var f = r.fuentes[0];
+        pushBot('**' + f.titulo + '**\n\n' + f.cuerpo +
+          '\n\nSi quieres, dime “calcular precio”, “mi cliente ideal” o “un desafío para hoy” y lo trabajamos con tus números.');
+        paintQuick(sugerenciasChispa());
+      } else {
+        var loc = w.Mentor.reply(text);
+        pushBot(loc.text);
+        paintQuick(loc.follow && loc.follow.length ? loc.follow.concat(KB.QUICK.slice(0, 3)) : sugerenciasChispa());
+      }
       w.Sound.select();
-    }, 480 + Math.random() * 420);
+    }, 380);
+  }
+
+  function sugerenciasChispa() {
+    var out = [];
+    w.Chispa.INTENCIONES.forEach(function (i) { if (out.length < 5) out.push(i.etiqueta); });
+    return out;
+  }
+
+  function seguimiento(r) {
+    if (r.intencion === 'calcular_precio') return ['Punto de equilibrio', 'Tu margen', 'Un desafío para hoy'];
+    if (r.intencion === 'definir_cliente') return ['Revisar tu propuesta', 'Un desafío para hoy'];
+    if (r.intencion === 'evaluar_oferta') return ['Calcular un precio', 'Un desafío para hoy'];
+    return sugerenciasChispa();
+  }
+
+  /** Cuando Chispa pide un número, el teclado debe abrirse listo para eso. */
+  function enfocarEntrada(pregunta) {
+    var input = UI.qs('.chat-input');
+    if (!input) return;
+    input.setAttribute('inputmode', pregunta.tipo === 'num' ? 'decimal' : 'text');
+    input.placeholder = pregunta.ph ? 'Por ejemplo: ' + pregunta.ph : 'Escribe tu respuesta…';
+    try { input.focus({ preventScroll: true }); } catch (e) {}
   }
 
   function localFallback(text, aviso) {
@@ -213,12 +282,14 @@
     if (aviso) UI.toast(aviso, 'red', '⚠️', 4200);
   }
 
-  function askAI(text) {
+  /** El modelo recibe los hechos que Chispa ya resolvió, no la pregunta suelta:
+      el conocimiento aplicable va delante y con la orden de no inventar. */
+  function askAI(text, contexto) {
     var think = typing();
-    w.AI.ask(text).then(function (answer) {
+    w.AI.ask(contexto || text).then(function (answer) {
       think.remove();
       pushBot(answer);
-      paintQuick(KB.QUICK.slice(0, 6));
+      paintQuick(sugerenciasChispa());
       w.Sound.select();
     }).catch(function (err) {
       think.remove();
