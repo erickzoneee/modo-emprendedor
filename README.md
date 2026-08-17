@@ -54,8 +54,10 @@ Es un sitio estático puro. Sube la carpeta completa a Netlify, Vercel, GitHub P
 | **58 paradas en la ruta** | las 50 lecciones + los 8 retos reales |
 | **50 misiones aplicadas** | una por lección, cada una a tu negocio de verdad |
 | **Simulador de empresa** | 12 semanas, 22 eventos, modelo de demanda real |
-| **Mentor** | evalúa tus textos, calcula y practica ventas contigo. Local por defecto; con IA real si conectas tu clave |
+| **Chispa Engine** | reglas, fórmulas y 77 entradas de conocimiento. Calcula tu precio preguntándote solo lo que falta, y recuerda lo que decidiste |
+| **Perfil del emprendimiento** | tu idea registrada al entrar: personaliza lecciones, desafíos, planes y recomendaciones |
 | **Expediente Mi Negocio** | 12 secciones que se llenan solas y se exportan |
+| **Lectura en voz alta** | escucha las lecciones y las respuestas con la voz del dispositivo |
 
 > **Cómo se cuentan:** el mapa tiene **58 paradas** = **50 lecciones** + **8 retos reales**.
 > Cada lección cierra con una **misión aplicada** a tu propio negocio (50 en total), y cada nivel
@@ -116,36 +118,43 @@ El modelo calcula demanda a partir de tu precio (elasticidad), tu reputación y 
 
 ---
 
-## El mentor
+## Chispa, el mentor
 
-Tiene **dos motores**. El local siempre está; la IA es opcional.
+Chispa no busca respuestas: **decide con qué responderte**. Cada mensaje recorre siete niveles y se detiene en el primero que resuelva de verdad.
 
-### Motor local (por defecto)
+| | Nivel | Qué hace |
+|---|---|---|
+| 1 | **Intención** | Qué quieres hacer |
+| 2 | **Perfil** | Qué sabe ya de tu negocio |
+| 3 | **Huecos** | Qué dato falta → pregunta **uno**, no seis |
+| 4 | **Fórmula** | Precio, margen, punto de equilibrio: se calculan, no se opinan |
+| 5 | **Conocimiento** | Los fragmentos aplicables de la base, filtrados por tu sector |
+| 6 | **Plantilla** | Compone la respuesta con tus datos reales |
+| 7 | **Generativo** | Solo si aporta lo que una plantilla no puede |
 
-Funciona **sin conexión y sin claves de API**. Es un motor de análisis de texto y reglas de negocio, no un modelo de lenguaje. Lo que hace:
+Los seis primeros niveles no gastan un byte de red y responden en **menos de un milisegundo**.
 
-- **Evalúa tus misiones** contra rúbricas concretas: detecta si dijiste "todos" en vez de un público, si te falta un número, si prometiste un objeto en vez de un resultado, si tus pasos empiezan con verbos, si tu margen es sano…
-- **Calcula**: punto de equilibrio, precio sugerido (piso/mercado/valor), costo real de impresión 3D, CAC contra margen, punto de reorden.
-- **Practica contigo**: manejo de objeciones, entrevista de descubrimiento y una venta completa, turno por turno.
-- **Te da la misión del día** según dónde estás en la ruta.
+Un ejemplo real: a *"¿en cuánto debo vender mi producto?"* detecta la intención, mira qué números ya conoce, pregunta uno a uno los que faltan, calcula, te explica el resultado con tus cifras y **guarda el precio como decisión**. La segunda vez no pregunta nada.
 
-### IA real (opcional, con tu propia clave)
+> El modelo generativo nunca es la fuente de la verdad. Cuando se llega al nivel 7, Chispa le entrega los hechos ya resueltos y el modelo solo redacta.
 
-En **Perfil › Ajustes › Mentor con IA** puedes conectar una clave de API de Anthropic y entonces las preguntas abiertas del chat las responde Claude, con el contexto de tu perfil y de tu expediente **Mi Negocio**.
+### Las cuatro vías del nivel 7
 
-Por qué funciona así y no con una clave nuestra: esto es un sitio estático, no hay servidor donde esconder una clave. Cualquier clave incrustada en el JavaScript sería pública y se agotaría en horas. Así que la clave es tuya, se guarda **solo en tu navegador** y se manda **solo a `api.anthropic.com`**.
+Ninguna es obligatoria. Si no hay ninguna, Chispa responde igual con los niveles 1 a 6.
 
-Lo que conviene saber antes de activarla:
+**1 · IA gratuita de Emprendo** — un Worker de Cloudflare con Workers AI. No necesitas cuenta ni clave: solo que el dueño de la instancia lo haya desplegado. Es gratis para todos y no puede generar cobros: al agotarse la cuota diaria corta en vez de facturar. Instrucciones en [`worker/README.md`](worker/README.md).
 
-- Tu clave **nunca sale en el respaldo `.json`** de tu progreso: vive en otra entrada de `localStorage` justamente para eso.
-- Con la IA activa, tus mensajes y los datos de tu expediente se envían a Anthropic para poder responder.
-- El consumo lo cobra Anthropic a tu cuenta. Puedes elegir modelo (Haiku 4.5, Sonnet 5 u Opus 5) según cuánto quieras gastar.
-- No la actives en un dispositivo compartido.
-- Si la llamada falla —sin red, clave caducada, sin saldo— **responde el motor local**. Nunca te quedas sin mentor.
+**2 · IA local de Chispa** — un modelo abierto que corre **dentro de tu navegador**: sin conexión, sin costo y sin que nada salga del dispositivo. Es una descarga voluntaria de entre 879 MB y 2,5 GB, nunca automática, y la app comprueba antes si tu equipo puede. En iPhone y iPad no se ofrece: iOS limita la memoria de una página muy por debajo de lo que pide el modelo más pequeño.
 
-Las calculadoras, las prácticas guiadas y la evaluación de misiones siguen siendo locales aunque la IA esté encendida: son deterministas y ahí un modelo daría peores resultados que una rúbrica.
+**3 · Tu clave personal** — en **Perfil › Mentor con IA** puedes conectar una clave de Anthropic. Tiene prioridad sobre las demás: si la configuraste, es porque quieres ese modelo.
 
-> El punto de entrada de la IA es `AI.ask()` en `js/core/ai.js`; el del motor local, `Mentor.reply()` en `js/core/mentor.js`.
+**4 · Las respuestas escritas** — 26 temas con respuesta desarrollada a mano, que se usan cuando no hay ninguna IA disponible.
+
+### Lo que nunca pasa por un modelo
+
+Las calculadoras, las rúbricas de las misiones y las prácticas guiadas son deterministas a propósito. Un precio calculado se puede comprobar con una calculadora; uno redactado por un modelo es una opinión con formato de número.
+
+> Puntos de entrada: `Chispa.responder()` en `js/core/chispa.js`, la base en `js/data/kb.js`, y el enrutado de proveedores en `AI.ask()` dentro de `js/core/ai.js`.
 
 ---
 
@@ -184,12 +193,21 @@ EMPRENDO/
 │   ├── components.css       botones, tarjetas, opciones, fichas…
 │   ├── screens.css          cada pantalla
 │   └── animations.css       todos los keyframes
+├── worker/                  IA gratuita: Worker de Cloudflare (se despliega aparte)
+├── docs/                    investigación de proveedores y de Chispa Engine
+├── lab/                     laboratorio aislado para medir modelos locales
 └── js/
     ├── core/
     │   ├── store.js         estado + persistencia + rachas
+    │   ├── venture.js       perfil del emprendimiento: los 3 niveles de contexto
+    │   ├── chispa.js        el motor: intención, huecos, fórmulas, plantillas
+    │   ├── personalize.js   reescribe lecciones y desafíos sobre tu idea
     │   ├── engine.js        ruta, XP, vidas, insignias, ligas
     │   ├── mentor.js        rúbricas, análisis de texto, calculadoras
-    │   ├── ai.js            IA opcional con la clave del usuario
+    │   ├── ai.js            elige proveedor de IA y arma el contexto
+    │   ├── ai-worker.js     cliente de la IA gratuita de Emprendo
+    │   ├── local-ai.js      diagnóstico del equipo y descarga opcional
+    │   ├── speech.js        lectura en voz alta con la voz del dispositivo
     │   ├── ui.js            DOM, router, modales, toasts
     │   ├── fx.js            confeti, partículas, contadores
     │   ├── audio.js         sonido sintetizado con WebAudio
@@ -197,8 +215,11 @@ EMPRENDO/
     ├── data/
     │   ├── config.js        niveles, jefes, insignias, ligas, tienda
     │   ├── lessons-1..8.js  las 50 microlecciones
+    │   ├── kb.js            base de conocimiento de Chispa (77 entradas)
+    │   ├── venture-templates.js  plantillas de desafío por tema
     │   ├── sim.js           simulador: modelo y 22 eventos
-    │   └── mentor-kb.js     intenciones y prácticas del mentor
+    │   └── mentor-kb.js     las 26 respuestas escritas del mentor
+    ├── local/               motor de la IA local — NO va en el precache
     ├── screens/             una pantalla por archivo
     └── app.js               arranque y navegación
 ```
@@ -238,7 +259,15 @@ Los `check` disponibles están en `CHECKS` dentro de `js/core/mentor.js` (29 com
 
 Todo se guarda en `localStorage`, solo en tu dispositivo. No hay servidor, no hay cuentas, no hay telemetría. La tipografía viaja dentro del proyecto, así que **la app no hace ni una sola petición a terceros** mientras no actives la IA. Desde **Perfil** puedes exportar tu progreso a un `.json` y volver a importarlo en otro dispositivo.
 
-La única excepción es el mentor con IA, y solo si tú lo enciendes: en ese caso tus mensajes van a `api.anthropic.com` con tu propia clave. Esa clave se guarda aparte y **no se incluye en el `.json` de respaldo**, para que puedas compartir o subir a la nube ese archivo sin filtrarla.
+Las excepciones son las vías de IA, y solo si tú las enciendes:
+
+| Vía | A dónde van tus datos |
+|---|---|
+| **IA local de Chispa** | A ningún sitio. El modelo corre en tu dispositivo |
+| **IA gratuita de Emprendo** | Al Worker de quien publicó la app, que los pasa a Workers AI. Cloudflare declara que no entrena con ellos |
+| **Tu clave personal** | A `api.anthropic.com`, con tu propia clave |
+
+Ni la clave de API ni la dirección del Worker se incluyen en el `.json` de respaldo: viven en otras entradas de `localStorage` justamente para que puedas compartir o subir ese archivo sin filtrarlas.
 
 Como no hay servidor, ese archivo es el único respaldo posible, así que la app **te lo recuerda sola**: si pasan más de 7 días sin una copia y ya tienes progreso real, aparece un aviso con los botones para descargarla o copiarla al portapapeles. En **Perfil › Ajustes** se ve la fecha del último respaldo y el recordatorio se puede desactivar.
 

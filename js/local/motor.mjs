@@ -17,24 +17,43 @@ let worker = null;
 let motor = null;
 let cancelado = false;
 
+/* El worker es un archivo real, no un blob: un módulo generado desde
+   URL.createObjectURL falla en varios navegadores sin lanzar nada que se pueda
+   atrapar, y el síntoma es una carga que no avanza ni da error nunca. */
+const URL_WORKER = new URL('./worker.mjs', import.meta.url).href;
+
+/** Arranca el worker y espera a que confirme que su módulo cargó. Si falla
+    —CDN caído, red cortada, módulos bloqueados— rechaza con un motivo, en vez
+    de dejar al usuario mirando una barra que no se mueve. */
 function crearWorker() {
-  // El worker se genera desde una cadena para no depender de un archivo más:
-  // así la IA local añade exactamente dos peticiones de red, no tres.
-  const codigo = `
-    import * as webllm from '${CDN}';
-    self.onmessage = (e) => {
-      if (e.data && e.data.tipo === 'init') {
-        new webllm.WebWorkerMLCEngineHandler();
-        self.postMessage({ tipo: 'listo' });
-      }
-    };
-    new webllm.WebWorkerMLCEngineHandler();
-  `;
-  const url = URL.createObjectURL(new Blob([codigo], { type: 'text/javascript' }));
-  const wk = new Worker(url, { type: 'module' });
-  // La URL del blob ya no hace falta en cuanto el worker arranca.
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-  return wk;
+  return new Promise((resolve, reject) => {
+    let wk;
+    try { wk = new Worker(URL_WORKER, { type: 'module' }); }
+    catch (e) { reject(new Error('Este navegador no permite cargar la IA local: ' + e.message)); return; }
+
+    const espera = setTimeout(() => {
+      limpiar();
+      try { wk.terminate(); } catch (e) {}
+      reject(new Error('La biblioteca de la IA local no cargó. Revisa tu conexión e inténtalo otra vez.'));
+    }, 30000);
+
+    function limpiar() {
+      clearTimeout(espera);
+      wk.removeEventListener('message', alMensaje);
+      wk.removeEventListener('error', alError);
+    }
+    function alMensaje(e) {
+      if (e.data && e.data.chispa === 'listo') { limpiar(); resolve(wk); }
+    }
+    function alError(e) {
+      limpiar();
+      try { wk.terminate(); } catch (err) {}
+      reject(new Error('No se pudo iniciar la IA local: ' + (e.message || 'fallo al cargar el módulo')));
+    }
+
+    wk.addEventListener('message', alMensaje);
+    wk.addEventListener('error', alError);
+  });
 }
 
 /** Descarga (si hace falta) y carga el modelo en la GPU. */
@@ -43,7 +62,7 @@ export async function cargar(id, onProgreso) {
   const webllm = await import(/* @vite-ignore */ CDN);
 
   if (motor) await liberar();
-  worker = crearWorker();
+  worker = await crearWorker();
 
   const informe = (r) => {
     if (cancelado) return;
