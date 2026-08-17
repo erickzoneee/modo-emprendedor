@@ -673,14 +673,15 @@
             instalado === m.id ? UI.chip('Instalado', 'teal', '✓') : null
           ]),
           el('div', { class: 'tiny', style: { marginTop: '6px', textTransform: 'none', letterSpacing: '0' },
-            text: m.mb + ' MB de descarga · licencia ' + m.licencia }),
+            text: (m.descargaMedida ? '' : '~') + m.descargaMB + ' MB de descarga · ' +
+                  m.memoriaMB + ' MB de memoria · licencia ' + m.licencia }),
           el('div', { class: 'small', style: { marginTop: '6px' }, text: m.calidad }),
           m.cabe ? null : el('div', { class: 'tiny', style: { marginTop: '6px', color: 'var(--red-dark)', textTransform: 'none', letterSpacing: '0' }, text: m.porque })
         ]);
 
         if (m.cabe && instalado !== m.id) {
           fila.appendChild(el('div', { style: { marginTop: '10px' } }, [
-            UI.btn('Descargar ' + m.mb + ' MB', { variant: 'brand', size: 'sm',
+            UI.btn('Descargar ' + (m.descargaMedida ? '' : '~') + m.descargaMB + ' MB', { variant: 'brand', size: 'sm',
               onClick: function () { descargar(m); } })
           ]));
         }
@@ -698,7 +699,7 @@
             variant: 'brand', size: 'sm',
             onClick: function () {
               var m2 = w.LocalAI.modelo(instalado);
-              descargar(m2 || { id: instalado, nombre: 'el modelo', mb: 0 });
+              descargar(m2 || { id: instalado, nombre: 'el modelo', descargaMB: 0, memoriaMB: 0 });
             }
           }));
         }

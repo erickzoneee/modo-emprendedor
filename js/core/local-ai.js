@@ -40,30 +40,49 @@
      barra de descarga enseña la verdad.
      ================================================================== */
 
+  /* Dos números distintos que es fácil confundir, y confundirlos engaña:
+
+       memoriaMB   lo que el modelo necesita reservar en la GPU. Es lo que
+                   decide si este equipo puede o no, y viene del catálogo
+                   oficial de WebLLM (vram_required_MB).
+       descargaMB  lo que de verdad se baja por la red. Es bastante menos,
+                   porque la memoria incluye además la caché de contexto y el
+                   espacio de trabajo.
+
+     La cifra medida es la de Qwen 1.5B, cronometrada en la propia app. Las
+     otras dos van marcadas como estimadas para no prometer un número que no
+     se ha comprobado. */
   var MODELOS = [
     {
       id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
       nombre: 'Qwen 2.5 · 1.5B',
-      mb: 1630,
+      memoriaMB: 1630,
+      descargaMB: 838,
+      descargaMedida: true,
       licencia: 'Apache 2.0',
       recomendado: true,
-      calidad: 'Buen español y aguanta instrucciones largas. Es el equilibrio entre lo que cabe y lo que sirve.',
-      medido: false
+      calidad: 'Buen español, respeta las instrucciones y usa lo que ya decidiste. Probado: responde bien ' +
+               'los cinco casos del banco de pruebas, en unos 3 segundos por respuesta.',
+      medido: true
     },
     {
       id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
       nombre: 'Llama 3.2 · 1B',
-      mb: 879,
+      memoriaMB: 879,
+      descargaMB: 730,
+      descargaMedida: false,
       licencia: 'Llama Community (con condiciones)',
-      calidad: 'El más ligero que da respuestas correctas. Se pierde en instrucciones largas.',
+      calidad: 'El más ligero que da respuestas correctas. Se pierde en instrucciones largas. Sin medir.',
       medido: false
     },
     {
       id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC',
       nombre: 'Qwen 2.5 · 3B',
-      mb: 2504,
+      memoriaMB: 2504,
+      descargaMB: 1700,
+      descargaMedida: false,
       licencia: 'Qwen (revisar variante)',
-      calidad: 'El mejor de los que caben en un navegador. Solo para equipos con GPU dedicada.',
+      calidad: 'El mejor de los que caben en un navegador. Necesita GPU dedicada. Sin medir.',
       medido: false
     }
   ];
@@ -170,10 +189,16 @@
         _diag = d; return d;
       }
 
-      var porGPU = gpu.maxBufferMB || 2048;
-      var porDisco = disco && disco.libreMB ? Math.floor(disco.libreMB * 0.7) : 4096;
+      /* Dos techos distintos, y confundirlos daba un absurdo: al instalar un
+         modelo bajaba el espacio libre, y entonces el diagnóstico declaraba
+         que el equipo no podía con el modelo que estaba corriendo.
+
+           maximoMB    lo que la GPU puede sostener. Manda para CARGAR.
+           espacioMB   lo que cabe en disco. Manda solo para DESCARGAR algo
+                       que todavía no está. */
       d.puede = true;
-      d.maximoMB = Math.min(porGPU, porDisco);
+      d.maximoMB = gpu.maxBufferMB || 2048;
+      d.espacioMB = disco && disco.libreMB ? Math.floor(disco.libreMB * 0.7) : 4096;
 
       if (ram === null) d.avisos.push('Este navegador no dice cuánta memoria tiene el equipo; la estimación sale solo de la GPU.');
       if (!gpu.f16) d.avisos.push('Tu GPU no soporta shader-f16, así que los modelos ocupan bastante más de lo indicado.');
@@ -187,14 +212,27 @@
   /** Los modelos que este equipo puede cargar, con el motivo del descarte. */
   function catalogo() {
     return diagnosticar().then(function (d) {
+      var yaEsta = instalado();
       return MODELOS.map(function (m) {
         var copia = {}, k;
         for (k in m) if (Object.prototype.hasOwnProperty.call(m, k)) copia[k] = m[k];
-        if (!d.puede) { copia.cabe = false; copia.porque = d.motivo; }
-        else if (m.mb > d.maximoMB) {
+        copia.instalado = (yaEsta === m.id);
+
+        if (!d.puede) { copia.cabe = false; copia.porque = d.motivo; return copia; }
+
+        if (m.memoriaMB > d.maximoMB) {
           copia.cabe = false;
-          copia.porque = 'Necesita ' + m.mb + ' MB y este equipo aguanta hasta ' + d.maximoMB + ' MB.';
-        } else { copia.cabe = true; copia.porque = null; }
+          copia.porque = 'Necesita ' + m.memoriaMB + ' MB de memoria de GPU y este equipo llega a ' + d.maximoMB + ' MB.';
+          return copia;
+        }
+        // El espacio en disco solo aplica a lo que aún hay que bajar.
+        if (!copia.instalado && m.descargaMB > d.espacioMB) {
+          copia.cabe = false;
+          copia.porque = 'La descarga ocupa ' + m.descargaMB + ' MB y solo quedan ' + d.espacioMB +
+            ' MB disponibles para este sitio.';
+          return copia;
+        }
+        copia.cabe = true; copia.porque = null;
         return copia;
       });
     });
@@ -244,9 +282,13 @@
 
     return diagnosticar().then(function (d) {
       if (!d.puede) throw new Error(d.motivo);
-      if (elegido.mb > d.maximoMB) {
+      if (elegido.memoriaMB > d.maximoMB) {
         throw new Error('Este equipo no puede con ' + elegido.nombre + '. ' +
-          'Necesita ' + elegido.mb + ' MB y aguanta hasta ' + d.maximoMB + ' MB.');
+          'Necesita ' + elegido.memoriaMB + ' MB de memoria de GPU y llega a ' + d.maximoMB + ' MB.');
+      }
+      if (instalado() !== id && elegido.descargaMB > d.espacioMB) {
+        throw new Error('No hay espacio: la descarga ocupa ' + elegido.descargaMB +
+          ' MB y quedan ' + d.espacioMB + ' MB para este sitio.');
       }
       return abrirMotor();
     }).then(function (m) {
