@@ -111,7 +111,12 @@
         speech: true,        // muestra los botones de altavoz
         speechRate: 1,       // velocidad de lectura
         voice: '',           // voz elegida; vacío = la mejor en español que haya
-        autoRead: false      // leer solo al abrir cada paso, sin tocar nada
+        autoRead: false,     // leer solo al abrir cada paso, sin tocar nada
+        // Interruptor maestro de la apariencia por emprendimiento
+        // (js/core/persona.js). Va aquí y no en el perfil del negocio porque
+        // es una preferencia de la persona: debe sobrevivir a registrar otra
+        // idea. merge() lo inyecta solo en los guardados que ya existían.
+        personalizacion: true
       },
 
       // Respaldo: el progreso vive solo en este dispositivo, así que hay que

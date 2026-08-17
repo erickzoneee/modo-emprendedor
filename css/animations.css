@@ -163,6 +163,22 @@
   0%,100% { transform: rotate(0) }
   50%     { transform: rotate(42deg) }
 }
+/* Sobresalto: se usa cuando Chispa avisa de una tarea. Corto y sin rebote
+   largo, porque acompaña a un aviso y no a una celebración. */
+@keyframes wowPop {
+  0%   { transform: scale(1) translateY(0) }
+  35%  { transform: scale(1.13, .9) translateY(-9px) }
+  65%  { transform: scale(.97, 1.05) translateY(2px) }
+  100% { transform: scale(1) translateY(0) }
+}
+/* Cobro: dos botes cortos, como quien cuenta billetes. */
+@keyframes cash {
+  0%,100% { transform: translateY(0) rotate(0) }
+  20%     { transform: translateY(-10px) rotate(-5deg) }
+  40%     { transform: translateY(0) rotate(0) }
+  60%     { transform: translateY(-6px) rotate(4deg) }
+  80%     { transform: translateY(0) rotate(0) }
+}
 
 /* ---------- Nodos de la ruta ---------- */
 @keyframes nodeIn {

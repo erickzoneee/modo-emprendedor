@@ -48,6 +48,9 @@
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/screens.css">
 <link rel="stylesheet" href="css/animations.css">
+<!-- Va el último a propósito: sus reglas tienen la misma especificidad que las
+     que sobrescribe, así que quien decide es el orden de la cascada. -->
+<link rel="stylesheet" href="css/temas.css">
 </head>
 <body>
 
@@ -95,6 +98,7 @@
 <script src="js/data/sim.js"></script>
 <script src="js/data/mentor-kb.js"></script>
 <script src="js/data/venture-templates.js"></script>
+<script src="js/data/mascota-capas.js"></script>
 <script src="js/data/kb.js"></script>
 
 <!-- ============ Motor ============
@@ -105,6 +109,10 @@
 <script src="js/core/local-ai.js"></script>
 <script src="js/core/ai.js"></script>
 <script src="js/core/personalize.js"></script>
+<!-- persona.js lee CONFIG y Venture, y lo leen las pantallas: por eso va
+     después del motor y antes de ellas. mascot.js se carga mucho antes, así
+     que lo consulta de forma perezosa dentro de svg(). -->
+<script src="js/core/persona.js"></script>
 <script src="js/core/chispa.js"></script>
 <script src="js/core/engine.js"></script>
 <script src="js/core/mentor.js"></script>
@@ -118,6 +126,7 @@
 <script src="js/screens/mentor.js"></script>
 <script src="js/screens/business.js"></script>
 <script src="js/screens/venture.js"></script>
+<script src="js/screens/personaliza.js"></script>
 <script src="js/screens/profile.js"></script>
 <script src="js/screens/league.js"></script>
 <script src="js/screens/shop.js"></script>

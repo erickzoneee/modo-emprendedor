@@ -42,6 +42,15 @@
       ])
     ]));
 
+    /* ---------------- Propuesta pendiente ---------------- */
+    // Si quedó una propuesta sin contestar (por ejemplo, porque cerró la app
+    // antes de responder), se le vuelve a ofrecer aquí en vez de perderla.
+    var prop = w.Persona && w.Persona.actual().propuesta;
+    if (prop) root.appendChild(propuestaCard(prop));
+
+    /* ---------------- Personalizar ---------------- */
+    root.appendChild(personalizarCard());
+
     /* ---------------- Lo que falta ---------------- */
     if (comp.esenciales.length) {
       var pend = el('div', { class: 'card', style: { background: 'var(--gold-soft)', borderColor: 'var(--gold)', textAlign: 'left' } }, [
@@ -70,7 +79,7 @@
     root.appendChild(el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', marginBottom: '10px' },
       text: 'Calculado con lo que has registrado y decidido. Toca cada sección para verla.' }));
     var plan = el('div', { class: 'col', style: { gap: '10px' } });
-    w.Personalize.KINDS.forEach(function (k) { plan.appendChild(analysisCard(k)); });
+    w.Personalize.kinds().forEach(function (k) { plan.appendChild(analysisCard(k)); });
     root.appendChild(plan);
 
     /* ---------------- Decisiones ---------------- */
@@ -105,6 +114,51 @@
      TARJETAS
      ================================================================== */
 
+  /** Acceso a la apariencia, junto a los datos de los que sale. */
+  function personalizarCard() {
+    var a = w.Persona ? w.Persona.actual() : null;
+    var resumen = a
+      ? (w.Persona.activa()
+          ? a.tema.emoji + ' ' + a.tema.title + ' · ' + a.intensidad
+          : 'Apagada — la app se ve en su apariencia original')
+      : '';
+
+    return el('button', {
+      class: 'doss-item is-filled', type: 'button',
+      onclick: function () { w.Sound.tap(); UI.Router.go('personaliza'); }
+    }, [
+      el('span', { class: 'doss-item__ico', text: '🎨' }),
+      el('span', { class: 'grow', style: { minWidth: '0' } }, [
+        el('span', { class: 'doss-item__t', text: 'Personalizar mi experiencia' }),
+        el('span', { class: 'doss-item__p', text: resumen })
+      ]),
+      el('span', { style: { fontSize: '18px', flex: 'none', color: 'var(--neg-acento)' }, text: '›' })
+    ]);
+  }
+
+  /** La propuesta que quedó sin responder. */
+  function propuestaCard(prop) {
+    var sec = (C.SECTORS.filter(function (x) { return x.key === prop.sector; })[0] || {});
+    return el('div', { class: 'card card--tight', style: { background: 'var(--purple-soft)', borderColor: 'var(--purple)', textAlign: 'left' } }, [
+      el('div', { class: 'small', style: { fontWeight: '900', color: 'var(--purple-dark)' },
+        text: '✨ Tengo una propuesta para tu apariencia' }),
+      el('div', { class: 'tiny', style: { marginTop: '6px', textTransform: 'none', letterSpacing: '0', lineHeight: '1.6' },
+        text: 'Por cómo describes tu negocio, lo clasificaría como ' +
+              (sec.title || prop.sector) + (prop.subtipo ? ' (' + prop.subtipo + ')' : '') +
+              '. Nada cambia hasta que decidas.' }),
+      el('div', { class: 'row', style: { gap: '8px', marginTop: '12px' } }, [
+        UI.btn('Verla', { variant: 'purple', size: 'sm', block: false,
+          onClick: function () { proponerSheet(prop); } }),
+        UI.btn('Descartar', { variant: 'flat', size: 'sm', block: false,
+          onClick: function () {
+            w.Persona.descartarPropuesta();
+            UI.toast('Descartada', 'blue', '👌');
+            UI.Router.refresh();
+          } })
+      ])
+    ]);
+  }
+
   function datosCard(v) {
     var c = v.core;
     var stage = (C.STAGES.filter(function (x) { return x.key === c.stage; })[0] || {}).title;
@@ -112,18 +166,22 @@
       (C.OBJECTIVES.filter(function (x) { return x.key === c.goalKey; })[0] || {}).title;
     var budget = (C.BUDGETS.filter(function (x) { return x.key === c.resources.budget; })[0] || {}).title;
     var exp = (C.KNOWLEDGE.filter(function (x) { return x.key === c.resources.experience; })[0] || {}).title;
+    var sector = (C.SECTORS.filter(function (x) { return x.key === c.sector; })[0] || {}).title;
+    var voz = (C.PERSONALIDADES.filter(function (x) { return x.key === c.brandVoice; })[0] || {}).title;
 
     var filas = [
       { key: 'idea',       ico: '💡', label: 'Tu idea',        value: c.idea },
       { key: 'offer',      ico: '📦', label: 'Qué ofreces',    value: c.offer },
       { key: 'customer',   ico: '🎯', label: 'Tus clientes',   value: c.customer },
+      { key: 'sector',     ico: '🏷️', label: 'Sector',         value: sector },
       { key: 'stage',      ico: '📍', label: 'Etapa',          value: stage },
       { key: 'goalKey',    ico: '🚩', label: 'Objetivo',       value: goal },
       { key: 'budget',     ico: '💵', label: 'Presupuesto',    value: budget },
       { key: 'time',       ico: '⏱️', label: 'Tiempo al día',  value: c.resources.time ? c.resources.time + ' min' : '' },
       { key: 'experience', ico: '🎓', label: 'Experiencia',    value: exp },
       { key: 'name',       ico: '🏪', label: 'Nombre',         value: c.name },
-      { key: 'place',      ico: '📌', label: 'Dónde vendes',   value: c.place }
+      { key: 'place',      ico: '📌', label: 'Dónde vendes',   value: c.place },
+      { key: 'brandVoice', ico: '🗣️', label: 'Personalidad',   value: voz }
     ];
 
     var col = el('div', { class: 'col', style: { gap: '8px' } });
@@ -207,8 +265,10 @@
         onClick: function () {
           b.disabled = true;
           b.querySelector('span:last-child').textContent = 'Generando…';
-          V().cacheInvalidate('analisis:' + key);   // sin esto, la caché vigente lo cancelaría
-          var p = w.Personalize.analysisAI(key);
+          // Se pide forzando, sin borrar antes lo que ya había: si la IA falla
+          // o no hay red, el usuario conserva el análisis que estaba leyendo.
+          // Lo sustituye cacheSet, ya con la respuesta buena en la mano.
+          var p = w.Personalize.analysisAI(key, true);
           if (!p) { b.disabled = false; return; }
           p.then(function (txt) {
             pintar(txt, 'ia');
@@ -387,6 +447,8 @@
 
   var LARGO = { idea: 1, offer: 1, customer: 1 };
   var OPCIONES = {
+    sector: { list: 'SECTORS', label: '¿A qué se dedica tu negocio?' },
+    brandVoice: { list: 'PERSONALIDADES', label: '¿Cómo quieres que suene tu marca?' },
     stage: { list: 'STAGES', label: '¿En qué etapa estás?' },
     goalKey: { list: 'OBJECTIVES', label: '¿Cuál es tu objetivo principal?' },
     budget: { list: 'BUDGETS', label: '¿Cuánto puedes invertir hoy?', path: 'resources.budget' },
@@ -427,13 +489,85 @@
         var patch = {};
         patch[key] = val;
         // Cambiar la idea, la oferta o el cliente invalida lo ya generado.
-        if (LARGO[key] && V().util.norm(val) !== V().util.norm(actual || '')) V().reframe(patch);
+        var cambioDeFondo = LARGO[key] && V().util.norm(val) !== V().util.norm(actual || '');
+        if (cambioDeFondo) V().reframe(patch);
         else V().patchCore(patch);
         UI.closeSheet();
         w.Sound.coin();
         UI.toast('Actualizado', 'green', '💾');
         UI.Router.refresh();
+        // Si el negocio ahora parece otro, se PREGUNTA. Nunca se le cambia la
+        // apariencia por debajo a alguien que solo corrigió una errata.
+        if (cambioDeFondo) revisarApariencia();
       } })
+    ]);
+  }
+
+  /* ==================================================================
+     "TU NEGOCIO CAMBIÓ, ¿ACTUALIZO TAMBIÉN LA APARIENCIA?"
+     ================================================================== */
+
+  function revisarApariencia() {
+    if (!w.Persona) return;
+    w.Persona.revisar().then(function (prop) {
+      if (prop) proponerSheet(prop);
+    }).catch(function () { /* silencioso: es una mejora, no una función */ });
+  }
+
+  function proponerSheet(prop) {
+    var C2 = w.CONFIG;
+    var sec = (C2.SECTORS.filter(function (x) { return x.key === prop.sector; })[0] || {});
+    var voz = (C2.PERSONALIDADES.filter(function (x) { return x.key === prop.brandVoice; })[0] || {});
+    var tema = (C2.TEMAS.filter(function (x) { return x.key === prop.tema; })[0] || {});
+
+    var lineas = [];
+    if (sec.title) lineas.push('Sector: ' + sec.emoji + ' ' + sec.title);
+    if (prop.subtipo) lineas.push('Lo describiría como: ' + prop.subtipo);
+    if (voz.title) lineas.push('Personalidad: ' + voz.emoji + ' ' + voz.title);
+    if (tema.title) lineas.push('Apariencia: ' + tema.emoji + ' ' + tema.title);
+
+    UI.sheet([
+      el('div', { class: 'row', style: { gap: '12px', alignItems: 'flex-start' } }, [
+        el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg('think') }),
+        el('div', { class: 'speech' }, [
+          el('h2', { class: 'h4', text: 'Tu negocio ya no es el mismo' }),
+          el('div', { class: 'small', style: { marginTop: '6px' },
+            text: 'Por lo que acabas de escribir, así lo entendería a partir de ahora. ' +
+                  'Tú decides: nada cambia hasta que lo aceptes.' })
+        ])
+      ]),
+      // Vista previa teñida con el tema propuesto, sin tocar el resto de la app.
+      el('div', { class: 'neg-preview', data: { negocio: prop.tema || 'generico' } }, [
+        el('div', { class: 'neg-preview__hero' }, [
+          el('h3', { text: V().terms().negocio }),
+          el('p', { text: sec.title || 'Sin clasificar' })
+        ]),
+        el('div', { class: 'col', style: { gap: '4px', marginTop: '12px' } },
+          lineas.map(function (l) { return el('div', { class: 'small', text: '· ' + l }); }))
+      ]),
+      prop.fuente === 'ia'
+        ? UI.chip('Propuesto por la IA · confianza ' + Math.round(prop.confianza * 100) + '%', 'purple', '✨')
+        : null,
+      UI.btn('Sí, actualiza la apariencia', {
+        variant: 'brand', size: 'lg',
+        onClick: function () {
+          w.Persona.aceptarPropuesta();
+          UI.closeSheet();
+          w.Sound.complete();
+          UI.toast('Apariencia actualizada', 'green', '🎨');
+          UI.Router.refresh();
+        }
+      }),
+      UI.btn('No, déjala como está', {
+        variant: 'ghost',
+        onClick: function () {
+          w.Persona.descartarPropuesta();
+          UI.closeSheet();
+          UI.toast('Se quedó como estaba', 'blue', '👌');
+        }
+      }),
+      el('div', { class: 'tiny t-center', style: { textTransform: 'none', letterSpacing: '0' },
+        text: 'Puedes cambiarla cuando quieras en Personalizar mi experiencia.' })
     ]);
   }
 
@@ -451,9 +585,12 @@
           var patch = {};
           patch[conf.path || key] = o.key;
           V().patchCore(patch);
+          // Cambiar de sector arrastra el tema, pero solo si lo había elegido
+          // la app. Si el usuario escogió uno a mano, se respeta.
+          var cambio = key === 'sector' && w.Persona ? w.Persona.sincronizarTema() : false;
           w.Sound.select();
           UI.closeSheet();
-          UI.toast('Actualizado', 'green', '💾');
+          UI.toast(cambio ? 'Sector y apariencia actualizados' : 'Actualizado', 'green', cambio ? '🎨' : '💾');
           UI.Router.refresh();
         }
       }, [

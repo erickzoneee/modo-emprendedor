@@ -212,7 +212,7 @@
 
     // Análisis calculados sobre sus datos: valor, cliente, mercado, modelo,
     // ventas, costos y marca.
-    w.Personalize.KINDS.forEach(function (k) {
+    w.Personalize.kinds().forEach(function (k) {
       var a = w.Personalize.analysis(k.key);
       out.push('-----------------------------------');
       out.push(a.title.toUpperCase());

@@ -1,0 +1,290 @@
+/* ==========================================================================
+   TEMAS DEL EMPRENDIMIENTO — la apariencia que habla del negocio del usuario
+
+   La identidad de Modo Emprendedor NO se toca aquí. El naranja de marca, la
+   tipografía, los radios, las sombras, el espaciado y los colores semánticos
+   (verde = bien, rojo = error, dorado = recompensa) se quedan como están: son
+   lo que hace que la app siga siendo la misma app.
+
+   Lo que sí cambia es una familia de tokens propia, con prefijo --neg-, que se
+   aplica a una lista CERRADA de superficies secundarias.
+
+   POR QUÉ ESTO ES CSS Y NO ESTILOS EN LÍNEA
+   Un estilo en línea sobre <html> gana siempre a html[data-theme="dark"], así
+   que congelaría el token en su valor claro y rompería el modo oscuro en
+   silencio. Además, escribir colores desde JavaScript significaría que un
+   valor inventado (por la IA o por un guardado corrupto) llegaría a pintarse.
+   Aquí la lista blanca es el propio archivo: si la clave no existe abajo, no
+   pinta nada y se queda el tema genérico.
+
+   LOS SELECTORES SON DE ATRIBUTO PELADO, NO html[...]
+   Así el mismo bloque sirve para <html data-negocio="calido"> (la app entera)
+   y para <div data-negocio="calido"> (la vista previa de la pantalla de
+   personalización). Las custom properties heredan, así que un contenedor
+   anidado tiñe solo su subárbol.
+
+   CONTRASTE
+   Las 7 paletas están medidas en claro y en oscuro:
+     · #fff sobre --neg-acento           >= 4.5:1   (texto de los héroes)
+     · --ink sobre --neg-acento-soft     >= 4.5:1
+     · --neg-acento-dark sobre soft/card >= 4.5:1
+     · --neg-acento sobre card           >= 3.0:1   (bordes e iconos)
+   Ningún tema toca --blue: el foco de teclado (base.css) tiene que seguir
+   siendo reconocible sea cual sea el negocio.
+   ========================================================================== */
+
+/* ------------------------- Tema genérico (respaldo) -------------------------
+   Es el que se usa cuando el negocio no está clasificado, cuando el sector es
+   "otro" y cuando el usuario apaga la personalización. Nunca hay un hueco sin
+   color: si nada coincide, manda este bloque.
+   --------------------------------------------------------------------------- */
+
+:root,
+[data-negocio="generico"] {
+  --neg-acento:      #14807A;
+  --neg-acento-2:    #1FA59C;
+  --neg-acento-dark: #0C635E;
+  --neg-acento-soft: #E6F5F3;
+  /* Tono profundo que NO se invierte en modo oscuro: es el relleno de los
+     accesorios de la mascota, que se pintan siempre sobre su cuerpo naranja.
+     --neg-acento-dark si se invierte, porque alli hace de texto. */
+  --neg-acento-fuerte: #0B5C57;
+  --neg-acento-rgb:  31,165,156;
+}
+
+/* ------------------------- Paletas por negocio ------------------------- */
+
+/* Cocina y cálido — repostería, comida preparada, café.
+   Terracota de horno: deliberadamente más profundo que el naranja de marca
+   para que se lean como dos colores distintos y no como un naranja mal hecho. */
+[data-negocio="calido"] {
+  --neg-acento:      #B5451B;
+  --neg-acento-2:    #E0703C;
+  --neg-acento-dark: #8A3312;
+  --neg-acento-soft: #FCEDE6;
+  --neg-acento-fuerte: #8A3312;
+  --neg-acento-rgb:  224,112,60;
+}
+
+/* Taller y oficio — impresión 3D, carpintería, resina, artesanía. */
+[data-negocio="taller"] {
+  --neg-acento:      #94651F;
+  --neg-acento-2:    #C08B33;
+  --neg-acento-dark: #6B4915;
+  --neg-acento-soft: #F7EFE0;
+  --neg-acento-fuerte: #6B4915;
+  --neg-acento-rgb:  192,139,51;
+}
+
+/* Servicio a domicilio — limpieza, reparación, clases, mantenimiento. */
+[data-negocio="servicio"] {
+  --neg-acento:      #1E7A5A;
+  --neg-acento-2:    #2FA67B;
+  --neg-acento-dark: #145C42;
+  --neg-acento-soft: #E7F5EF;
+  --neg-acento-fuerte: #145C42;
+  --neg-acento-rgb:  47,166,123;
+}
+
+/* Digital — diseño, marketing, software, cursos en línea. */
+[data-negocio="digital"] {
+  --neg-acento:      #585CD1;
+  --neg-acento-2:    #7A7DE8;
+  --neg-acento-dark: #383BA5;
+  --neg-acento-soft: #ECEDFD;
+  --neg-acento-fuerte: #383BA5;
+  --neg-acento-rgb:  122,125,232;
+}
+
+/* Comercio y reventa — tienda en línea, importación, catálogo. */
+[data-negocio="comercio"] {
+  --neg-acento:      #1F6FA8;
+  --neg-acento-2:    #3E9AD4;
+  --neg-acento-dark: #15547F;
+  --neg-acento-soft: #E7F2FA;
+  --neg-acento-fuerte: #15547F;
+  --neg-acento-rgb:  62,154,212;
+}
+
+/* Belleza y bienestar — estética, terapias, cuidado personal. */
+[data-negocio="bienestar"] {
+  --neg-acento:      #AF3F83;
+  --neg-acento-2:    #C765A0;
+  --neg-acento-dark: #7C2B5C;
+  --neg-acento-soft: #FBEBF5;
+  --neg-acento-fuerte: #7C2B5C;
+  --neg-acento-rgb:  199,101,160;
+}
+
+/* ------------------------- Parejas de modo oscuro -------------------------
+
+   El tema oscuro de tokens.css remapea los tokens "-soft" a versiones muy
+   oscuras. Los --neg- necesitan lo mismo o el texto quedaría ilegible. Y
+   --neg-acento-dark, que en claro es un tono profundo para texto, en oscuro
+   pasa a ser un tinte claro: si no, sería un color oscuro sobre fondo oscuro.
+
+   Cada tema necesita las dos formas del selector:
+     html[data-theme="dark"][data-negocio="X"]   la app entera
+     html[data-theme="dark"] [data-negocio="X"]  una vista previa anidada
+   Ambas ganan en especificidad al bloque claro de arriba.
+   -------------------------------------------------------------------------- */
+
+html[data-theme="dark"],
+html[data-theme="dark"][data-negocio="generico"],
+html[data-theme="dark"] [data-negocio="generico"] {
+  --neg-acento-soft: #10302E;
+  --neg-acento-dark: #7FD8CF;
+}
+html[data-theme="dark"][data-negocio="calido"],
+html[data-theme="dark"] [data-negocio="calido"] {
+  --neg-acento-soft: #3A1E13;
+  --neg-acento-dark: #F0A985;
+}
+html[data-theme="dark"][data-negocio="taller"],
+html[data-theme="dark"] [data-negocio="taller"] {
+  --neg-acento-soft: #33290F;
+  --neg-acento-dark: #DCBA7A;
+}
+html[data-theme="dark"][data-negocio="servicio"],
+html[data-theme="dark"] [data-negocio="servicio"] {
+  --neg-acento-soft: #102E23;
+  --neg-acento-dark: #7ED4B0;
+}
+html[data-theme="dark"][data-negocio="digital"],
+html[data-theme="dark"] [data-negocio="digital"] {
+  --neg-acento-soft: #1D1E3F;
+  --neg-acento-dark: #A9ABF5;
+}
+html[data-theme="dark"][data-negocio="comercio"],
+html[data-theme="dark"] [data-negocio="comercio"] {
+  --neg-acento-soft: #10293A;
+  --neg-acento-dark: #8FC9EC;
+}
+html[data-theme="dark"][data-negocio="bienestar"],
+html[data-theme="dark"] [data-negocio="bienestar"] {
+  --neg-acento-soft: #35142A;
+  --neg-acento-dark: #EDA7D0;
+}
+
+/* ==========================================================================
+   SUPERFICIES QUE USAN EL TEMA — lista cerrada
+
+   Todo lo que no esté aquí abajo se queda con la identidad de siempre. La
+   barra superior, la de pestañas, los botones principales, los nodos de la
+   ruta y la pantalla de bienvenida siguen en naranja de marca.
+   ========================================================================== */
+
+/* El héroe de "Mi emprendimiento": es la cabecera del negocio del usuario,
+   así que es la superficie que más sentido tiene que hable de él. */
+.dossier-hero {
+  background: linear-gradient(140deg, var(--neg-acento), var(--neg-acento-2));
+  box-shadow: 0 6px 0 var(--neg-acento-dark);
+}
+html[data-theme="dark"] .dossier-hero { box-shadow: 0 6px 0 rgba(0,0,0,.45); }
+
+/* Las filas del perfil y del expediente ya completadas. */
+.doss-item.is-filled { border-color: var(--neg-acento); }
+
+/* Utilidades para las pantallas. Se usan por clase y nunca por estilo en
+   línea, justamente para que el tema pueda ganarles. */
+.neg-texto   { color: var(--neg-acento-dark); }
+.neg-borde   { border-color: var(--neg-acento) !important; }
+.neg-fondo   { background: var(--neg-acento-soft); }
+.neg-punto   { background: var(--neg-acento); }
+
+/* La tarjeta "Aplicado a tu idea" de las lecciones: es, literalmente, el
+   bloque que habla del negocio del usuario dentro de una lección. */
+.neg-aplica {
+  background: var(--neg-acento-soft);
+  border-color: var(--neg-acento);
+}
+.neg-aplica .neg-aplica__k { color: var(--neg-acento-dark); }
+
+/* Ficha con el color del negocio. */
+.chip--neg {
+  background: var(--neg-acento-soft);
+  color: var(--neg-acento-dark);
+}
+
+/* ==========================================================================
+   INTENSIDAD
+
+   sutil   solo el acento en elementos pequeños; el héroe vuelve al original
+   media   lo de arriba más el héroe y las tarjetas teñidas   (por defecto)
+   visible además el resplandor del escenario y el fondo de la mascota
+
+   El resplandor naranja (--a) no se toca nunca: es la marca. El que se tiñe
+   es el secundario (--b), que hoy es morado y no significa nada.
+   ========================================================================== */
+
+html[data-intensidad="sutil"] .dossier-hero {
+  background: linear-gradient(140deg, var(--teal), #3DD6C4);
+  box-shadow: 0 6px 0 var(--teal-dark);
+}
+html[data-intensidad="sutil"] .neg-aplica {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+}
+html[data-intensidad="sutil"] .neg-aplica .neg-aplica__k { color: var(--brand); }
+
+html[data-intensidad="visible"] .stage__glow--b {
+  background: radial-gradient(circle, rgba(var(--neg-acento-rgb), .45), transparent 70%);
+}
+
+/* Con la personalización apagada, la app se ve exactamente como antes de que
+   existiera este archivo. Se hace con un atributo y no quitando la hoja de
+   estilos para que el interruptor sea instantáneo y no recargue nada. */
+html[data-personaliza="off"] .dossier-hero {
+  background: linear-gradient(140deg, var(--teal), #3DD6C4);
+  box-shadow: 0 6px 0 var(--teal-dark);
+}
+html[data-personaliza="off"] .doss-item.is-filled { border-color: var(--teal); }
+html[data-personaliza="off"] .neg-aplica {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+}
+html[data-personaliza="off"] .neg-aplica .neg-aplica__k { color: var(--brand); }
+html[data-personaliza="off"] .stage__glow--b {
+  background: radial-gradient(circle, rgba(168,85,247,.45), transparent 70%);
+}
+
+/* ==========================================================================
+   VISTA PREVIA — el recuadro de la pantalla de personalización
+   ========================================================================== */
+
+.neg-preview {
+  border-radius: var(--r-lg);
+  border: 2px solid var(--line);
+  background: var(--card-2);
+  padding: var(--s4);
+  overflow: hidden;
+}
+.neg-preview__hero {
+  border-radius: var(--r-md);
+  padding: var(--s4);
+  color: #fff;
+  background: linear-gradient(140deg, var(--neg-acento), var(--neg-acento-2));
+}
+.neg-preview__hero h3 { font-size: var(--fs-lg); font-weight: 900; line-height: 1.2; }
+.neg-preview__hero p  { font-size: var(--fs-xs); font-weight: 700; opacity: .92; margin-top: 2px; }
+
+/* Muestrario de color: un botón por tema, teñido por su propio atributo. */
+.neg-swatch {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--card);
+  border: 2px solid var(--line);
+  text-align: left;
+  transition: border-color .2s, transform .12s;
+}
+.neg-swatch:active { transform: scale(.99); }
+.neg-swatch.is-selected { border-color: var(--neg-acento); background: var(--neg-acento-soft); }
+.neg-swatch__dot {
+  flex: none; width: 26px; height: 26px; border-radius: var(--r-full);
+  background: linear-gradient(140deg, var(--neg-acento), var(--neg-acento-2));
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.35);
+}
+.neg-swatch__body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.neg-swatch__t { font-size: var(--fs-sm); font-weight: 900; color: var(--ink); }
+.neg-swatch__s { font-size: var(--fs-xs); font-weight: 700; color: var(--ink-3); }

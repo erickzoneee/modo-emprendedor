@@ -37,6 +37,7 @@
        lo que personaliza el resto de la app, no un ajuste secundario. */
     root.appendChild(el('h2', { class: 'sep', text: 'Mi emprendimiento' }));
     root.appendChild(ventureCard());
+    root.appendChild(personalizarCard());
 
     /* --------- Estadísticas --------- */
     root.appendChild(el('h2', { class: 'sep', text: 'Tus números' }));
@@ -147,6 +148,29 @@
         : null
     ]);
     return card;
+  }
+
+  /** Acceso directo a la apariencia. Va aquí arriba, junto al perfil del que
+      sale, y no perdido entre las cinco tarjetas de ajustes del final. */
+  function personalizarCard() {
+    var P = w.Persona;
+    var a = P ? P.actual() : null;
+    return el('button', {
+      class: 'card card--tight', type: 'button',
+      style: { textAlign: 'left', width: '100%', display: 'flex', gap: '10px', alignItems: 'center' },
+      onclick: function () { w.Sound.tap(); UI.Router.go('personaliza'); }
+    }, [
+      el('span', { style: { fontSize: '22px', flex: 'none' }, text: '🎨' }),
+      el('span', { class: 'grow', style: { minWidth: '0' } }, [
+        el('span', { class: 'small', style: { display: 'block', fontWeight: '900' },
+          text: 'Personalizar mi experiencia' }),
+        el('span', { class: 'tiny', style: { display: 'block', textTransform: 'none', letterSpacing: '0' },
+          text: a && P.activa()
+            ? a.tema.emoji + ' ' + a.tema.title + ' · intensidad ' + a.intensidad
+            : 'Apagada — la app se ve en su apariencia original' })
+      ]),
+      el('span', { style: { flex: 'none', fontSize: '18px' }, text: '›' })
+    ]);
   }
 
   function streakGrid(s) {
@@ -953,6 +977,10 @@
     col.appendChild(toggle('Modo oscuro', 'Para estudiar de noche', s.settings.theme === 'dark', function (v) {
       w.Store.set(function (st) { st.settings.theme = v ? 'dark' : 'light'; }, 'settings');
       d.documentElement.setAttribute('data-theme', v ? 'dark' : 'light');
+      // Los accesorios de Chispa se dibujan con los colores ya resueltos del
+      // CSS, y el modo oscuro cambia varios de ellos. Sin esto seguirían con
+      // la paleta clara hasta el siguiente cambio de tema.
+      if (w.Persona) w.Persona.invalidar();
     }));
 
     var voz = speechCard();

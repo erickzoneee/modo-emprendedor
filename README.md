@@ -33,7 +33,9 @@ Abre `index.html` en Chrome, Edge o Firefox. No necesita instalación, ni intern
 node serve.js
 ```
 
-Y abre `http://localhost:4321`. Por aquí sí se puede instalar y probar el modo sin conexión.
+Y abre `http://localhost:4321`. Por aquí sí se puede **instalar**.
+
+> El **modo sin conexión** no se puede probar en local: el service worker se registra y precarga todo, pero en `localhost` no intercepta ninguna petición a propósito (si lo hiciera, editar un archivo te seguiría enseñando la copia guardada). Para comprobar que la app abre sin red hay que hacerlo sobre la versión publicada.
 
 **Opción 4 — publicarla**
 
@@ -56,6 +58,7 @@ Es un sitio estático puro. Sube la carpeta completa a Netlify, Vercel, GitHub P
 | **Simulador de empresa** | 12 semanas, 22 eventos, modelo de demanda real |
 | **Chispa Engine** | reglas, fórmulas y 77 entradas de conocimiento. Calcula tu precio preguntándote solo lo que falta, y recuerda lo que decidiste |
 | **Perfil del emprendimiento** | tu idea registrada al entrar: personaliza lecciones, desafíos, planes y recomendaciones |
+| **La app se adapta a tu negocio** | color secundario, ejemplos del oficio, orden del panel y Chispa con delantal, herramienta y su espacio de trabajo |
 | **Expediente Mi Negocio** | 12 secciones que se llenan solas y se exportan |
 | **Lectura en voz alta** | escucha las lecciones y las respuestas con la voz del dispositivo |
 
@@ -158,6 +161,35 @@ Las calculadoras, las rúbricas de las misiones y las prácticas guiadas son det
 
 ---
 
+## La app se adapta a tu negocio
+
+Al registrar tu idea eliges tu sector, y a partir de ahí la app deja de ser genérica: **no cambia de forma, cambia de tema**.
+
+| Qué se adapta | Qué NO se toca |
+|---|---|
+| El color secundario y los acentos | El naranja de marca, la tipografía, la estructura y la navegación |
+| Los ejemplos de cada lección | Las 50 lecciones, que son las mismas para todos |
+| El orden de las tarjetas del panel y de los 7 análisis | El mapa de la ruta |
+| Lo que Chispa lleva puesto y su espacio de trabajo | Su cuerpo, su cara y su chispa de ocho puntas |
+
+Una pastelería lee *"pesa los ingredientes de un solo pedido y súmale gas, empaque y tu hora de trabajo"*; un taller de impresión 3D, *"súmale las horas de máquina, la luz, las piezas falladas y tu tiempo de acabado"*. No es la misma frase con otra palabra: son dos oficios distintos.
+
+**Chispa es una sola.** Se le añaden capas —delantal, lentes, herramienta, un banco de trabajo detrás— pero nunca se le cambia el cuerpo ni la cara. Los accesorios están dibujados para rodear su chispa, no para taparla: es lo que la hace reconocible.
+
+Cuando cambias la descripción de tu negocio, la app **pregunta** antes de tocar nada. Y si eliges un color a mano, deja de proponerte otro.
+
+En **Mi emprendimiento › Personalizar mi experiencia** decides el color, los accesorios, cuánto quieres que se note —sutil, media o visible— o lo apagas del todo y la app vuelve a verse igual para todo el mundo.
+
+### Cómo funciona por dentro
+
+La IA puede leer tu descripción y proponer una clasificación, pero **no genera CSS, ni rutas, ni colores**. Devuelve un JSON que se valida clave por clave contra listas cerradas; si algo no está en la lista, la propuesta entera se descarta y manda el clasificador por palabras clave, que funciona sin conexión y sin costo. Y ninguna propuesta se aplica sin que la aceptes.
+
+Los colores viven solo en `css/temas.css`. `js/core/persona.js` no escribe ni un color: escribe atributos en `<html>` y deja que la cascada decida. Eso es lo que hace que el modo oscuro siga funcionando y que un valor inventado simplemente no pinte nada. Las 7 paletas están medidas: texto sobre fondo por encima de 4.5:1 en claro y en oscuro, y ningún tema toca el azul del foco de teclado.
+
+> Puntos de entrada: `Persona.actual()` en `js/core/persona.js`, las listas blancas en `js/data/config.js` (`TEMAS`, `PERSONALIDADES`), los accesorios en `js/data/mascota-capas.js` y los ejemplos por oficio en `EXAMPLE_BY_SECTOR` dentro de `js/data/venture-templates.js`.
+
+---
+
 ## Elementos de juego
 
 Racha diaria con congeladores · XP y 10 rangos · 5 vidas que se regeneran cada 30 min · monedas y tienda · 26 insignias · 7 ligas semanales · 5 retos semanales · mapa visual de progreso · meta diaria ajustable · modo oscuro · sonido sintetizado (sin archivos) · vibración háptica.
@@ -192,16 +224,20 @@ EMPRENDO/
 │   ├── base.css             reset y layout
 │   ├── components.css       botones, tarjetas, opciones, fichas…
 │   ├── screens.css          cada pantalla
-│   └── animations.css       todos los keyframes
+│   ├── animations.css       todos los keyframes
+│   └── temas.css            el color secundario por tipo de negocio
 ├── worker/                  IA gratuita: Worker de Cloudflare (se despliega aparte)
 ├── docs/                    investigación de proveedores y de Chispa Engine
 ├── lab/                     laboratorio aislado para medir modelos locales
+├── tools/
+│   └── check-precache.js    cuadra index.html con el precache del sw
 └── js/
     ├── core/
     │   ├── store.js         estado + persistencia + rachas
     │   ├── venture.js       perfil del emprendimiento: los 3 niveles de contexto
     │   ├── chispa.js        el motor: intención, huecos, fórmulas, plantillas
     │   ├── personalize.js   reescribe lecciones y desafíos sobre tu idea
+    │   ├── persona.js       la apariencia: tema, accesorios y orden del panel
     │   ├── engine.js        ruta, XP, vidas, insignias, ligas
     │   ├── mentor.js        rúbricas, análisis de texto, calculadoras
     │   ├── ai.js            elige proveedor de IA y arma el contexto
@@ -216,17 +252,27 @@ EMPRENDO/
     │   ├── config.js        niveles, jefes, insignias, ligas, tienda
     │   ├── lessons-1..8.js  las 50 microlecciones
     │   ├── kb.js            base de conocimiento de Chispa (77 entradas)
-    │   ├── venture-templates.js  plantillas de desafío por tema
+    │   ├── venture-templates.js  plantillas de desafío por tema y por oficio
+    │   ├── mascota-capas.js  accesorios de Chispa, por capas
     │   ├── sim.js           simulador: modelo y 22 eventos
     │   └── mentor-kb.js     las 26 respuestas escritas del mentor
     ├── local/               motor de la IA local — NO va en el precache
     ├── screens/             una pantalla por archivo
+    │   └── personaliza.js   "Personalizar mi experiencia": vista previa y controles
     └── app.js               arranque y navegación
 ```
 
 Sin dependencias, sin build, sin framework. Scripts clásicos para que funcione incluso abriendo el archivo directamente.
 
-> **Al publicar una versión nueva**, sube `VERSION` en `sw.js`. Ese cambio es lo que hace que quien ya tenga la app instalada reciba los archivos nuevos en vez de seguir viendo la copia guardada.
+> **Al publicar una versión nueva**, sube `VERSION` en `sw.js`. Ese cambio es lo que hace que quien ya tenga la app instalada reciba los archivos nuevos en vez de seguir viendo la copia guardada. Si no lo subes, a quien ya la instaló le llega el HTML nuevo con el JavaScript viejo.
+
+Antes de publicar, comprueba que el precache siga cuadrando:
+
+```bash
+node tools/check-precache.js
+```
+
+Compara los archivos que carga `index.html` con la lista `PRECACHE` de `sw.js`. Las dos se escriben a mano y el service worker precarga uno por uno con su propio `catch`: una ruta que falte solo deja un aviso en la consola y la app deja de abrir sin conexión sin que nadie se entere.
 
 ---
 

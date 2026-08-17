@@ -34,7 +34,8 @@
      ================================================================== */
 
   var TOKENS = ['negocio', 'producto', 'productoCorto', 'tuProducto', 'cliente',
-                'tuCliente', 'clienteCorto', 'unidad', 'idea', 'ideaCorta', 'lugar'];
+                'tuCliente', 'clienteCorto', 'unidad', 'unidades', 'idea', 'ideaCorta',
+                'lugar', 'sectorTitulo', 'etapaCorta', 'objetivo'];
 
   /** Reemplaza {producto}, {cliente}, {negocio}… en cualquier cadena. */
   function text(str) {
@@ -57,6 +58,32 @@
     return T.THEME_BY_ID[mission.id] || mission.dossier || null;
   }
 
+  /* ==================================================================
+     RESOLUCIÓN POR SECTOR
+
+     Primero la tabla del oficio del usuario; si no la hay, la genérica, que
+     ya habla de su negocio. Las tablas por sector están incompletas a
+     propósito y esto es lo que hace que eso no se note.
+     ================================================================== */
+
+  /** La plantilla más específica que exista para esta clave. */
+  function tabla(nombreSector, nombreBase, clave) {
+    var sector = terms().sector;
+    var porSector = T[nombreSector];
+    if (sector && porSector && porSector[sector] && typeof porSector[sector][clave] === 'function') {
+      return porSector[sector][clave];
+    }
+    var base = T[nombreBase];
+    return base && typeof base[clave] === 'function' ? base[clave] : null;
+  }
+
+  /* La caché de contenido generado se guarda por clave. Sin el sector dentro
+     de la clave, quien cambia de sector seguiría viendo el ejemplo del sector
+     anterior: cacheGet() devuelve el texto aunque esté marcado como obsoleto. */
+  function ck(prefijo, id) {
+    return prefijo + ':' + (terms().sector || 'x') + ':' + id;
+  }
+
   /** El desafío reescrito sobre el negocio del usuario. */
   function mission(m) {
     var base = { brief: m && m.brief, porque: null, tema: null, fields: m && m.fields, ia: false };
@@ -66,9 +93,13 @@
     var fn = tema && T.BRIEF[tema];
     var t = terms();
     var out = { tema: tema, ia: false };
+    var r = null;
 
-    if (fn) {
-      var r = fn(t);
+    // Una plantilla que lance no puede tumbar la pantalla de misión entera:
+    // es la única del módulo que no estaba protegida.
+    if (fn) { try { r = fn(t); } catch (e) { r = null; } }
+
+    if (r) {
       out.brief = r.brief;
       out.porque = r.porque;
     } else {
@@ -79,7 +110,7 @@
     out.fields = personalizeFields(m.fields, t);
 
     // Si hay una versión generada por IA guardada, gana.
-    var hit = V().cacheGet('mission:' + m.id);
+    var hit = V().cacheGet(ck('mission', m.id));
     if (hit && hit.text) { out.brief = hit.text; out.ia = true; out.stale = hit.stale; }
     return out;
   }
@@ -88,7 +119,7 @@
     if (!fields || !fields.length) return fields;
     if (!t.tiene.producto && !t.tiene.cliente) return fields;
     return fields.map(function (f) {
-      var maker = T.PLACEHOLDER[f.key];
+      var maker = tabla('PLACEHOLDER_BY_SECTOR', 'PLACEHOLDER', f.key);
       if (!maker) return f;
       var copia = {}, k;
       for (k in f) if (Object.prototype.hasOwnProperty.call(f, k)) copia[k] = f[k];
@@ -100,7 +131,7 @@
   /** Pide a la IA el desafío personalizado. Devuelve promesa o null. */
   function missionAI(m) {
     if (!m || !aiOn()) return null;
-    var key = 'mission:' + m.id;
+    var key = ck('mission', m.id);
     var hit = V().cacheGet(key);
     if (hit && !hit.stale) return null;                 // ya está y sigue vigente
     var t = terms();
@@ -121,20 +152,28 @@
      LECCIONES
      ================================================================== */
 
-  /** Bloque "Aplicado a tu idea" que se inserta en cada lección. */
+  /** Bloque "Aplicado a tu idea" que se inserta en cada lección.
+
+      Tiene que ser DETERMINISTA: lesson.js la llama cuatro veces con la misma
+      lección (al armar la secuencia, al pintar, al leerla en voz alta y en la
+      tarjeta previa del mapa). Si devolviera cosas distintas —o si pasara de
+      devolver texto a devolver null entre una llamada y otra— el paso quedaría
+      en la secuencia con el párrafo vacío. Nada de aleatoriedad ni de rotación. */
   function example(lesson) {
     if (!lesson || !ready()) return null;
-    var key = 'ejemplo:' + lesson.id;
-    var hit = V().cacheGet(key);
+    var hit = V().cacheGet(ck('ejemplo', lesson.id));
     if (hit && hit.text) return { text: hit.text, ia: true, stale: hit.stale };
-    var fn = T.EXAMPLE_BY_LEVEL[lesson.level];
+    var fn = tabla('EXAMPLE_BY_SECTOR', 'EXAMPLE_BY_LEVEL', lesson.level);
     if (!fn) return null;
-    try { return { text: fn(terms()), ia: false }; } catch (e) { return null; }
+    try {
+      var txt = fn(terms());
+      return txt ? { text: txt, ia: false } : null;
+    } catch (e) { return null; }
   }
 
   function exampleAI(lesson) {
     if (!lesson || !aiOn()) return null;
-    var key = 'ejemplo:' + lesson.id;
+    var key = ck('ejemplo', lesson.id);
     var hit = V().cacheGet(key);
     if (hit && !hit.stale) return null;
     return w.AI.generate('ejemplo', {
@@ -152,7 +191,7 @@
   /** Pregunta de reflexión al cerrar la lección. */
   function reflection(lesson) {
     if (!lesson || !ready()) return null;
-    var fn = T.REFLECT_BY_LEVEL[lesson.level];
+    var fn = tabla('REFLECT_BY_SECTOR', 'REFLECT_BY_LEVEL', lesson.level);
     if (!fn) return null;
     try { return fn(terms()); } catch (e) { return null; }
   }
@@ -239,6 +278,13 @@
     { key: 'costos',  icon: '🧮', title: 'Costos, precio y proyección' },
     { key: 'marca',   icon: '🎨', title: 'Tu marca' }
   ];
+
+  /** Los mismos siete análisis, ordenados por lo que le urge a ESTE negocio.
+      Siempre están los siete: se reordena, nunca se esconde ninguno. */
+  function kinds() {
+    if (!w.Persona) return KINDS;
+    try { return w.Persona.ordenAnalisis(KINDS) || KINDS; } catch (e) { return KINDS; }
+  }
 
   function dec(k) { var d = V().decision(k); return d ? d.value : null; }
 
@@ -333,7 +379,7 @@
     }
 
     var meta = KINDS.filter(function (x) { return x.key === kind; })[0] || { icon: '📌', title: kind };
-    var cached = V().cacheGet('analisis:' + kind);
+    var cached = V().cacheGet(ck('analisis', kind));
     return {
       key: kind, icon: meta.icon, title: meta.title,
       lines: lines, gaps: gaps,
@@ -342,11 +388,14 @@
     };
   }
 
-  function analysisAI(kind) {
+  /** `forzar` pide una versión nueva aunque la guardada siga vigente. Existe
+      para que "Volver a generarlo" no tenga que borrar la caché ANTES de
+      pedir: si la petición fallaba, el usuario perdía el texto que ya tenía. */
+  function analysisAI(kind, forzar) {
     if (!aiOn()) return null;
-    var key = 'analisis:' + kind;
+    var key = ck('analisis', kind);
     var hit = V().cacheGet(key);
-    if (hit && !hit.stale) return null;
+    if (!forzar && hit && !hit.stale) return null;
     var meta = KINDS.filter(function (x) { return x.key === kind; })[0];
     var pide = {
       valor:   'Escribe la propuesta de valor de este negocio y qué le falta para ser irresistible.',
@@ -423,7 +472,8 @@
     example: example, exampleAI: exampleAI, reflection: reflection,
     weeklyTitle: weeklyTitle, focus: focus, dailyLine: dailyLine,
     dossierHint: dossierHint,
-    KINDS: KINDS, analysis: analysis, analysisAI: analysisAI,
+    KINDS: KINDS, kinds: kinds, analysis: analysis, analysisAI: analysisAI,
+    cacheKey: ck,
     recommendation: recommendation,
     aiOn: aiOn, upgrade: upgrade
   };

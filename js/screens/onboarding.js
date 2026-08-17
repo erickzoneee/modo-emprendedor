@@ -5,9 +5,9 @@
    captura aquí se convierte en el "Perfil del emprendimiento" y pasa a ser el
    contexto de TODA la app (lecciones, desafíos, mentor, planes y paneles).
 
-   Seis preguntas, ninguna pesada: idea, producto, cliente, etapa, objetivo y
-   recursos. Si una respuesta se queda corta, se repregunta una o dos veces —
-   solo lo que de verdad falte para poder personalizar.
+   Siete preguntas, ninguna pesada: idea, producto, cliente, sector, etapa,
+   objetivo y recursos. Si una respuesta se queda corta, se repregunta una o
+   dos veces — solo lo que de verdad falte para poder personalizar.
    ========================================================================== */
 (function (w, d) {
   'use strict';
@@ -16,14 +16,17 @@
 
   var draft = {
     name: '', businessName: '', idea: '', offer: '', customer: '',
-    stage: '', goalKey: '', goalText: '',
+    sector: '', stage: '', goalKey: '', goalText: '',
     budget: '', time: null, experience: '', place: '',
     extra: {}          // respuestas de las repreguntas
   };
 
   var followUps = null;   // se calcula al llegar al paso
 
-  var STEPS = ['idea', 'offer', 'customer', 'stage', 'goal', 'resources', 'more', 'confirm'];
+  /* El sector va justo después del cliente: para entonces el usuario ya
+     describió qué vende y a quién, así que la app puede proponerle uno en vez
+     de preguntar en frío. */
+  var STEPS = ['idea', 'offer', 'customer', 'sector', 'stage', 'goal', 'resources', 'more', 'confirm'];
 
   function stepIndex(key) { return STEPS.indexOf(key); }
 
@@ -97,6 +100,7 @@
       case 'idea':      return askIdea(i);
       case 'offer':     return askOffer(i);
       case 'customer':  return askCustomer(i);
+      case 'sector':    return askSector(i);
       case 'stage':     return askChoice(i, 'stage', {
         step: 'Etapa', q: '¿En qué etapa te encuentras?',
         sub: 'No hay respuesta mala: cambia por dónde empieza tu ruta.', opts: C.STAGES });
@@ -260,7 +264,40 @@
     return root;
   }
 
-  /* --------------------------- 4. ETAPA (y otras de un toque) --------------------------- */
+  /* --------------------------- 4. EL SECTOR ---------------------------
+
+     No se pregunta en frío: para llegar aquí el usuario ya escribió qué vende
+     y a quién, así que la app propone un sector y él confirma o lo corrige.
+     De esta elección salen los ejemplos, la unidad de venta y la apariencia,
+     así que conviene que la decida él y no una lista de palabras clave.
+     --------------------------------------------------------------------- */
+
+  function askSector(i) {
+    var propuesto = false;
+
+    if (!draft.sector) {
+      var guess = '';
+      try {
+        guess = w.Venture.guessSector({
+          core: { idea: draft.idea, offer: draft.offer, customer: draft.customer }
+        });
+      } catch (e) { guess = ''; }
+      // "otro" es el resultado de no haber encontrado nada: preseleccionarlo
+      // haría que el usuario lo aceptara sin mirar.
+      if (guess && guess !== 'otro') { draft.sector = guess; propuesto = true; }
+    }
+
+    return askChoice(i, 'sector', {
+      step: 'Tu sector',
+      q: '¿A qué se dedica tu negocio?',
+      sub: propuesto
+        ? 'Lo deduje de lo que escribiste. Si no cuadra, elige el correcto.'
+        : 'Con esto elijo los ejemplos, las cuentas y la apariencia que hablan de lo tuyo.',
+      opts: C.SECTORS
+    });
+  }
+
+  /* --------------------------- 5. ETAPA (y otras de un toque) --------------------------- */
 
   function askChoice(i, key, q) {
     var root = el('div', { class: 'screen' });
@@ -294,7 +331,7 @@
     return root;
   }
 
-  /* --------------------------- 5. OBJETIVO --------------------------- */
+  /* --------------------------- 6. OBJETIVO --------------------------- */
 
   function askGoal(i) {
     var root = el('div', { class: 'screen' });
@@ -340,7 +377,7 @@
     return root;
   }
 
-  /* --------------------------- 6. RECURSOS --------------------------- */
+  /* --------------------------- 7. RECURSOS --------------------------- */
 
   function askResources(i) {
     var root = el('div', { class: 'screen' });
@@ -386,7 +423,7 @@
     return root;
   }
 
-  /* --------------------------- 7. REPREGUNTAS --------------------------- */
+  /* --------------------------- 8. REPREGUNTAS --------------------------- */
 
   /** Solo se pregunta lo que de verdad falta, y como mucho dos veces. */
   function neededFollowUps() {
@@ -477,7 +514,7 @@
     return root;
   }
 
-  /* --------------------------- 8. CONFIRMACIÓN --------------------------- */
+  /* --------------------------- 9. CONFIRMACIÓN --------------------------- */
 
   function draftCore() {
     return {
@@ -497,11 +534,13 @@
       (C.OBJECTIVES.filter(function (x) { return x.key === draft.goalKey; })[0] || {}).title || '—';
     var budget = (C.BUDGETS.filter(function (x) { return x.key === draft.budget; })[0] || {}).title || '—';
     var exp = (C.KNOWLEDGE.filter(function (x) { return x.key === draft.experience; })[0] || {}).title || '—';
+    var sector = (C.SECTORS.filter(function (x) { return x.key === draft.sector; })[0] || {}).title || '—';
 
     var filas = [
       ['💡', 'Tu idea', draft.idea],
       ['📦', 'Qué ofreces', draft.offer],
       ['🎯', 'Tus clientes', draft.customer + (draft.place ? ' · ' + draft.place : '')],
+      ['🏷️', 'Sector', sector],
       ['📍', 'Etapa', stage],
       ['🚩', 'Objetivo', goal],
       ['🧰', 'Recursos', budget + ' · ' + draft.time + ' min/día · ' + exp]
@@ -609,6 +648,7 @@
       idea: (draft.idea || '').trim(),
       offer: (draft.offer || '').trim() || (draft.idea || '').trim(),
       customer: (draft.customer || '').trim(),
+      sector: draft.sector || '',
       stage: draft.stage || 'idea',
       goalKey: draft.goalKey || '',
       goalText: (draft.goalText || '').trim(),
@@ -659,6 +699,14 @@
 
     w.Venture.mirrorProfile();
     w.Store.set(function (s) { s.startIndex = w.Engine.recommendedStart(); }, 'route');
+
+    /* La apariencia se deriva del sector recién elegido, y hasta aquí solo se
+       aplicaba al arrancar la app. Sin esta línea, quien acaba de registrar una
+       pastelería veía toda la ruta en el color del emprendimiento anterior —o en
+       el genérico si era usuario nuevo— hasta la siguiente recarga.
+       asegurar() es idempotente: en los arranques siguientes no escribe nada. */
+    try { w.Persona.asegurar(); } catch (e) { console.warn('[persona]', e); }
+
     return v;
   }
 
@@ -679,7 +727,7 @@
     draft = {
       name: w.Store.state.profile.name === 'Emprendedor' ? '' : w.Store.state.profile.name,
       businessName: '', idea: '', offer: '', customer: '',
-      stage: '', goalKey: '', goalText: '',
+      sector: '', stage: '', goalKey: '', goalText: '',
       budget: '', time: null, experience: '', place: '', extra: {}
     };
     followUps = null;

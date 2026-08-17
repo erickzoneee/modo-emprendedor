@@ -241,9 +241,23 @@
         stage: '',           // idea | starting | operating | growing
         goalKey: '',         // validar | primera | vender | ordenar | escalar
         goalText: '',        // el objetivo en sus palabras (opcional)
-        sector: '',          // clave de sector (inferida o elegida)
+        sector: '',          // clave de sector (elegida en el registro)
+        brandVoice: '',      // clave de CONFIG.PERSONALIDADES (opcional)
         place: '',           // ciudad o zona (opcional)
         resources: { budget: '', time: null, experience: '', assets: '' }
+      },
+      /* Cómo se ve la app para este emprendimiento. Vive dentro del venture a
+         propósito: al registrar una idea nueva, startOver() lo borra con todo
+         lo demás y no queda una apariencia hablando del negocio anterior.
+         Lo mantiene js/core/persona.js; aquí solo se declara y se persiste. */
+      persona: {
+        v: 1,
+        temaId: null,        // null = derivar del sector. Clave de CONFIG.TEMAS
+        temaFuente: 'auto',  // 'auto' | 'usuario'
+        intensidad: 'media', // 'sutil' | 'media' | 'visible'
+        capas: null,         // null = las del tema. Si el usuario las tocó, su mapa
+        panel: null,         // null = orden por defecto. Si no, array de ids
+        propuesta: null      // clasificación sugerida pendiente de aceptar
       },
       decisions: {},         // clave -> { key, label, value, from, at, score }
       objectives: [],        // { id, text, metric, due, done, at }
@@ -272,10 +286,15 @@
     var coreBase = base.core;
     var resBase = base.core.resources;
     var intakeBase = base.intake;
+    var personaBase = base.persona;
     var out = base, k;
     for (k in v) if (Object.prototype.hasOwnProperty.call(v, k)) out[k] = v[k];
     out.core = merge(coreBase, v.core || {});
     out.core.resources = merge(resBase, (v.core && v.core.resources) || {});
+    /* merge() ignora null y '' del guardado, y `persona` los usa como valores
+       legítimos ("todavía sin decidir"). Se copia campo a campo respetándolos,
+       y así un campo nuevo del modelo llega igual a los perfiles ya guardados. */
+    out.persona = hydratePersona(personaBase, v.persona);
     out.decisions = v.decisions || {};
     out.objectives = v.objectives || [];
     out.tasks = v.tasks || [];
@@ -294,6 +313,19 @@
     for (k in over) {
       if (!Object.prototype.hasOwnProperty.call(over, k)) continue;
       if (over[k] !== undefined && over[k] !== null && over[k] !== '') out[k] = over[k];
+    }
+    return out;
+  }
+
+  /** Como merge(), pero conservando null y '' cuando el guardado los trae:
+      en `persona` significan "sin decidir todavía", no "falta el dato". */
+  function hydratePersona(base, saved) {
+    var out = {}, k;
+    for (k in base) if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k];
+    if (!saved || typeof saved !== 'object') return out;
+    for (k in out) {
+      if (!Object.prototype.hasOwnProperty.call(out, k)) continue;
+      if (Object.prototype.hasOwnProperty.call(saved, k) && saved[k] !== undefined) out[k] = saved[k];
     }
     return out;
   }
@@ -426,6 +458,23 @@
       }
       if (!v.core.sector) v.core.sector = guessSector(v);
     }, 'venture-core');
+  }
+
+  /* ==================================================================
+     APARIENCIA — la lee y la escribe js/core/persona.js
+     ================================================================== */
+
+  function persona() { return active().persona; }
+
+  /** Cambia la apariencia guardada. Ojo: `set()` sube `rev` y eso marca como
+      obsoleta toda la caché generada, así que solo debe llamarse desde un
+      gesto del usuario o del arranque, nunca desde un render. */
+  function setPersona(patch) {
+    return set(function (v) {
+      for (var k in patch) {
+        if (Object.prototype.hasOwnProperty.call(patch, k)) v.persona[k] = patch[k];
+      }
+    }, 'venture-persona');
   }
 
   /** El resto de la app (ruta, liga, barra superior) sigue leyendo `profile`. */
@@ -631,6 +680,17 @@
     };
   }
 
+  /** Busca en un catálogo de CONFIG sin romperse si aún no está cargado:
+      venture.js corre antes que algunas pantallas y `terms()` se llama pronto. */
+  function catalogo(nombre, key) {
+    var list = (w.CONFIG && w.CONFIG[nombre]) || [];
+    for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
+    return {};
+  }
+
+  function sectorMeta(key) { return catalogo('SECTORS', key); }
+  function personalidadMeta(key) { return catalogo('PERSONALIDADES', key); }
+
   function terms() {
     var v = active();
     var c = v.core;
@@ -673,6 +733,12 @@
       cuantasUnidades: U.q + ' ' + U.p,    // "cuántas piezas" / "cuántos pedidos"
       unidadesVendidas: U.p + ' ' + U.vend,
       sector: sector,
+      sectorTitulo: sectorMeta(sector).title,
+      sectorEmoji: sectorMeta(sector).emoji,
+      // La personalidad de marca: cómo quiere que le suene el negocio.
+      personalidad: personalidadMeta(c.brandVoice).title,
+      personalidadKey: txt(c.brandVoice),
+      tono: personalidadMeta(c.brandVoice).tono,
       lugar: txt(c.place),
       etapa: c.stage || '',
       etapaCorta: STAGE_SHORT[c.stage] || 'Sin definir',
@@ -697,13 +763,15 @@
     { key: 'idea',       label: '¿Cuál es tu idea de negocio?',   peso: 3, get: function (c) { return c.idea; } },
     { key: 'offer',      label: '¿Qué producto o servicio ofreces?', peso: 3, get: function (c) { return c.offer; } },
     { key: 'customer',   label: '¿A qué clientes quieres venderles?', peso: 3, get: function (c) { return c.customer; } },
+    { key: 'sector',     label: '¿A qué se dedica tu negocio?',    peso: 2, get: function (c) { return c.sector; } },
     { key: 'stage',      label: '¿En qué etapa estás?',            peso: 2, get: function (c) { return c.stage; } },
     { key: 'goalKey',    label: '¿Cuál es tu objetivo principal?', peso: 2, get: function (c) { return c.goalKey || c.goalText; } },
     { key: 'budget',     label: '¿Con qué presupuesto cuentas?',   peso: 1, get: function (c) { return c.resources.budget; } },
     { key: 'time',       label: '¿Cuánto tiempo tienes al día?',   peso: 1, get: function (c) { return c.resources.time; } },
     { key: 'experience', label: '¿Cuánta experiencia tienes?',     peso: 1, get: function (c) { return c.resources.experience; } },
     { key: 'name',       label: '¿Cómo se llama tu negocio?',      peso: 1, opcional: true, get: function (c) { return c.name; } },
-    { key: 'place',      label: '¿En qué ciudad o zona vendes?',   peso: 1, opcional: true, get: function (c) { return c.place; } }
+    { key: 'place',      label: '¿En qué ciudad o zona vendes?',   peso: 1, opcional: true, get: function (c) { return c.place; } },
+    { key: 'brandVoice', label: '¿Cómo quieres que suene tu marca?', peso: 1, opcional: true, get: function (c) { return c.brandVoice; } }
   ];
 
   function completeness() {
@@ -782,7 +850,12 @@
            '; experiencia: ' + (EXP_TEXT[r.experience] || 'sin definir') +
            (r.assets ? '; con lo que ya cuenta: ' + r.assets : ''));
     if (c.place) L.push('Zona: ' + c.place);
-    if (c.sector) L.push('Sector: ' + c.sector);
+    if (c.sector) L.push('Sector: ' + (sectorMeta(c.sector).title || c.sector));
+    if (c.brandVoice) {
+      var pm = personalidadMeta(c.brandVoice);
+      L.push('Cómo quiere que suene su marca: ' + (pm.title || c.brandVoice) +
+             (pm.tono ? ' — escribe en un tono ' + pm.tono + '.' : ''));
+    }
     return L.join('\n');
   }
 
@@ -924,6 +997,7 @@
 
     ensure: ensure, active: active, set: set, patchCore: patchCore,
     mirrorProfile: mirrorProfile, guessSector: guessSector,
+    persona: persona, setPersona: setPersona,
 
     terms: terms, summary: summary, completeness: completeness, fields: fields,
     effective: effective,

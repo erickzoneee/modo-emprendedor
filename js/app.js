@@ -300,6 +300,12 @@
 
     d.documentElement.setAttribute('data-theme', s.settings.theme || 'light');
 
+    // La apariencia del negocio, antes de pintar la primera pantalla: si se
+    // aplicara después, se vería un parpadeo del tema genérico al del usuario.
+    // asegurar() es idempotente a propósito — boot() vuelve a ejecutarse al
+    // restaurar un respaldo o al reiniciar el progreso.
+    try { w.Persona.asegurar(); } catch (e) { console.warn('[persona]', e); }
+
     if (s.__freezeUsed) {
       w.Store.set(function (st) { delete st.__freezeUsed; }, 'freeze');
       setTimeout(function () {

@@ -519,6 +519,9 @@
 .mascot.is-sad    { animation: droop .7s var(--ease-out); }
 .mascot.is-think  { animation: tilt 2.4s var(--ease-in-out) infinite; }
 .mascot.is-party  { animation: party .9s var(--spring); }
+/* is-neutral no redefine nada: su animación es el bob de reposo de .mascot */
+.mascot.is-wow    { animation: wowPop .55s var(--spring); }
+.mascot.is-money  { animation: cash 1.1s var(--spring); }
 
 .m-eye { transform-origin: center; animation: blink 4.6s infinite; }
 .m-spark { animation: sparkle 2.2s var(--ease-in-out) infinite; transform-origin: center; }
@@ -526,6 +529,13 @@
 .m-arm-r { transform-origin: 70px 62px; }
 .mascot.is-happy .m-arm-l { animation: waveL .7s var(--ease-out); }
 .mascot.is-happy .m-arm-r { animation: waveR .7s var(--ease-out); }
+
+/* Lo que lleva en la mano tiene que moverse con el brazo. Sin esto, al saludar
+   el brazo sube y la herramienta se queda flotando donde estaba. */
+.m-hold-l { transform-origin: 30px 62px; }
+.m-hold-r { transform-origin: 70px 62px; }
+.mascot.is-happy .m-hold-l { animation: waveL .7s var(--ease-out); }
+.mascot.is-happy .m-hold-r { animation: waveR .7s var(--ease-out); }
 
 /* ------------------------- Toasts ------------------------- */
 

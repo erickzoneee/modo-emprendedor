@@ -176,10 +176,27 @@
   /* ---------------------------- Sheet (panel inferior) ---------------------------- */
 
   var sheetCloser = null;
+  var sheetTimer = null;
 
   function sheet(content, opts) {
     opts = opts || {};
     var layer = d.getElementById('sheet-layer');
+
+    /* Cerrar una hoja no la oculta en el momento: deja programado un borrado a
+       280 ms para que se vea la animación de salida. Si en ese hueco se abre
+       otra —cerrar una y abrir la siguiente es un patrón normal aquí— ese
+       temporizador la vaciaba y el usuario veía la hoja nueva aparecer y
+       desvanecerse sola. Se cancela antes de pintar nada. */
+    if (sheetTimer) { clearTimeout(sheetTimer); sheetTimer = null; }
+    // Y el cierre pendiente se ejecuta ya, para no perder su callback. Con
+    // try/catch, igual que modal(): si ese callback lanzara, la hoja nueva se
+    // quedaría sin pintar y la capa colgada con el contenido viejo.
+    if (sheetCloser) {
+      var pendiente = sheetCloser;
+      sheetCloser = null;
+      try { pendiente(); } catch (e) { console.error(e); }
+    }
+
     clear(layer);
     layer.hidden = false;
     layer.classList.remove('is-closing');
@@ -198,7 +215,9 @@
     var layer = d.getElementById('sheet-layer');
     if (!layer || layer.hidden) return;
     layer.classList.add('is-closing');
-    setTimeout(function () {
+    if (sheetTimer) clearTimeout(sheetTimer);
+    sheetTimer = setTimeout(function () {
+      sheetTimer = null;
       layer.hidden = true;
       clear(layer);
       layer.classList.remove('is-closing');

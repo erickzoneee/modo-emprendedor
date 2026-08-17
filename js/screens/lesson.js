@@ -365,7 +365,8 @@
     var t = w.Venture.terms();
 
     var texto = el('p', { style: { marginTop: '8px' }, html: UI.rich(ej ? ej.text : '') });
-    var tag = el('div', { class: 'tiny', style: { color: 'var(--brand)' },
+    // El color por clase, no en línea: así el tema del negocio puede alcanzarlo.
+    var tag = el('div', { class: 'tiny neg-aplica__k',
       text: ej && ej.ia ? 'Aplicado a tu idea ✨' : 'Aplicado a tu idea' });
 
     var node = el('div', { class: 'col stagger' }, [
@@ -375,7 +376,7 @@
           el('div', { class: 'small', text: 'Esto es lo que significa para ' + t.negocio + '.' })
         ])
       ]),
-      el('div', { class: 'concept-card', style: { borderColor: 'var(--brand)' } }, [
+      el('div', { class: 'concept-card neg-aplica' }, [
         tag,
         el('h2', { class: 'h4', style: { marginTop: '4px' }, text: t.tiene.producto ? t.negocio : 'Tu negocio' }),
         texto

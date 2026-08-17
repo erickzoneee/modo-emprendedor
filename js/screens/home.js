@@ -14,9 +14,18 @@
     // Encabezado de la pantalla para lectores de pantalla: visualmente el
     // título lo da el mapa, pero la jerarquía tiene que existir igual.
     root.appendChild(el('h1', { class: 'sr-only', text: 'Tu ruta de emprendimiento' }));
-    root.appendChild(ventureStrip());
-    root.appendChild(dailyCard());
-    root.appendChild(weeklyStrip());
+
+    /* El orden de estas tres tarjetas depende del negocio: quien todavía está
+       definiendo su idea necesita el perfil delante; quien ya vende necesita
+       la tarea del día. Lo decide js/core/persona.js, y si no hay nada que
+       decidir devuelve la lista tal cual. Se reordena, nunca se filtra. */
+    var MODULOS = [
+      { id: 'venture', build: ventureStrip },
+      { id: 'daily',   build: dailyCard },
+      { id: 'weekly',  build: weeklyStrip }
+    ];
+    var orden = w.Persona ? w.Persona.ordenPanel(MODULOS) : MODULOS;
+    orden.forEach(function (m) { root.appendChild(m.build()); });
 
     var currentLevel = -1;
     var container = el('div', { class: 'col', style: { gap: '0' } });
@@ -294,8 +303,10 @@
       // Qué va a hacer con SU negocio al terminarla: la lección no es teoría suelta.
       (function () {
         var ej = w.Personalize.example(lesson);
-        return ej ? el('div', { class: 'card card--tight', style: { background: 'var(--brand-soft)', borderColor: 'var(--brand)', textAlign: 'left' } }, [
-          el('div', { class: 'tiny', style: { color: 'var(--brand)' }, text: 'Aplicado a tu idea' }),
+        // El color va por clase y no en línea: es el bloque que habla del
+        // negocio del usuario, así que es de los que toma su color.
+        return ej ? el('div', { class: 'card card--tight neg-aplica', style: { textAlign: 'left' } }, [
+          el('div', { class: 'tiny neg-aplica__k', text: 'Aplicado a tu idea' }),
           el('div', { class: 'small', style: { marginTop: '6px' }, text: ej.text })
         ]) : null;
       })(),

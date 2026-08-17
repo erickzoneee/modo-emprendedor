@@ -284,6 +284,57 @@
     { key: 'otro',       emoji: '✨', title: 'Otro / aún no lo sé',        ex: 'te ayudo a decidirlo en el camino' }
   ];
 
+  /* Cómo quiere sonar su marca. Cambia el tono con el que le habla el mentor y
+     los ejemplos que se le proponen — no cambia los datos de su negocio. */
+  var PERSONALIDADES = [
+    { key: 'cercana',     emoji: '🤝', title: 'Cercana y de confianza', sub: 'Hablas como con un vecino.',
+      tono: 'cálido y cercano, de tú, sin tecnicismos' },
+    { key: 'profesional', emoji: '👔', title: 'Profesional y seria',    sub: 'Formal, cumplidora, sin adornos.',
+      tono: 'sobrio y formal, centrado en cumplir lo prometido' },
+    { key: 'divertida',   emoji: '🎉', title: 'Divertida y ligera',     sub: 'Con humor, sin solemnidad.',
+      tono: 'desenfadado y con humor, sin perder la claridad' },
+    { key: 'artesanal',   emoji: '🪵', title: 'Artesanal y cuidada',    sub: 'El proceso importa tanto como el resultado.',
+      tono: 'que valora el oficio, el detalle y el hecho a mano' },
+    { key: 'tecnica',     emoji: '🔬', title: 'Técnica y precisa',      sub: 'Datos, garantías y especificaciones.',
+      tono: 'preciso y verificable, con datos y garantías' },
+    { key: 'premium',     emoji: '✨', title: 'Premium y exclusiva',    sub: 'Pocos clientes, mucho detalle.',
+      tono: 'cuidado y exclusivo, sin hablar nunca de barato' }
+  ];
+
+  /* ------------------------- Temas del emprendimiento -------------------------
+
+     Lista blanca de la personalización visual. Aquí NO hay colores: los hex
+     viven en css/temas.css, que es quien decide qué es un valor válido. Si una
+     clave no existe allí, simplemente no pinta — no hay forma de inyectar un
+     estilo arbitrario.
+
+     `capas` nombra accesorios de js/data/mascota-capas.js. La mascota conserva
+     siempre su cuerpo naranja, su cara y su chispa: solo se le añaden capas.
+     ------------------------------------------------------------------------ */
+  var TEMAS = [
+    { key: 'generico',  emoji: '🧭', title: 'Neutro',              sub: 'La apariencia original de la app.',
+      capas: {} },
+    { key: 'calido',    emoji: '🍰', title: 'Cocina y cálido',     sub: 'Tonos de horno y pastelería.',
+      capas: { cabeza: 'gorro', mano: 'cuchara', fondo: 'mostrador' } },
+    { key: 'taller',    emoji: '🧰', title: 'Taller y oficio',     sub: 'Madera, ámbar y herramienta.',
+      capas: { cabeza: 'lentes', torso: 'mandil', mano: 'llave', fondo: 'banco' } },
+    { key: 'servicio',  emoji: '🧼', title: 'Servicio a domicilio', sub: 'Limpio, claro y de confianza.',
+      capas: { torso: 'cinturon', mano: 'libreta', fondo: 'banco' } },
+    { key: 'digital',   emoji: '💻', title: 'Digital',             sub: 'Pantalla, índigo y teclado.',
+      capas: { cabeza: 'audifonos', mano: 'tableta', fondo: 'escritorio' } },
+    { key: 'comercio',  emoji: '📦', title: 'Comercio y reventa',  sub: 'Caja, etiqueta y mostrador.',
+      capas: { torso: 'etiqueta', mano: 'caja', fondo: 'mostrador' } },
+    { key: 'bienestar', emoji: '🌿', title: 'Belleza y bienestar', sub: 'Suave, cuidado y sereno.',
+      capas: { cabeza: 'banda', torso: 'bata', fondo: 'mostrador' } }
+  ];
+
+  /* Qué tema propone la app para cada sector. El usuario puede escoger
+     cualquier otro: esto es solo el punto de partida. */
+  var TEMA_POR_SECTOR = {
+    comida: 'calido', hechoamano: 'taller', servicios: 'servicio',
+    digital: 'digital', reventa: 'comercio', otro: 'generico'
+  };
+
   var KNOWLEDGE = [
     { key: 'none', emoji: '🐣', title: 'Empiezo de cero', sub: 'Nunca he vendido nada.' },
     { key: 'some', emoji: '🐥', title: 'Algo he intentado', sub: 'He vendido, pero sin método.' },
@@ -335,6 +386,7 @@
     LEAGUES: LEAGUES, BOT_NAMES: BOT_NAMES, SHOP: SHOP, WEEKLY: WEEKLY,
     GOALS: GOALS, SECTORS: SECTORS, KNOWLEDGE: KNOWLEDGE, TIMES: TIMES, BUDGETS: BUDGETS,
     STAGES: STAGES, OBJECTIVES: OBJECTIVES,
+    PERSONALIDADES: PERSONALIDADES, TEMAS: TEMAS, TEMA_POR_SECTOR: TEMA_POR_SECTOR,
     rankFor: rankFor
   };
 

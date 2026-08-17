@@ -228,6 +228,28 @@
     return sinIA();
   }
 
+  /** Manda una petición corta a quien esté disponible, con la misma cascada
+      que ask(): clave personal, modelo local, Worker gratuito.
+
+      Antes cada tarea corta enrutaba a mano `isOn() ? call() : Worker`, y eso
+      dejaba fuera al modelo local: quien lo tenía descargado pero no había
+      configurado el Worker recibía un rechazo teniendo una IA lista. */
+  function tarea(texto, sistema, opts) {
+    opts = opts || {};
+    var tope = opts.maxTokens || 200;
+    if (isOn()) {
+      return call([{ role: 'user', content: texto }],
+        { system: sistema, maxTokens: tope, timeout: opts.timeout });
+    }
+    if (hayLocal()) return pedirLocal(texto, sistema, tope);
+    if (hayWorker()) {
+      return w.AIWorker.pedir(texto, {
+        sistema: sistema, maxTokens: tope, timeout: opts.timeout, noContar: opts.noContar
+      });
+    }
+    return sinIA();
+  }
+
   /** Repreguntas de registro: qué falta saber para personalizar de verdad.
       Devuelve un array de preguntas cortas (0 a 3). */
   function intakeQuestions(core, faltantes) {
@@ -251,17 +273,93 @@
       'Si la información ya alcanza para personalizar, devuelve exactamente: OK'
     ].join('\n');
 
-    var peticion = isOn()
-      ? call([{ role: 'user', content: datos }], { system: sistema, maxTokens: 160, timeout: 20000 })
-      : w.AIWorker.pedir(datos, { sistema: sistema, maxTokens: 160, timeout: 20000 });
-
-    return peticion.then(function (r) {
+    return tarea(datos, sistema, { maxTokens: 200, timeout: 20000 }).then(function (r) {
       if (/^\s*ok\s*$/i.test(r)) return [];
       return r.split('\n')
         .map(function (x) { return x.replace(/^[\s\-\*\d\.\)]+/, '').trim(); })
         .filter(function (x) { return x.length > 6 && x.length < 140; })
         .slice(0, faltantes || 2);
     });
+  }
+
+  /* ------------------------- Clasificación del negocio -------------------------
+
+     Lo único que la IA decide sobre la APARIENCIA de la app. Y no decide nada
+     de verdad: devuelve claves de una lista cerrada que se valida aquí, y la
+     propuesta no se aplica hasta que el usuario la acepta.
+
+     El modelo NUNCA emite CSS, hex, rutas, nombres de archivo ni HTML. Si la
+     respuesta trae una clave que no existe, se descarta entera y manda el
+     clasificador por palabras clave, que funciona sin conexión y sin costo.
+
+     Sí cuenta cuota, aunque sea una consulta corta: todos los caminos que
+     llegan aquí nacen de un gesto del usuario —cambiar su idea o pulsar
+     "Regenerar la propuesta"— y el contador que ve en su perfil tiene que
+     cuadrar con lo que de verdad ha gastado. El arranque no llama aquí.
+     ------------------------------------------------------------------------- */
+
+  function clasificarNegocio(core) {
+    if (!disponible()) return Promise.reject(new Error('La IA no está activa.'));
+    var C = w.CONFIG || {};
+    var sectores = (C.SECTORS || []).map(function (x) { return x.key; });
+    var voces = (C.PERSONALIDADES || []).map(function (x) { return x.key; });
+    if (!sectores.length || !voces.length) return Promise.reject(new Error('Faltan los catálogos.'));
+
+    var datos = [
+      'Idea: ' + (core.idea || '(vacío)'),
+      'Producto o servicio: ' + (core.offer || '(vacío)'),
+      'Clientes: ' + (core.customer || '(vacío)')
+    ].join('\n');
+
+    var sistema = [
+      'Clasificas el negocio de un emprendedor a partir de su descripción.',
+      '',
+      'Responde SOLO con un objeto JSON en una línea, sin explicaciones, sin',
+      'markdown y sin bloques de código. Las claves son exactamente estas cuatro:',
+      '{"sector":"…","personalidad":"…","subtipo":"…","confianza":0.0}',
+      '',
+      '· sector debe ser EXACTAMENTE uno de: ' + sectores.join(' | '),
+      '· personalidad debe ser EXACTAMENTE uno de: ' + voces.join(' | '),
+      '· subtipo: el oficio concreto en 4 palabras o menos, en español',
+      '  (por ejemplo "repostería por encargo" o "impresión 3D personalizada").',
+      '· confianza: número entre 0 y 1.',
+      '',
+      'Si la descripción no alcanza para decidir, responde exactamente: NO'
+    ].join('\n');
+
+    return tarea(datos, sistema, { maxTokens: 260, timeout: 20000 })
+      .then(function (r) { return validarClasificacion(r, sectores, voces); });
+  }
+
+  /** Extrae y valida el JSON. Devuelve null ante cualquier duda: prefiero
+      quedarme sin propuesta que aplicar una inventada. */
+  function validarClasificacion(texto, sectores, voces) {
+    if (!texto || /^\s*no\s*$/i.test(texto)) return null;
+    // Los modelos que razonan escriben prosa alrededor del JSON aunque se les
+    // pida lo contrario, así que se busca el objeto en vez de parsear todo.
+    var m = /\{[\s\S]*\}/.exec(String(texto));
+    if (!m) return null;
+    var obj = null;
+    try { obj = JSON.parse(m[0]); } catch (e) { return null; }
+    if (!obj || typeof obj !== 'object') return null;
+
+    var sector = String(obj.sector || '').trim().toLowerCase();
+    var voz = String(obj.personalidad || '').trim().toLowerCase();
+    if (sectores.indexOf(sector) < 0) return null;
+    if (voces.indexOf(voz) < 0) voz = '';          // el sector basta; la voz es opcional
+
+    var conf = Number(obj.confianza);
+    if (isNaN(conf)) conf = 0.5;
+
+    return {
+      sector: sector,
+      brandVoice: voz,
+      // Texto libre del modelo: se recorta y se limpia de todo lo que no sea
+      // una palabra. Acaba dentro de un textContent, nunca de un innerHTML.
+      subtipo: String(obj.subtipo || '').replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60),
+      confianza: Math.max(0, Math.min(1, conf)),
+      fuente: 'ia'
+    };
   }
 
   /* ------------------------- Historial ------------------------- */
@@ -447,6 +545,7 @@
     disponible: disponible, proveedor: proveedor,
     systemPrompt: systemPrompt, taskPrompt: taskPrompt, businessContext: businessContext,
     ask: ask, test: test, call: call,
-    generate: generate, intakeQuestions: intakeQuestions
+    generate: generate, intakeQuestions: intakeQuestions,
+    clasificarNegocio: clasificarNegocio
   };
 })(window);
