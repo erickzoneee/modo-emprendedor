@@ -47,6 +47,13 @@ Nunca pongas `"*"`: cualquier web podría colgar su chat de tu cuota.
 npx wrangler deploy
 ```
 
+Si estás en la raíz del proyecto, entra primero a `worker/`. Ojo en Windows:
+PowerShell 5.1 no admite `&&` como separador, usa `;` o dos comandos.
+
+```bash
+cd worker; npx wrangler deploy
+```
+
 La primera vez abre el navegador para que autorices la cuenta. Al terminar
 imprime la URL, algo como `https://chispa.TU-CUENTA.workers.dev`.
 
@@ -58,13 +65,17 @@ gratuita de Emprendo**, y pega ahí la URL. Se guarda en el dispositivo.
 ## Comprobar que funciona
 
 ```bash
-curl -X POST https://chispa.TU-CUENTA.workers.dev \
-  -H "content-type: application/json" \
-  -H "Origin: https://TU-USUARIO.github.io" \
-  -d '{"mensaje":"Responde solo: ok"}'
+curl -X POST https://chispa.TU-CUENTA.workers.dev -H "content-type: application/json" -H "Origin: https://TU-USUARIO.github.io" -d "{\"mensaje\":\"Responde solo: ok\"}"
 ```
 
 Debe devolver `{"texto":"ok","modelo":"@cf/qwen/qwen3-30b-a3b-fp8"}`.
+
+En PowerShell, `curl` es un alias de `Invoke-WebRequest` y no acepta esos
+parámetros. Usa `curl.exe` explícitamente, o mejor:
+
+```bash
+Invoke-RestMethod -Uri https://chispa.TU-CUENTA.workers.dev -Method Post -ContentType "application/json" -Headers @{Origin="https://TU-USUARIO.github.io"} -Body '{"mensaje":"Responde solo: ok"}'
+```
 
 Si responde `403 Origen no permitido`, la cabecera `Origin` no coincide con
 `ORIGENES`. Eso es la protección haciendo su trabajo.
