@@ -16,3 +16,6 @@ desktop.ini
 *.log
 .env
 .env.local
+
+# Caché local de Wrangler: guarda el id de cuenta y no aporta nada al repo
+.wrangler/
