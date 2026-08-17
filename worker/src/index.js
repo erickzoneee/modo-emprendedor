@@ -85,15 +85,25 @@ export default {
     /* --------- Generación --------- */
     const modelo = env.MODELO || '@cf/qwen/qwen3-30b-a3b-fp8';
     try {
+      // Suelo de 200: los modelos que razonan gastan los primeros tokens
+      // pensando, y ese preámbulo se descarta. Con un tope menor devuelven
+      // vacío. Medido: con 12 tokens no responde nada; con 200, sí.
+      const tope = Math.max(200, Math.min(int(cuerpo.maxTokens, maxSalida), maxSalida));
       const salida = await env.AI.run(modelo, {
         messages: mensajes,
-        max_tokens: Math.min(int(cuerpo.maxTokens, maxSalida), maxSalida),
+        max_tokens: tope,
         temperature: 0.5
       });
 
-      const texto = limpiar(salida && (salida.response || salida.result || ''));
+      const bruto = (salida && (salida.response || salida.result || '')) || '';
+      const texto = limpiar(bruto);
       if (!texto) {
-        return responder({ error: 'vacia', mensaje: 'La IA devolvió una respuesta vacía.' }, 502, permitido);
+        return responder({
+          error: 'vacia',
+          mensaje: bruto
+            ? 'El modelo se quedó sin espacio para responder: gastó el margen razonando.'
+            : 'La IA devolvió una respuesta vacía.'
+        }, 502, permitido);
       }
       return responder({ texto, modelo }, 200, permitido);
 

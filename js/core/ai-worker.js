@@ -113,7 +113,23 @@
      LLAMADA
      ================================================================== */
 
+  /* Los modelos que razonan —Qwen3 entre ellos— escriben primero su
+     razonamiento y solo después la respuesta. Ese preámbulo se descarta, así
+     que con un tope pequeño se lo gastan pensando y llega una respuesta vacía.
+     Medido contra el Worker: con 12 tokens devuelve vacío; con 200, responde.
+     De ahí este suelo. */
+  var TOPE_MINIMO = 200;
+
+  function topeSano(n) {
+    var t = parseInt(n, 10);
+    if (isNaN(t) || t <= 0) t = 400;
+    return Math.max(TOPE_MINIMO, t);
+  }
+
   function mensajeDeError(status, body) {
+    if (body && body.error === 'vacia') {
+      return 'El modelo se quedó sin espacio para responder. Vuelve a intentarlo.';
+    }
     if (body && body.mensaje) return body.mensaje;
     if (status === 403) return 'Este dispositivo no tiene permiso para usar la IA de Emprendo.';
     if (status === 429) return 'Se acabó la IA gratuita por hoy. Chispa sigue funcionando sin ella.';
@@ -144,7 +160,7 @@
         mensaje: String(mensaje || ''),
         sistema: opts.sistema || '',
         historial: opts.historial || [],
-        maxTokens: opts.maxTokens || 400
+        maxTokens: topeSano(opts.maxTokens)
       }),
       signal: ctrl ? ctrl.signal : undefined
     }).then(function (res) {
@@ -172,7 +188,7 @@
     cfg.url = normalizarUrl(url) || cfg.url;
     cfg.on = true;
     return pedir('Responde solo: ok', {
-      sistema: 'Responde exactamente "ok".', maxTokens: 12, timeout: 20000, noContar: true
+      sistema: 'Responde exactamente "ok".', maxTokens: TOPE_MINIMO, timeout: 20000, noContar: true
     })
       .then(function (r) { cfg.url = previa; cfg.on = previoOn; return r; })
       .catch(function (e) { cfg.url = previa; cfg.on = previoOn; throw e; });
