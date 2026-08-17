@@ -47,11 +47,18 @@ Nunca pongas `"*"`: cualquier web podría colgar su chat de tu cuota.
 npx wrangler deploy
 ```
 
-Si estás en la raíz del proyecto, entra primero a `worker/`. Ojo en Windows:
-PowerShell 5.1 no admite `&&` como separador, usa `;` o dos comandos.
+Si estás en la raíz del proyecto, entra primero a `worker/`.
+
+**En Windows con PowerShell hay dos tropiezos**, y los dos tienen la misma
+solución de una palabra:
+
+- PowerShell 5.1 no admite `&&` como separador de comandos: usa `;`.
+- Al escribir `npx` a secas, PowerShell coge el envoltorio `npx.ps1` y lo
+  bloquea la política de ejecución de scripts (`UnauthorizedAccess`). Escribe
+  **`npx.cmd`** y el problema desaparece sin tocar ningún ajuste del sistema.
 
 ```bash
-cd worker; npx wrangler deploy
+cd worker; npx.cmd wrangler deploy
 ```
 
 La primera vez abre el navegador para que autorices la cuenta. Al terminar
