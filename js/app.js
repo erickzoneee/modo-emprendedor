@@ -143,7 +143,7 @@
 
   /* ------------------------- Respaldo ------------------------- */
 
-  var BACKUP_FILE = 'modo-emprendedor-respaldo.json';
+  var BACKUP_FILE = (w.BRAND && w.BRAND.archivoRespaldo) || 'modo-emprendedor-respaldo.json';
   var BACKUP_EVERY_DAYS = 7;
 
   function exportBackup() {
@@ -315,7 +315,10 @@
 
     if (s.__freezeUsed) {
       w.Store.set(function (st) { delete st.__freezeUsed; }, 'freeze');
-      setTimeout(function () {
+      // Detrás del arranque, que ocupa la pantalla entera por encima de todo:
+      // un aviso a los 900 ms se consumía sin que nadie lo viera. Se espera a
+      // que la pantalla de arranque se haya ido de verdad.
+      trasElArranque(function () {
         UI.toast('Se usó un congelador: tu racha sigue viva', 'blue', '🧊', 3600);
       }, 900);
     }
@@ -338,6 +341,36 @@
     }
 
     enlazarUnaVez();
+
+    /* La primera pantalla ya está pintada: la de arranque puede irse, y el
+       cambio se ve instantáneo porque debajo no hay nada por hacer.
+
+       Va al final de boot() y no antes: aquí es donde de verdad hay algo que
+       enseñar. Y es idempotente, que importa porque boot() vuelve a correr al
+       restaurar un respaldo y al reiniciar el progreso — ninguna de esas dos
+       cosas debe volver a mostrar el arranque.
+
+       Si esta línea no llegara a ejecutarse nunca porque algo de arriba lanzó
+       una excepción, splash.js tiene su propio guardián de 3 s. Por eso esto
+       es un aviso y no la única salida. */
+    if (w.Splash) w.Splash.appReady();
+  }
+
+  /** Ejecuta algo cuando la pantalla de arranque ya no tapa nada. Si no hay
+      arranque —o ya se fue— es un setTimeout normal. El tope de 4 s es un
+      seguro: el guardián de splash.js cierra a los 3 s pase lo que pase, así
+      que si a los 4 seguimos esperando es que algo va mal y vale más enseñar
+      el aviso tarde que no enseñarlo nunca. */
+  function trasElArranque(fn, retraso) {
+    var esperando = 0;
+    (function mirar() {
+      if (!w.Splash || !w.Splash.activa() || esperando >= 4000) {
+        setTimeout(fn, retraso || 0);
+        return;
+      }
+      esperando += 120;
+      setTimeout(mirar, 120);
+    })();
   }
 
   /* ------------------------- Enlaces de por vida -------------------------

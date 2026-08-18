@@ -17,16 +17,26 @@
    ========================================================================== */
 'use strict';
 
-var VERSION = 'modo-emprendedor-v1.8.0';
+/* La marca la manda js/data/brand.js, que está escrito para funcionar también
+   aquí dentro: se cuelga de `self`, no de `window`. Si por lo que sea no se
+   pudiera traer, el service worker sigue con los valores de siempre en vez de
+   quedarse sin caché, que sería mucho peor que estar desactualizado. */
+try { importScripts('./js/data/brand.js'); } catch (e) {
+  console.warn('[sw] no se pudo cargar la marca, se usan los valores de reserva', e);
+}
+
+var MARCA = self.BRAND || {};
+
+var VERSION = (MARCA.cachePrefijos ? MARCA.cachePrefijos[0] : 'modo-emprendedor-') + 'v1.11.0';
 
 /* Los nombres de caché que son nuestros. Todo lo demás que viva en este origen
    —los pesos del modelo de IA local, por ejemplo, que ocupan cientos de megas—
    pertenece a otro y no se toca.
 
    Es una lista y no una sola cadena porque al cambiar de marca habrá que
-   seguir limpiando las cachés viejas: se añade el prefijo nuevo delante y el
-   antiguo se queda aquí hasta que ya no quede nadie con él. */
-var PREFIJOS = ['modo-emprendedor-'];
+   seguir limpiando las cachés viejas: el prefijo nuevo se añade delante y el
+   antiguo se queda hasta que ya no quede nadie con él. */
+var PREFIJOS = MARCA.cachePrefijos || ['modo-emprendedor-'];
 
 function esNuestra(nombre) {
   for (var i = 0; i < PREFIJOS.length; i++) {
@@ -80,6 +90,7 @@ var PRECACHE = [
   './css/screens.css',
   './css/animations.css',
   './css/temas.css',
+  './css/splash.css',
 
   './assets/fonts/nunito-latin.woff2',
   './assets/fonts/nunito-latin-ext.woff2',
@@ -88,6 +99,10 @@ var PRECACHE = [
   './assets/icons/icon-maskable-512.png',
   './assets/icons/apple-touch-icon-180.png',
 
+  // La pantalla de arranque tiene que estar guardada sí o sí: es lo primero
+  // que se pide al abrir, y sin ella el arranque sin conexión enseñaría el
+  // caparazón vacío justo cuando peor se ve.
+  './js/core/splash.js',
   './js/core/store.js',
   './js/core/audio.js',
   './js/core/fx.js',
@@ -106,6 +121,7 @@ var PRECACHE = [
   './js/core/engine.js',
   './js/core/mentor.js',
 
+  './js/data/brand.js',
   './js/data/config.js',
   './js/data/lessons-1.js',
   './js/data/lessons-2.js',

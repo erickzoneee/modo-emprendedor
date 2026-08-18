@@ -1,0 +1,348 @@
+/* ==========================================================================
+   PANTALLA DE ARRANQUE — Chispa enciende EMPRENDO
+
+   Componente independiente. Solo depende de dos cosas del resto de la app:
+   la tipografía (Nunito, que ya viaja en assets/) y el naranja de marca, que
+   está escrito aquí a mano a propósito.
+
+   Por qué el naranja va literal y no como var(--brand): esta hoja tiene que
+   pintar en el PRIMER frame, y css/temas.css puede reescribir los tokens de
+   marca según el negocio de cada usuario. El arranque es de EMPRENDO, no del
+   negocio de quien abre: el color no debe depender de un token que otra hoja
+   puede mover.
+
+   Todo lo que se mueve son `transform` y `opacity` —las dos únicas
+   propiedades que el compositor anima sin repintar—, así que la secuencia
+   entera sale a 60 FPS incluso en un teléfono modesto.
+
+   REGLA AL EDITAR: si añades un @keyframes, comprueba que su estado final
+   (100%) sea el estado en reposo correcto. Con `prefers-reduced-motion`,
+   css/tokens.css reduce todas las animaciones a 0.01 ms de forma global, así
+   que el 100% de cada animación ES la versión estática. No hace falta
+   escribirla dos veces, pero sí que el último fotograma sea el bueno.
+   ========================================================================== */
+
+.arranque {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;               /* por encima de modales (9200) y del canvas de FX */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* El degradado se apoya en #FF6B1A: el <style> crítico de index.html ya
+     pintó ese plano, así que cuando esta hoja entra no hay salto de color. */
+  background:
+    radial-gradient(120% 78% at 50% 34%, #FF8B3A 0%, #FF6B1A 52%, #EC5D0C 100%);
+  color: #FFF6EA;
+
+  /* Áreas seguras: el contenido no se mete bajo el notch ni bajo la barra
+     inferior del iPhone. index.html ya declara viewport-fit=cover. */
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 16px)
+    calc(env(safe-area-inset-right, 0px) + 16px)
+    calc(env(safe-area-inset-bottom, 0px) + 16px)
+    calc(env(safe-area-inset-left, 0px) + 16px);
+
+  /* Durante el arranque nadie debe tocar la app que se está pintando debajo:
+     un toque a ciegas podría abrir una lección que el usuario no eligió. */
+  pointer-events: auto;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+}
+
+/* Calidez detrás de Chispa. Es estático a propósito: una capa grande y
+   animada con degradado es justo lo que produce bandas de color en pantallas
+   pobres, y aquí no aporta nada que el chispazo no haga mejor. */
+.arranque__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(46% 32% at 50% 42%, rgba(255, 226, 175, .34), transparent 70%);
+  pointer-events: none;
+}
+
+/* ------------------------- Chispa ------------------------- */
+
+/* Caja cuadrada: el SVG de la cara usa un viewBox de 100x100, así que dentro
+   de ella un 1% equivale a 1 unidad del dibujo. De ahí salen las posiciones
+   en porcentaje de la chispa, los anillos y las motas. */
+.arranque__chispa {
+  position: relative;
+  width: clamp(130px, 43vw, 188px);
+  height: clamp(130px, 43vw, 188px);
+  /* Sube a Chispa sobre el centro geométrico: el logotipo pesa abajo y sin
+     esto la composición queda descolgada hacia el pie. */
+  margin-bottom: clamp(24px, 9vh, 70px);
+  /* Aviso al navegador antes de que empiece: evita el tirón del primer frame,
+     cuando tiene que crear la capa a la vez que arranca la animación. */
+  will-change: transform, opacity;
+  animation: spEntra .52s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+
+/* Capa aparte solo para el salto. Dos animaciones de `transform` sobre el
+   mismo elemento se pisan —gana la última—, así que la entrada y el salto
+   viven en elementos anidados y el navegador compone las dos. */
+.arranque__hop {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+  animation: spSalto .62s cubic-bezier(.34, 1.56, .64, 1) 1.62s both;
+}
+
+.arranque__cara {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Lo único que se anima dentro del SVG, y las dos son traslaciones puras:
+   los párpados bajan y las pupilas se desplazan. Sin escalados, sin
+   rotaciones y sin transform-origin de por medio. */
+.sp-parpado { animation: spParpadeo 2.4s linear both; }
+.sp-mirada  { animation: spMirada 2.4s cubic-bezier(.65, 0, .35, 1) both; }
+
+/* La chispa de ocho puntas va en su propia capa HTML, no dentro del SVG.
+   Escalar un <g> exige transform-box:fill-box, que no todos los Safari
+   antiguos resuelven igual; un div se escala desde su centro en todas partes.
+   Dentro del SVG solo hay desplazamientos, que no dependen del origen. */
+.arranque__spark {
+  position: absolute;
+  left: 50%;
+  top: 16%;
+  width: 32%;
+  height: 32%;
+  margin: 0;
+  will-change: transform;
+  animation: spChispazo .84s cubic-bezier(.22, 1, .36, 1) 1.56s both;
+}
+.arranque__spark svg { width: 100%; height: 100%; overflow: visible; }
+
+/* Anillos de energía: el gesto propio de EMPRENDO. Salen de la chispa, no de
+   la cara, porque lo que se enciende es la idea. */
+.arranque__ring {
+  position: absolute;
+  left: 50%;
+  top: 16%;
+  width: 46%;
+  height: 46%;
+  border: 2.5px solid rgba(255, 246, 234, .8);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: spAnillo .72s cubic-bezier(.22, 1, .36, 1) 1.62s both;
+}
+.arranque__ring--b {
+  border-width: 1.8px;
+  border-color: rgba(255, 231, 176, .62);
+  /* Sale más tarde y dura menos: los dos tienen que haber terminado a los
+     2400 ms, que es cuando la pantalla empieza a irse. */
+  animation-delay: 1.76s;
+  animation-duration: .64s;
+}
+
+/* Motas que salen despedidas. El envoltorio se planta en el centro de la
+   chispa y no mide nada: así cada mota anima una traslación pura desde 0,0 y
+   no hay porcentajes que interpolar. */
+.arranque__motas {
+  position: absolute;
+  left: 50%;
+  top: 16%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.arranque__mota {
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #FFEFC2;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: spMota .64s cubic-bezier(.22, 1, .36, 1) 1.64s both;
+}
+.arranque__mota--1 { --mx: -36px; --my: -21px; }
+.arranque__mota--2 { --mx:  31px; --my: -27px; animation-delay: 1.7s;  }
+.arranque__mota--3 { --mx: -27px; --my:  26px; animation-delay: 1.76s; }
+.arranque__mota--4 { --mx:  29px; --my:  23px; animation-delay: 1.68s; }
+
+/* ------------------------- Logotipo ------------------------- */
+
+.arranque__logo {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  /* La barra inferior del iPhone se suma al margen, no lo sustituye. */
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(30px, 7vh, 56px));
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: spLogo .6s cubic-bezier(.22, 1, .36, 1) .62s both;
+}
+
+.arranque__word {
+  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 900;
+  /* El tracking es fijo: animarlo obliga a recalcular la caja en cada frame y
+     tira los 60 FPS por un efecto que casi no se nota. Lo que se mueve es la
+     barra de debajo, que solo escala. */
+  letter-spacing: .2em;
+  /* El tracking añade su hueco también DESPUÉS de la última letra, así que la
+     caja mide .2em más de lo que se ve y la palabra queda descentrada media
+     letra a la izquierda. Este margen negativo devuelve justo ese hueco. */
+  margin-right: -.2em;
+  font-size: clamp(21px, 6.2vw, 29px);
+  line-height: 1;
+  color: #FFF6EA;
+  text-shadow: 0 2px 10px rgba(120, 40, 0, .28);
+  white-space: nowrap;
+}
+
+.arranque__bar {
+  display: block;
+  width: clamp(46px, 13vw, 62px);
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(255, 246, 234, .55);
+  transform-origin: 50% 50%;
+  animation: spBarra .5s cubic-bezier(.22, 1, .36, 1) .88s both;
+}
+
+/* ------------------------- Salida ------------------------- */
+
+/* La clase la pone js/core/splash.js. La app ya está pintada debajo desde
+   hace rato: esto solo la descubre. */
+.arranque.is-out {
+  pointer-events: none;
+  animation: spSalida .34s cubic-bezier(.65, 0, .35, 1) both;
+}
+
+/* ------------------------- Fotogramas ------------------------- */
+
+@keyframes spEntra {
+  0%   { opacity: 0; transform: translateY(18px) scale(.72) }
+  60%  { opacity: 1; transform: translateY(0)    scale(1.06) }
+  100% { opacity: 1; transform: translateY(0)    scale(1) }
+}
+
+/* Parpadeo. Los párpados van recortados a la forma del ojo y bajan 22
+   unidades: una traslación pura, que no depende de transform-origin y por eso
+   se comporta igual en cualquier navegador.
+
+   Una sola animación de 2.4 s con los dos parpadeos dentro, en vez de dos
+   animaciones con retardos distintos: así el ritmo se lee de un vistazo.
+     27.5% → 660 ms   (el primero, en cuanto termina de aparecer)
+     60.5% → 1452 ms  (el segundo, justo antes del chispazo de los 1560 ms) */
+@keyframes spParpadeo {
+  0%, 25%   { transform: translateY(0) }
+  27.5%     { transform: translateY(22px) }
+  30%, 58%  { transform: translateY(0) }
+  60.5%     { transform: translateY(22px) }
+  63%, 100% { transform: translateY(0) }
+}
+
+/* La mirada: a la izquierda, a la derecha y de vuelta al centro, entre los
+   800 ms y los 1512 ms — justo a tiempo para que Chispa mire al frente cuando
+   llega el chispazo. Solo se mueven las pupilas y sus brillos. */
+@keyframes spMirada {
+  0%, 31%   { transform: translateX(0) }
+  36%, 43%  { transform: translateX(-2.8px) }
+  50%, 58%  { transform: translateX(2.8px) }
+  63%, 100% { transform: translateX(0) }
+}
+
+/* El chispazo. translate(-50%,-50%) se repite en cada fotograma porque una
+   animación de transform sustituye la lista entera, no la completa. */
+@keyframes spChispazo {
+  0%   { transform: translate(-50%, -50%) scale(1)    rotate(0deg) }
+  22%  { transform: translate(-50%, -50%) scale(1.5)  rotate(18deg) }
+  45%  { transform: translate(-50%, -50%) scale(.94)  rotate(-6deg) }
+  70%  { transform: translate(-50%, -50%) scale(1.14) rotate(4deg) }
+  100% { transform: translate(-50%, -50%) scale(1)    rotate(0deg) }
+}
+
+@keyframes spSalto {
+  0%   { transform: translateY(0)     scale(1, 1) }
+  25%  { transform: translateY(-11px) scale(.97, 1.05) }
+  60%  { transform: translateY(2px)   scale(1.04, .96) }
+  100% { transform: translateY(0)     scale(1, 1) }
+}
+
+/* El 0% tiene que ser invisible, no visible: con animation-fill-mode:both el
+   navegador mantiene el primer fotograma durante todo el retardo. Con
+   opacity:.85 en el 0%, los anillos se veían quietos desde el arranque y solo
+   se movían 1,8 s después. */
+@keyframes spAnillo {
+  0%   { opacity: 0;   transform: translate(-50%, -50%) scale(.25) }
+  12%  { opacity: .85 }
+  100% { opacity: 0;   transform: translate(-50%, -50%) scale(2.9) }
+}
+
+@keyframes spMota {
+  0%   { opacity: 0; transform: translate(0, 0) scale(.3) }
+  22%  { opacity: 1 }
+  100% { opacity: 0; transform: translate(var(--mx), var(--my)) scale(.55) }
+}
+
+@keyframes spLogo {
+  0%   { opacity: 0; transform: translateY(16px) }
+  100% { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes spBarra {
+  0%   { transform: scaleX(0) }
+  100% { transform: scaleX(1) }
+}
+
+@keyframes spSalida {
+  0%   { opacity: 1; transform: scale(1) }
+  100% { opacity: 0; transform: scale(1.06) }
+}
+
+/* ------------------------- Menos movimiento -------------------------
+
+   css/tokens.css ya deja todas las animaciones en 0.01 ms con !important
+   cuando el sistema pide menos movimiento, así que cada elemento salta a su
+   fotograma 100% —que es exactamente la composición final— y no queda nada
+   moviéndose. js/core/splash.js además recorta la duración total.
+
+   Lo que sí hay que apagar aquí es lo que en estático sobra: los anillos y
+   las motas terminan invisibles, pero el navegador todavía los compone.
+   ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .arranque__ring,
+  .arranque__mota { display: none; }
+
+  /* La regla global de css/tokens.css recorta animation-duration a 0.01 ms
+     pero NO toca animation-delay, y estas animaciones usan fill-mode: both.
+     El resultado era que el navegador mantenía el fotograma 0% —opacidad
+     cero— durante todo el retardo: quien pide menos movimiento veía una
+     pantalla naranja vacía y la palabra EMPRENDO aparecía al final, que es
+     justo lo contrario de lo que pidió. Sin retardo, todo está desde el
+     primer fotograma. */
+  .arranque__logo,
+  .arranque__word,
+  .arranque__bar,
+  .arranque__chispa,
+  .arranque__hop,
+  .arranque__glow,
+  .arranque__spark { animation-delay: 0s !important; }
+
+  /* Sin movimiento, un fundido corto sigue siendo aceptable: no es
+     movimiento, es un cambio de opacidad. */
+  .arranque.is-out {
+    opacity: 0;
+    transition: opacity .2s linear;
+  }
+}

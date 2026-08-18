@@ -20,7 +20,7 @@
 (function (w) {
   'use strict';
 
-  var SKEY = 'modo-emprendedor:ai';
+  var SKEY = (w.BRAND && w.BRAND.claves.ia) || 'modo-emprendedor:ai';
   var ENDPOINT = 'https://api.anthropic.com/v1/messages';
   var API_VERSION = '2023-06-01';
   var TIMEOUT_MS = 45000;

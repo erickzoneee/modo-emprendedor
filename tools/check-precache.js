@@ -89,8 +89,23 @@ enSW.forEach(function (f) {
 
 // 4) Subir VERSION es lo único que hace que quien ya instaló reciba los
 //    archivos nuevos. Sin eso se le sirve HTML nuevo con JS viejo.
-var version = /var VERSION = '([^']+)'/.exec(leer('sw.js'));
-console.log('Versión del service worker: ' + (version ? version[1] : '(no encontrada)'));
+/*  VERSION dejó de ser una cadena suelta cuando el prefijo de caché pasó a
+    venir de js/data/brand.js:
+
+      var VERSION = (MARCA.cachePrefijos ? MARCA.cachePrefijos[0] : '...') + 'v1.10.0';
+
+    El patrón viejo pedía una cadena literal y ya no encontraba nada, así que
+    esto imprimía «(no encontrada)» y seguía adelante como si tal cosa: la
+    comprobación seguía ahí, pero no comprobaba. Ahora se lee la línea entera
+    y de ella se saca el número, y si no aparece se cuenta como problema — un
+    verificador que no puede leer la versión no tiene por qué ser el último en
+    enterarse. */
+var lineaVersion = /var VERSION = ([^;]+);/.exec(leer('sw.js'));
+var version = lineaVersion ? /'(v[0-9][^']*)'/.exec(lineaVersion[1]) : null;
+console.log('Versión del service worker: ' + (version ? version[1] : '(NO ENCONTRADA)'));
+if (!version) {
+  problemas.push('No pude leer VERSION en sw.js: revisa esa línea o este verificador.');
+}
 console.log('index.html carga ' + enIndex.length + ' archivos · el precache tiene ' + enSW.length + ' rutas');
 
 if (problemas.length) {

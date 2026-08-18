@@ -4,7 +4,9 @@
 (function (w) {
   'use strict';
 
-  var KEY = 'modo-emprendedor:v1';
+  // La clave la manda js/data/brand.js. La reserva de aquí es literalmente la
+  // misma cadena: si brand.js no cargara, el progreso se sigue encontrando.
+  var KEY = (w.BRAND && w.BRAND.claves.estado) || 'modo-emprendedor:v1';
   var memoryFallback = null;
 
   /* ---------- almacenamiento tolerante a fallos (file://, modo privado) ---------- */

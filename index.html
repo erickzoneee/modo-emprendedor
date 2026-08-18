@@ -8,6 +8,29 @@
 <meta name="description" content="Modo Emprendedor — Aprende. Construye. Vende. Una misión al día para pasar de una idea a un negocio real.">
 <title>Modo Emprendedor · Aprende. Construye. Vende.</title>
 
+<!-- El naranja del arranque, en el primer frame.
+
+     Va en línea y antes que cualquier <link> a propósito. Una hoja externa
+     bloquea el pintado, sí, pero primero tiene que llegar por la red, y es en
+     ese hueco —milisegundos en fibra, medio segundo en una red mala— donde
+     el navegador enseñaba su lienzo blanco. Escrito aquí dentro, el color
+     viaja en el mismo HTML y no hay hueco que llenar.
+
+     .app-lista la pone js/core/splash.js cuando la pantalla de arranque
+     termina, y devuelve el mando al fondo normal de la app: con el <html>
+     transparente, el navegador usa el fondo del <body>. Las dos reglas viven
+     en el mismo bloque para que la segunda gane por especificidad sin
+     depender de en qué orden acaben cargando las hojas de css/.
+
+     La regla de .arranque es un seguro: si css/splash.css no llegara, el
+     arranque seguiría siendo una pantalla naranja completa en vez de un
+     dibujo suelto sobre la app a medio pintar. -->
+<style>
+  html { background: #FF6B1A; }
+  html.app-lista { background: transparent; }
+  .arranque { position: fixed; inset: 0; z-index: 10000; background: #FF6B1A; }
+</style>
+
 <!-- Vista previa al compartir el enlace.
      og:image tiene que ser absoluta: WhatsApp y Facebook no resuelven rutas
      relativas cuando raspan la página. -->
@@ -51,8 +74,23 @@
 <!-- Va el último a propósito: sus reglas tienen la misma especificidad que las
      que sobrescribe, así que quien decide es el orden de la cascada. -->
 <link rel="stylesheet" href="css/temas.css">
+<!-- La pantalla de arranque va después de temas.css porque no debe heredar
+     los colores del negocio de cada usuario: el arranque es de EMPRENDO. -->
+<link rel="stylesheet" href="css/splash.css">
 </head>
 <body>
+
+<!-- ============ Arranque visual ============
+
+     Estos dos van antes que todo lo demás, y en este orden.
+
+     brand.js trae el logotipo y las claves de almacenamiento; splash.js se
+     pinta a sí mismo de forma síncrona, antes de que el navegador llegue
+     siquiera a parsear el caparazón de aquí abajo. Bajarlos al bloque de
+     núcleo devuelve el destello blanco que vinieron a quitar: para entonces
+     el caparazón vacío ya tuvo tiempo de pintarse. -->
+<script src="js/data/brand.js"></script>
+<script src="js/core/splash.js"></script>
 
 <!-- Marco tipo teléfono en escritorio -->
 <div class="stage">
@@ -77,7 +115,10 @@
 <div id="modal-layer" class="modal-layer" hidden></div>
 <div id="sheet-layer" class="sheet-layer" hidden></div>
 
-<!-- ============ Núcleo ============ -->
+<!-- ============ Núcleo ============
+     js/data/brand.js ya se cargó arriba, con la pantalla de arranque: Store
+     lee de él su clave de almacenamiento, y el service worker se trae ese
+     mismo archivo con importScripts. -->
 <script src="js/core/store.js"></script>
 <script src="js/core/audio.js"></script>
 <script src="js/core/fx.js"></script>

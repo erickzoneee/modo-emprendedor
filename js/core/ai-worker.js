@@ -16,7 +16,7 @@
 (function (w) {
   'use strict';
 
-  var SKEY = 'modo-emprendedor:worker';
+  var SKEY = (w.BRAND && w.BRAND.claves.worker) || 'modo-emprendedor:worker';
   var TIMEOUT_MS = 40000;
 
   /* ---------- almacenamiento tolerante a fallos (file://, modo privado) ---------- */
