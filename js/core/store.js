@@ -131,15 +131,113 @@
   var listeners = [];
   var saveTimer = null;
 
-  function load() {
+  /* ==================================================================
+     ESQUEMA Y MIGRACIONES
+
+     ESQUEMA es la forma que entiende esta versión del código. Un guardado
+     con una forma anterior se pasa por MIGRACIONES hasta ponerlo al día; uno
+     que no se puede leer no se borra, se aparta.
+
+     Antes esto era una línea —`if (parsed.v !== 1) return false`— y costaba
+     el progreso entero: load() devolvía false, y rollDay() escribía los
+     valores por defecto encima del guardado bueno antes de que nadie se
+     enterase. Subir el número de esquema habría vaciado a todos los usuarios.
+
+     Para estrenar un esquema: sube ESQUEMA y añade la función que lleva del
+     número anterior al nuevo. Recibe el estado y lo devuelve; de `v` se
+     encarga el motor.
+     ================================================================== */
+
+  var ESQUEMA = 1;
+  var KEY_CUARENTENA = KEY + ':cuarentena';
+
+  var MIGRACIONES = {
+    // 1: function (s) { …; return s; }   ← de v1 a v2, cuando haga falta
+  };
+
+  /** Cambiar el prototipo del estado o su constructor no es un dato: es un
+      ataque. JSON.parse crea esas claves como propiedades propias, así que
+      hay que descartarlas a mano. */
+  function prohibida(k) {
+    return k === '__proto__' || k === 'constructor' || k === 'prototype';
+  }
+
+  /** Copia profunda sin las claves prohibidas. El tope de profundidad frena
+      un respaldo anidado a mano para agotar la pila. */
+  function limpiar(v, prof) {
+    prof = prof || 0;
+    if (prof > 12 || !v || typeof v !== 'object') return v;
+    if (Array.isArray(v)) {
+      var arr = [];
+      for (var i = 0; i < v.length; i++) arr.push(limpiar(v[i], prof + 1));
+      return arr;
+    }
+    var out = {};
+    for (var k in v) {
+      if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
+      if (prohibida(k)) continue;
+      out[k] = limpiar(v[k], prof + 1);
+    }
+    return out;
+  }
+
+  /** Aparta un guardado ilegible sin destruirlo. No pisa una cuarentena
+      anterior: la primera es la que está más cerca de los datos buenos. */
+  function cuarentena(raw, motivo) {
     try {
-      var raw = safeStorage.getItem(KEY);
-      if (!raw) return false;
-      var parsed = JSON.parse(raw);
-      if (!parsed || parsed.v !== 1) return false;
-      state = merge(defaults(), parsed);
+      if (safeStorage.getItem(KEY_CUARENTENA)) return;
+      safeStorage.setItem(KEY_CUARENTENA, JSON.stringify({
+        at: Date.now(), motivo: motivo, datos: String(raw).slice(0, 1000000)
+      }));
+      console.warn('[store] guardado apartado en cuarentena:', motivo);
+    } catch (e) { console.warn('[store] no se pudo apartar el guardado:', e); }
+  }
+
+  /** Lleva un estado desde su esquema hasta el actual. Devuelve null si no
+      puede: quien llama decide, pero el original nunca se pierde. */
+  function migrar(parsed) {
+    var v = parsed.v;
+    if (typeof v !== 'number' || !isFinite(v) || v < 1) return null;
+    if (v > ESQUEMA) return null;            // viene de una versión más nueva
+    var s = parsed, vueltas = 0;
+    while (s.v < ESQUEMA) {
+      if (++vueltas > 50) return null;
+      var paso = MIGRACIONES[s.v];
+      if (typeof paso !== 'function') return null;
+      var desde = s.v;
+      try { s = paso(s); } catch (e) { return null; }
+      if (!s || typeof s !== 'object') return null;
+      s.v = desde + 1;
+    }
+    return s;
+  }
+
+  function load() {
+    var raw = null;
+    try { raw = safeStorage.getItem(KEY); }
+    catch (e) { console.warn('[store] no se pudo leer:', e); return false; }
+    if (!raw) return false;
+
+    var parsed;
+    try { parsed = JSON.parse(raw); }
+    catch (e) { cuarentena(raw, 'json-ilegible'); return false; }
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      cuarentena(raw, 'forma-inesperada');
+      return false;
+    }
+
+    var alDia = migrar(parsed);
+    if (!alDia) {
+      cuarentena(raw, parsed.v > ESQUEMA ? 'esquema-mas-nuevo' : 'sin-migracion');
+      return false;
+    }
+
+    try {
+      state = merge(defaults(), limpiar(alDia));
       return true;
     } catch (e) {
+      cuarentena(raw, 'merge-fallido');
       console.warn('[store] no se pudo cargar:', e);
       return false;
     }
@@ -150,6 +248,7 @@
     for (k in base) if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k];
     for (k in over) {
       if (!Object.prototype.hasOwnProperty.call(over, k)) continue;
+      if (prohibida(k)) continue;   // segunda barrera: merge() también recibe respaldos
       var bv = base[k], ov = over[k];
       if (bv && ov && typeof bv === 'object' && typeof ov === 'object' &&
           !Array.isArray(bv) && !Array.isArray(ov)) {
@@ -161,11 +260,27 @@
     return out;
   }
 
+  /* El almacenamiento se puede llenar, y hasta ahora eso se tragaba con un
+     console.warn: el usuario seguía jugando durante horas creyendo que se
+     guardaba, y no se guardaba nada. Ahora queda constancia y se avisa una
+     vez, para que la app pueda decirlo en pantalla. */
+  var errorGuardado = null;
+
   function save(immediate) {
     if (saveTimer) clearTimeout(saveTimer);
     var doSave = function () {
-      try { safeStorage.setItem(KEY, JSON.stringify(state)); }
-      catch (e) { console.warn('[store] no se pudo guardar:', e); }
+      saveTimer = null;
+      try {
+        safeStorage.setItem(KEY, JSON.stringify(state));
+        if (errorGuardado) { errorGuardado = null; notify('guardado-ok'); }
+      } catch (e) {
+        var lleno = !!(e && (e.name === 'QuotaExceededError' ||
+                             e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22));
+        var antes = errorGuardado;
+        errorGuardado = lleno ? 'lleno' : 'fallo';
+        console.warn('[store] no se pudo guardar:', e);
+        if (antes !== errorGuardado) notify('guardado-error');
+      }
     };
     if (immediate) doSave(); else saveTimer = setTimeout(doSave, 220);
   }
@@ -174,6 +289,74 @@
     for (var i = 0; i < listeners.length; i++) {
       try { listeners[i](state, reason); } catch (e) { console.error(e); }
     }
+  }
+
+  /* ==================================================================
+     RESPALDOS
+
+     Un respaldo llega de fuera: de un archivo que el usuario eligió, que
+     pudo editarse, corromperse o venir de otra app. Se valida entero antes
+     de tocar nada, y se devuelve un resumen para poder preguntar «esto es
+     lo que vas a sobrescribir, ¿seguro?» en vez de restaurar a ciegas.
+     ================================================================== */
+
+  var MAX_RESPALDO = 2 * 1024 * 1024;      // 2 MB: un progreso real ronda los 60 KB
+
+  var NO_VALIDO   = 'El archivo no es un respaldo de EMPRENDO.';
+  var DANADO      = 'El respaldo tiene datos dañados y no se puede usar.';
+
+  /** Lee un respaldo y dice qué trae, sin tocar el progreso actual. */
+  function inspectBackup(txt) {
+    var s = String(txt == null ? '' : txt);
+    if (!s.trim()) throw new Error('El archivo está vacío.');
+    if (s.length > MAX_RESPALDO) {
+      throw new Error('El archivo es demasiado grande para ser un respaldo.');
+    }
+
+    var parsed;
+    try { parsed = JSON.parse(s); } catch (e) { throw new Error(NO_VALIDO); }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(NO_VALIDO);
+    }
+    if (typeof parsed.v !== 'number') throw new Error(NO_VALIDO);
+    if (parsed.v > ESQUEMA) {
+      throw new Error('Ese respaldo viene de una versión más nueva de la app. Actualízala e inténtalo otra vez.');
+    }
+
+    var alDia = migrar(parsed);
+    if (!alDia) throw new Error('Ese respaldo tiene un formato que esta versión no sabe leer.');
+
+    var limpio = limpiar(alDia);
+
+    /* Comprobación de tipos. Un respaldo con `xp: "mucho"` o `lessons: []`
+       no rompe aquí: rompe mucho después, al pintar, y con un error que no
+       señala a la importación. Se rechaza ahora. */
+    var numeros = ['xp', 'coins', 'hearts', 'streak', 'unlockedLevels'];
+    for (var i = 0; i < numeros.length; i++) {
+      var n = limpio[numeros[i]];
+      if (n !== undefined && (typeof n !== 'number' || !isFinite(n))) throw new Error(DANADO);
+    }
+    var objetos = ['profile', 'lessons', 'missions', 'dossier', 'settings', 'stats', 'ventures'];
+    for (var j = 0; j < objetos.length; j++) {
+      var o = limpio[objetos[j]];
+      if (o !== undefined && (!o || typeof o !== 'object' || Array.isArray(o))) throw new Error(DANADO);
+    }
+    if (limpio.badges !== undefined && !Array.isArray(limpio.badges)) throw new Error(DANADO);
+    if (limpio.chat !== undefined && !Array.isArray(limpio.chat)) throw new Error(DANADO);
+
+    var st = limpio.stats || {};
+    var perfil = limpio.profile || {};
+    return {
+      estado: limpio,
+      resumen: {
+        lecciones: +st.lessons || 0,
+        misiones: +st.missions || 0,
+        xp: +limpio.xp || 0,
+        racha: +limpio.streak || 0,
+        negocio: String(perfil.businessName || perfil.idea || '').slice(0, 80),
+        creado: +limpio.createdAt || 0
+      }
+    };
   }
 
   var Store = {
@@ -302,12 +485,43 @@
       return Math.floor((Date.now() - state.backup.lastAt) / 86400000);
     },
 
+    inspectBackup: inspectBackup,
+    MAX_RESPALDO: MAX_RESPALDO,
+
+    /** Restaura un respaldo. Acepta el texto o el objeto que ya devolvió
+        inspectBackup(), para no validar dos veces. Lanza si no es válido:
+        antes cualquier JSON que parseara —un `[]`, un package.json— se
+        aceptaba y destruía el progreso mostrando «Progreso restaurado». */
     importJSON: function (txt) {
-      var parsed = JSON.parse(txt);
-      if (!parsed || typeof parsed !== 'object') throw new Error('Archivo inválido');
-      state = merge(defaults(), parsed);
+      var info = (txt && typeof txt === 'object' && txt.estado) ? txt : inspectBackup(txt);
+      state = merge(defaults(), info.estado);
       save(true);
       notify('import');
+      return info.resumen;
+    },
+
+    KEY: KEY,
+
+    /** Vuelve a leer lo guardado y lo adopta. La usa app.js cuando otra
+        pestaña escribe: sin esto, la pestaña que se oculta guardaba su copia
+        vieja encima de lo que la otra acababa de hacer. */
+    reload: function () {
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+      var had = load();
+      if (had) notify('externo');
+      return had;
+    },
+
+    /** Qué falló al guardar: 'lleno', 'fallo' o null si todo va bien. */
+    errorGuardado: function () { return errorGuardado; },
+
+    /** El guardado que no se pudo leer, si lo hubo. Nada lo borra: existe
+        para que una pantalla futura pueda ofrecer recuperarlo a mano. */
+    cuarentena: function () {
+      try {
+        var raw = safeStorage.getItem(KEY_CUARENTENA);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
     }
   };
 

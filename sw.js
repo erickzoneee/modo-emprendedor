@@ -17,7 +17,53 @@
    ========================================================================== */
 'use strict';
 
-var VERSION = 'modo-emprendedor-v1.7.0';
+var VERSION = 'modo-emprendedor-v1.8.0';
+
+/* Los nombres de caché que son nuestros. Todo lo demás que viva en este origen
+   —los pesos del modelo de IA local, por ejemplo, que ocupan cientos de megas—
+   pertenece a otro y no se toca.
+
+   Es una lista y no una sola cadena porque al cambiar de marca habrá que
+   seguir limpiando las cachés viejas: se añade el prefijo nuevo delante y el
+   antiguo se queda aquí hasta que ya no quede nadie con él. */
+var PREFIJOS = ['modo-emprendedor-'];
+
+function esNuestra(nombre) {
+  for (var i = 0; i < PREFIJOS.length; i++) {
+    if (nombre.indexOf(PREFIJOS[i]) === 0) return true;
+  }
+  return false;
+}
+
+/* Dónde vive el caparazón de la app. Sirve para no confundir cualquier HTML
+   del origen (los documentos de /docs/, sin ir más lejos) con la portada. */
+var BASE = new URL('./', self.location.href).pathname;
+
+function esCaparazon(url) {
+  return url.pathname === BASE || url.pathname === BASE + 'index.html';
+}
+
+/* Red primero está bien mientras la red conteste. En una red lenta, o en un
+   wifi cautivo que se traga la petición sin cerrarla, la navegación se quedaba
+   esperando para siempre y la app no llegaba a usar nunca la copia que ya
+   tiene guardada. */
+function conTiempo(promesa, ms) {
+  return new Promise(function (resolve, reject) {
+    var hecho = false;
+    var t = setTimeout(function () {
+      if (hecho) return;
+      hecho = true;
+      reject(new Error('tiempo agotado'));
+    }, ms);
+    promesa.then(function (v) {
+      if (hecho) return;
+      hecho = true; clearTimeout(t); resolve(v);
+    }, function (e) {
+      if (hecho) return;
+      hecho = true; clearTimeout(t); reject(e);
+    });
+  });
+}
 
 /* Todo lo que hace falta para arrancar sin red. Rutas relativas al ámbito del
    service worker: en GitHub Pages la app vive en /modo-emprendedor/, no en la
@@ -111,9 +157,13 @@ self.addEventListener('install', function (e) {
 
 self.addEventListener('activate', function (e) {
   e.waitUntil(
+    /* Solo las nuestras y solo las viejas. Antes esto borraba TODAS las cachés
+       del origen, y entre ellas están las del modelo de IA local: cada
+       despliegue le costaba al usuario volver a descargar cientos de megas
+       que ya tenía, sin avisar y sin motivo. */
     caches.keys().then(function (keys) {
       return Promise.all(keys.map(function (k) {
-        if (k !== VERSION) return caches.delete(k);
+        if (k !== VERSION && esNuestra(k)) return caches.delete(k);
       }));
     }).then(function () { return self.clients.claim(); })
   );
@@ -147,13 +197,25 @@ self.addEventListener('fetch', function (e) {
   // Navegación: red primero para que un despliegue nuevo se note al momento.
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).then(function (res) {
-        if (res && res.ok) {
+      conTiempo(fetch(req), 6000).then(function (res) {
+        /* Un 404 o un 500 no es una respuesta: es un despliegue caído o un
+           dominio apagado. Antes se entregaba tal cual, y una app instalada
+           acababa mostrando para siempre el error del servidor con su copia
+           offline completa e intacta al lado, sin usarla. */
+        if (!res || !res.ok) {
+          var err = new Error('respuesta no utilizable');
+          err.respuesta = res;
+          throw err;
+        }
+        /* Solo el caparazón se guarda como portada. Navegar a un documento de
+           /docs/ guardaba ESA página como './index.html', y sin conexión la
+           app abría el documento en lugar de sí misma. */
+        if (esCaparazon(url)) {
           var copy = res.clone();
           caches.open(VERSION).then(function (c) { c.put('./index.html', copy); });
         }
         return res;
-      }).catch(function () {
+      }).catch(function (err) {
         // ignoreSearch: los accesos directos abren ./?go=mentor y ese parámetro
         // no debe impedir que se encuentre la copia guardada.
         return caches.match(req, { ignoreSearch: true }).then(function (hit) {
@@ -161,7 +223,12 @@ self.addEventListener('fetch', function (e) {
           // Ojo: caches.match() devuelve una promesa, que siempre es "verdadera".
           // Encadenar estas alternativas con || dejaría la última sin usarse nunca.
           return caches.match('./index.html').then(function (idx) {
-            return idx || caches.match('./');
+            if (idx) return idx;
+            return caches.match('./').then(function (raiz) {
+              // Sin ninguna copia guardada, un 404 de verdad debe verse como
+              // el 404 que es. Guardarse la respuesta original sirve para eso.
+              return raiz || (err && err.respuesta) || Response.error();
+            });
           });
         });
       })

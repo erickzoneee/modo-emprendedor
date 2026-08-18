@@ -330,6 +330,24 @@
       setTimeout(maybeRemindBackup, 5200);
     }
 
+    enlazarUnaVez();
+  }
+
+  /* ------------------------- Enlaces de por vida -------------------------
+
+     boot() no se ejecuta una sola vez: vuelve a correr al restaurar un
+     respaldo y al reiniciar el progreso. Todo lo que se enganche aquí dentro
+     sin protección se duplica en cada pasada — un temporizador más, un
+     oyente más, un aviso repetido por cada vez que el usuario restauró algo.
+     Esto se engancha una vez y para siempre.
+     ------------------------------------------------------------------------ */
+
+  var enlazado = false;
+
+  function enlazarUnaVez() {
+    if (enlazado) return;
+    enlazado = true;
+
     // Regeneración de vidas en segundo plano
     setInterval(function () {
       if (w.Store.rollDay()) {
@@ -348,6 +366,31 @@
     });
     w.addEventListener('pagehide', function () { w.Store.save(true); });
     w.addEventListener('beforeunload', function () { w.Store.save(true); });
+
+    /* Con dos pestañas abiertas cada una tenía su copia del estado en memoria,
+       y la que se ocultaba escribía la suya encima de lo que la otra acabara
+       de hacer: una lección terminada en una pestaña desaparecía al volver de
+       la otra. El evento 'storage' solo llega a las DEMÁS pestañas, que es
+       justo lo que hace falta: la que no escribió adopta lo escrito. */
+    w.addEventListener('storage', function (e) {
+      if (!e || e.key !== w.Store.KEY || !e.newValue) return;
+      if (!w.Store.reload()) return;
+      try { w.Venture.ensure(); } catch (err) { console.warn('[venture]', err); }
+      try { w.Persona.asegurar(); } catch (err) { console.warn('[persona]', err); }
+      if (!NO_CHROME[UI.Router.current]) renderTopbar();
+      UI.Router.refresh();
+    });
+
+    /* Quedarse sin espacio era invisible: la app seguía respondiendo, el
+       usuario seguía avanzando y no se guardaba nada. Se avisa una sola vez,
+       cuando ocurre. */
+    w.Store.subscribe(function (s, motivo) {
+      if (motivo !== 'guardado-error') return;
+      UI.toast(w.Store.errorGuardado() === 'lleno'
+        ? 'No queda espacio en este dispositivo: tu avance no se está guardando'
+        : 'No se pudo guardar tu avance en este dispositivo',
+        'red', '⚠️', 6000);
+    });
   }
 
   function greet() {
@@ -370,8 +413,86 @@
     console.error(e.error || e.message);
   });
 
+  /* ------------------------- Restaurar un respaldo -------------------------
+
+     Vive aquí, y no en cada pantalla que lo ofrece, porque el registro y el
+     perfil tenían el mismo código copiado y con el mismo agujero: leían el
+     archivo entero sin mirar su tamaño y llamaban a importJSON() a ciegas.
+     Cualquier .json que parseara —uno vacío, uno de otra app, uno a medio
+     descargar— sustituía el progreso y anunciaba «Progreso restaurado».
+
+     Ahora se comprueba el tamaño antes de leer, se valida el contenido antes
+     de tocar nada, y se enseña lo que trae para que el usuario confirme.
+     ------------------------------------------------------------------------ */
+
+  function restoreFromFile(file, onDone) {
+    if (!file) return;
+
+    if (file.size > w.Store.MAX_RESPALDO) {
+      UI.toast('Ese archivo es demasiado grande para ser un respaldo', 'red', '⚠️', 4200);
+      return;
+    }
+
+    var fr = new FileReader();
+    fr.onerror = function () { UI.toast('No se pudo leer el archivo', 'red', '⚠️'); };
+    fr.onload = function () {
+      var info;
+      try { info = w.Store.inspectBackup(fr.result); }
+      catch (e) { UI.toast((e && e.message) || 'Archivo inválido', 'red', '⚠️', 4600); return; }
+      confirmRestore(info, onDone);
+    };
+    fr.readAsText(file);
+  }
+
+  /** Lo que hay dentro del respaldo, y lo que se va a perder al aceptarlo. */
+  function confirmRestore(info, onDone) {
+    var r = info.resumen;
+    var s = w.Store.state;
+    var hayAlgo = backupStake() >= 1;
+
+    UI.sheet([
+      el('div', { class: 'row', style: { gap: '12px', alignItems: 'flex-start' } }, [
+        el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg('think') }),
+        el('div', { class: 'speech' }, [
+          el('h2', { class: 'h4', text: 'Esto trae el respaldo' }),
+          el('div', { class: 'small', style: { marginTop: '6px' },
+            text: r.negocio ? 'Tu emprendimiento: ' + r.negocio : 'Un progreso sin emprendimiento registrado.' })
+        ])
+      ]),
+      el('div', { class: 'row wrap', style: { gap: '8px' } }, [
+        UI.chip(UI.count(r.lecciones, 'lección', 'lecciones'), 'green', '📚'),
+        UI.chip(UI.count(r.misiones, 'misión', 'misiones'), 'purple', '🎯'),
+        UI.chip(UI.num(r.xp) + ' XP', 'gold', '⚡'),
+        r.racha > 0 ? UI.chip('racha de ' + UI.days(r.racha), 'brand', '🔥') : null
+      ]),
+      hayAlgo ? el('div', { class: 'card card--tight', style: { textAlign: 'left' } }, [
+        el('div', { class: 'small', style: { fontWeight: '900' }, text: 'Lo que tienes ahora se sustituye' }),
+        el('div', { class: 'tiny', style: { marginTop: '6px', textTransform: 'none', letterSpacing: '0', lineHeight: '1.6' },
+          text: UI.count(s.stats.lessons, 'lección', 'lecciones') + ' · ' +
+                UI.count(s.stats.missions, 'misión', 'misiones') + ' · ' +
+                UI.num(s.xp) + ' XP. Si esto es lo bueno, descarga una copia antes de continuar.' })
+      ]) : null,
+      UI.btn('Restaurar este respaldo', {
+        variant: 'brand', size: 'lg',
+        onClick: function () {
+          try { w.Store.importJSON(info); }
+          catch (e) { UI.closeSheet(); UI.toast((e && e.message) || 'Archivo inválido', 'red', '⚠️', 4600); return; }
+          w.Store.markBackup();   // quien restaura ya tiene una copia: no hay que insistirle
+          UI.closeSheet();
+          UI.toast('Progreso restaurado', 'green', '✅');
+          if (onDone) onDone(); else boot();
+        }
+      }),
+      hayAlgo ? UI.btn('Descargar mi progreso actual primero', {
+        variant: 'ghost', onClick: function () { exportBackup(); }
+      }) : null,
+      UI.btn('Cancelar', { variant: 'flat', onClick: UI.closeSheet })
+    ]);
+  }
+
   w.App = {
     boot: boot,
+    restoreFromFile: restoreFromFile,
     onRoute: onRoute,
     showChrome: showChrome,
     renderChrome: function () { renderTopbar(); },

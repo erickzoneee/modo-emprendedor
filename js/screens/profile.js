@@ -1070,18 +1070,9 @@
   function importData() {
     var input = el('input', { type: 'file', accept: '.json', style: { display: 'none' } });
     input.addEventListener('change', function () {
-      var f = input.files[0];
-      if (!f) return;
-      var fr = new FileReader();
-      fr.onload = function () {
-        try {
-          w.Store.importJSON(fr.result);
-          w.Store.markBackup();   // quien restaura ya tiene una copia: no hay que insistirle
-          UI.toast('Progreso restaurado', 'green', '✅');
-          w.App.boot();
-        } catch (e) { UI.toast('Archivo inválido', 'red', '⚠️'); }
-      };
-      fr.readAsText(f);
+      // Comprueba tamaño, valida el contenido y pide confirmación enseñando
+      // lo que trae. Antes se importaba a ciegas cualquier .json que parseara.
+      w.App.restoreFromFile(input.files[0]);
     });
     d.body.appendChild(input);
     input.click();
