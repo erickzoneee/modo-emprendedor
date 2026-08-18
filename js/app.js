@@ -16,6 +16,13 @@
 
   var NO_CHROME = { onboarding: 1, lesson: 1, mission: 1 };
 
+  /* Pantallas que se pueden volver a pintar sin quitarle nada al usuario. Es
+     lista blanca y no lista negra a propósito: una pantalla nueva no debería
+     heredar el permiso de interrumpir sin que alguien lo decida. Las que
+     faltan —lección, reto, registro, simulador, mentor, emprendimiento,
+     apariencia— tienen trabajo a medias que no se puede tirar. */
+  var REPINTABLE = { home: 1, profile: 1, league: 1, business: 1 };
+
   /* ------------------------- Barra superior ------------------------- */
 
   function renderTopbar() {
@@ -378,7 +385,11 @@
       try { w.Venture.ensure(); } catch (err) { console.warn('[venture]', err); }
       try { w.Persona.asegurar(); } catch (err) { console.warn('[persona]', err); }
       if (!NO_CHROME[UI.Router.current]) renderTopbar();
-      UI.Router.refresh();
+      // Los datos se adoptan siempre; la pantalla solo se vuelve a pintar si
+      // no hay nada a medias. Redibujar una lección a medio contestar, un
+      // reto a medio escribir o el registro a medio llenar por culpa de otra
+      // pestaña olvidada sería un remedio peor que la enfermedad.
+      if (REPINTABLE[UI.Router.current]) UI.Router.refresh();
     });
 
     /* Quedarse sin espacio era invisible: la app seguía respondiendo, el

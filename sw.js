@@ -196,8 +196,11 @@ self.addEventListener('fetch', function (e) {
 
   // Navegación: red primero para que un despliegue nuevo se note al momento.
   if (req.mode === 'navigate') {
+    // Una sola petición: la carrera contra el reloj y el rescate final
+    // comparten esta misma, para no pedir la página dos veces.
+    var red = fetch(req);
     e.respondWith(
-      conTiempo(fetch(req), 6000).then(function (res) {
+      conTiempo(red, 6000).then(function (res) {
         /* Un 404 o un 500 no es una respuesta: es un despliegue caído o un
            dominio apagado. Antes se entregaba tal cual, y una app instalada
            acababa mostrando para siempre el error del servidor con su copia
@@ -225,9 +228,14 @@ self.addEventListener('fetch', function (e) {
           return caches.match('./index.html').then(function (idx) {
             if (idx) return idx;
             return caches.match('./').then(function (raiz) {
-              // Sin ninguna copia guardada, un 404 de verdad debe verse como
-              // el 404 que es. Guardarse la respuesta original sirve para eso.
-              return raiz || (err && err.respuesta) || Response.error();
+              if (raiz) return raiz;
+              // Sin ninguna copia guardada no hay nada mejor que la red, por
+              // lenta que vaya: cortar aquí dejaría la pantalla en blanco justo
+              // a quien todavía no tiene la app guardada —primera visita, o un
+              // precargado que falló entero—. El tiempo máximo está para
+              // rescatar al que sí tiene copia, no para castigar al que no.
+              // Y si la respuesta era un 404 de verdad, se ve como el 404 que es.
+              return (err && err.respuesta) || red;
             });
           });
         });

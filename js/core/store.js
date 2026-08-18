@@ -166,7 +166,11 @@
       un respaldo anidado a mano para agotar la pila. */
   function limpiar(v, prof) {
     prof = prof || 0;
-    if (prof > 12 || !v || typeof v !== 'object') return v;
+    if (!v || typeof v !== 'object') return v;
+    // Pasado el fondo se corta en seco en vez de devolver la rama sin revisar:
+    // devolverla tal cual dejaría sin limpiar justo la parte que alguien se
+    // molestó en enterrar tan hondo. El estado real no baja de seis niveles.
+    if (prof > 12) return Array.isArray(v) ? [] : {};
     if (Array.isArray(v)) {
       var arr = [];
       for (var i = 0; i < v.length; i++) arr.push(limpiar(v[i], prof + 1));
@@ -336,11 +340,19 @@
       var n = limpio[numeros[i]];
       if (n !== undefined && (typeof n !== 'number' || !isFinite(n))) throw new Error(DANADO);
     }
-    var objetos = ['profile', 'lessons', 'missions', 'dossier', 'settings', 'stats', 'ventures'];
+    /* Todos los campos del estado que la app da por objeto. Si uno llega como
+       cadena o como array, merge() lo copia tal cual y el fallo aparece luego,
+       lejos de aquí: `league: "hola"` revienta en rollDay() al asignarle una
+       semana, y el usuario ve una app rota sin relación con lo que hizo. */
+    var objetos = ['profile', 'lessons', 'missions', 'dossier', 'settings', 'stats',
+                   'ventures', 'league', 'weekly', 'chispa', 'backup'];
     for (var j = 0; j < objetos.length; j++) {
       var o = limpio[objetos[j]];
       if (o !== undefined && (!o || typeof o !== 'object' || Array.isArray(o))) throw new Error(DANADO);
     }
+    // El simulador es el único que vale nulo: así empieza, sin partida abierta.
+    if (limpio.sim !== undefined && limpio.sim !== null &&
+        (typeof limpio.sim !== 'object' || Array.isArray(limpio.sim))) throw new Error(DANADO);
     if (limpio.badges !== undefined && !Array.isArray(limpio.badges)) throw new Error(DANADO);
     if (limpio.chat !== undefined && !Array.isArray(limpio.chat)) throw new Error(DANADO);
 
