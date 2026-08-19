@@ -27,7 +27,7 @@ try { importScripts('./js/data/brand.js'); } catch (e) {
 
 var MARCA = self.BRAND || {};
 
-var VERSION = (MARCA.cachePrefijos ? MARCA.cachePrefijos[0] : 'modo-emprendedor-') + 'v1.11.0';
+var VERSION = (MARCA.cachePrefijos ? MARCA.cachePrefijos[0] : 'modo-emprendedor-') + 'v1.12.0';
 
 /* Los nombres de caché que son nuestros. Todo lo demás que viva en este origen
    —los pesos del modelo de IA local, por ejemplo, que ocupan cientos de megas—
@@ -120,6 +120,7 @@ var PRECACHE = [
   './js/core/chispa.js',
   './js/core/engine.js',
   './js/core/mentor.js',
+  './js/core/comparte.js',
 
   './js/data/brand.js',
   './js/data/config.js',
@@ -135,6 +136,7 @@ var PRECACHE = [
   './js/data/mentor-kb.js',
   './js/data/venture-templates.js',
   './js/data/mascota-capas.js',
+  './js/data/logros-compartibles.js',
   './js/data/kb.js',
 
   './js/screens/onboarding.js',
@@ -146,6 +148,7 @@ var PRECACHE = [
   './js/screens/business.js',
   './js/screens/venture.js',
   './js/screens/personaliza.js',
+  './js/screens/comparte.js',
   './js/screens/profile.js',
   './js/screens/league.js',
   './js/screens/shop.js',

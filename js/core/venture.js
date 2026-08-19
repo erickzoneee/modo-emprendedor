@@ -526,7 +526,39 @@
         score: meta.score == null ? null : meta.score
       };
     }, 'venture-decision');
+    avisarAvance(key);
     return active().decisions[key];
+  }
+
+  /* Un avance del negocio —no una lección, ni una racha, ni puntos— puede dar
+     pie a una publicación. Se avisa desde aquí porque este es el único sitio
+     por el que pasan todas las decisiones, vengan del registro, de una misión,
+     del mentor o de Chispa.
+
+     Diferido y encolado: la celebración del logro va primero y no se pisa. Y
+     envuelto, porque si compartir fallara no puede llevarse por delante el
+     guardado de la decisión, que es lo importante. */
+  var avisoPendiente = null;
+
+  function avisarAvance(key) {
+    if (!w.CompartirAvance || !w.Comparte || !w.LOGROS_COMPARTIBLES) return;
+    // Solo las claves con un visual definido; las sintéticas (mision:*,
+    // reflexion:*) no son avances presentables por sí solas.
+    var l = (w.LOGROS_COMPARTIBLES.LOGROS || []).filter(function (x) { return x.id === key; })[0];
+    if (!l) return;
+
+    /* Agrupado. Terminar el registro o una misión guarda varias decisiones
+       seguidas, y una invitación por cada una sería insufrible. Se espera a
+       que pare de llegar y se ofrece UNA, la del avance más alto que ya tenga
+       todos sus datos. */
+    if (avisoPendiente) w.clearTimeout(avisoPendiente);
+    avisoPendiente = w.setTimeout(function () {
+      avisoPendiente = null;
+      try {
+        var mejor = w.Comparte.disponibles()[0];   // ya vienen del más avanzado al más básico
+        if (mejor) w.CompartirAvance.ofrecer(mejor.id);
+      } catch (e) { console.warn('[comparte]', e); }
+    }, 1400);
   }
 
   function decision(key) { return active().decisions[key] || null; }

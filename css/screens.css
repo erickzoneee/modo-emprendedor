@@ -997,3 +997,44 @@ html[data-theme="dark"] .why__item { background: rgba(255,255,255,.07); }
 .exp--ko .exp__t { color: var(--red-dark); opacity: 1; }
 
 html[data-theme="dark"] .exp { background: rgba(255, 255, 255, .07); }
+
+/* ---------- Compartir un avance ---------- */
+
+.comparte__estilos { display: flex; gap: 8px; }
+.comparte__estilo {
+  flex: 1;
+  height: 46px;
+  border-radius: var(--r-md);
+  border: 3px solid transparent;
+  font-weight: 900;
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  transition: transform .12s var(--spring), border-color .18s;
+}
+.comparte__estilo.is-sel { border-color: var(--brand); transform: translateY(-2px); }
+
+.comparte__lienzo {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  background: var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+/* La vista previa manda sobre el alto, no sobre el ancho: los formatos son
+   verticales y en un móvil ocuparían la pantalla entera si se dejara crecer. */
+.comparte__img {
+  max-height: 46vh;
+  max-width: 100%;
+  width: auto;
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-1);
+}
+.comparte__cargando {
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  color: var(--ink-3);
+  padding: var(--s6);
+  text-align: center;
+}
