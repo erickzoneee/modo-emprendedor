@@ -971,7 +971,7 @@ html[data-theme="dark"] .why__item { background: rgba(255,255,255,.07); }
 /* Bloques del panel hondo. Cada uno responde una pregunta y se lee solo. */
 .exp {
   background: var(--card-2, rgba(0, 0, 0, .04));
-  border-radius: var(--r3);
+  border-radius: var(--r-md);
   padding: var(--s3) var(--s4);
   text-align: left;
 }

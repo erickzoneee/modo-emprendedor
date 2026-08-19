@@ -16,8 +16,18 @@
   /* Un canvas por estilo cuesta tres rasterizados del SVG. Se guardan mientras
      la hoja está abierta: deslizar entre estilos no debe volver a dibujar. */
   var cache = {};
+  var enCurso = {};
 
-  function limpiarCache() { cache = {}; }
+  /* Tres lienzos de 1080x1920 son unos 25 MB de mapa de bits. Se sueltan al
+     cerrar la hoja: sin esto quedaban retenidos toda la sesión. */
+  function limpiarCache() {
+    for (var k in cache) {
+      if (!Object.prototype.hasOwnProperty.call(cache, k)) continue;
+      try { cache[k].width = cache[k].height = 0; } catch (e) {}
+    }
+    cache = {};
+    enCurso = {};
+  }
 
   /* ------------------------- Ofrecimiento -------------------------
 
@@ -72,7 +82,13 @@
     var lienzo = el('div', { class: 'comparte__lienzo' });
     var pie = el('div', { class: 'col', style: { gap: '10px' } });
 
+    /* Cada pintado lleva número. Deslizar deprisa entre estilos lanzaba varios
+       dibujados a la vez y el que terminaba último ganaba la vista previa, que
+       podía no ser el elegido: se veía uno y se compartía otro. */
+    var generacion = 0;
+
     function pintar() {
+      var mio = ++generacion;
       UI.clear(lienzo);
       lienzo.appendChild(el('div', { class: 'comparte__cargando', text: 'Preparando…' }));
       var clave = estiloActual + ':' + formatoActual;
@@ -81,8 +97,10 @@
         ? Promise.resolve(cache[clave])
         : w.Comparte.componer(prop, estiloActual, formatoActual)
             .then(function (cv) { cache[clave] = cv; return cv; });
+      enCurso[clave] = listo;
 
       listo.then(function (cv) {
+        if (mio !== generacion) return;      // llegó tarde: manda el último
         UI.clear(lienzo);
         var img = el('img', {
           class: 'comparte__img',
@@ -91,6 +109,7 @@
         });
         lienzo.appendChild(img);
       }).catch(function (e) {
+        if (mio !== generacion) return;
         UI.clear(lienzo);
         lienzo.appendChild(el('div', { class: 'comparte__cargando',
           text: 'No se pudo preparar la imagen en este dispositivo.' }));
@@ -136,10 +155,13 @@
       variant: 'brand', size: 'lg',
       onClick: function (e, boton) {
         var clave = estiloActual + ':' + formatoActual;
-        var cv = cache[clave];
-        if (!cv) return;
+        // Antes salía en silencio si el lienzo no estaba listo: pulsar durante
+        // el "Preparando…" no hacía absolutamente nada y parecía roto. Ahora
+        // espera al dibujado en curso.
+        var espera = cache[clave] ? Promise.resolve(cache[clave]) : enCurso[clave];
+        if (!espera) { UI.toast('La imagen todavía se está preparando', 'blue', '⏳'); return; }
         boton.disabled = true;
-        w.Comparte.aBlob(cv)
+        espera.then(function (cv) { return w.Comparte.aBlob(cv); })
           .then(function (blob) { return w.Comparte.salir(blob, prop, formatoActual); })
           .then(function (r) {
             boton.disabled = false;
@@ -163,7 +185,7 @@
       lienzo,
       formatos,
       pie
-    ]);
+    ], { onClose: limpiarCache });
 
     pintar();
   }

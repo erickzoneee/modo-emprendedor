@@ -544,8 +544,15 @@
     if (!w.CompartirAvance || !w.Comparte || !w.LOGROS_COMPARTIBLES) return;
     // Solo las claves con un visual definido; las sintéticas (mision:*,
     // reflexion:*) no son avances presentables por sí solas.
-    var l = (w.LOGROS_COMPARTIBLES.LOGROS || []).filter(function (x) { return x.id === key; })[0];
-    if (!l) return;
+    /* Vale como disparador cualquier clave que sea un logro Y cualquiera que
+       mueva la etapa. 'canales' no es un logro por sí misma, pero es una de
+       las dos que desbloquean la etapa 5: sin contarla, el avance más alto
+       —«listo para vender»— no se ofrecía nunca. */
+    var esLogro = (w.LOGROS_COMPARTIBLES.LOGROS || []).some(function (x) { return x.id === key; });
+    var mueveEtapa = (w.LOGROS_COMPARTIBLES.ETAPAS || []).some(function (e) {
+      return (e.todos || []).indexOf(key) >= 0 || (e.alguno || []).indexOf(key) >= 0;
+    });
+    if (!esLogro && !mueveEtapa) return;
 
     /* Agrupado. Terminar el registro o una misión guarda varias decisiones
        seguidas, y una invitación por cada una sería insufrible. Se espera a
@@ -554,11 +561,34 @@
     if (avisoPendiente) w.clearTimeout(avisoPendiente);
     avisoPendiente = w.setTimeout(function () {
       avisoPendiente = null;
+      if (!momentoBueno()) return;
       try {
         var mejor = w.Comparte.disponibles()[0];   // ya vienen del más avanzado al más básico
         if (mejor) w.CompartirAvance.ofrecer(mejor.id);
       } catch (e) { console.warn('[comparte]', e); }
     }, 1400);
+  }
+
+  /* Ofrecer no puede ser irrumpir.
+
+     El registro guarda sus repreguntas ANTES de montar la animación de «tu
+     ruta está lista», que dura tres segundos y medio. Sin esta comprobación,
+     la invitación se abría encima de esa animación, antes de que el usuario
+     hubiera llegado a ver la app siquiera, y la celebración quedaba detrás.
+
+     Tampoco se ofrece dentro de una lección o un reto —ahí el usuario está en
+     otra cosa— ni con una hoja abierta, porque el modal se pintaría por debajo
+     y sus botones serían inalcanzables. */
+  function momentoBueno() {
+    try {
+      if (!w.Store.state.onboarded) return false;
+      var capa = w.document.getElementById('sheet-layer');
+      if (capa && !capa.hidden) return false;
+      var ruta = w.UI && w.UI.Router ? w.UI.Router.current : null;
+      if (ruta === 'onboarding' || ruta === 'lesson' || ruta === 'mission') return false;
+      if (w.Splash && w.Splash.activa()) return false;
+      return true;
+    } catch (e) { return false; }
   }
 
   function decision(key) { return active().decisions[key] || null; }

@@ -540,8 +540,16 @@
 /* is-neutral no redefine nada: su animación es el bob de reposo de .mascot */
 
 /* Entrada. Solo cuando se pide con la clase, para no animar las veintitantas
-   mascotas que ya viven en pantallas que se repintan a cada paso. */
-.mascot.is-entrando { animation: mascotEntra .42s var(--spring) both, bob 3.2s var(--ease-in-out) .42s infinite; }
+   mascotas que ya viven en pantallas que se repintan a cada paso.
+
+   Va en el CONTENEDOR y no en la mascota: puestas en el mismo elemento, la
+   entrada sustituía a la animación del ánimo —is-party, is-happy— y Chispa no
+   llegaba a celebrar nunca en el sitio donde más falta hacía. Así se componen:
+   el padre entra, la mascota gesticula. */
+.chispa-dice.is-entrando,
+.mascot.is-entrando { animation: mascotEntra .42s var(--spring) both; }
+/* Si la entrada la lleva el contenedor, la mascota conserva su propio gesto. */
+.chispa-dice.is-entrando > .mascot { animation-delay: .42s; }
 
 @keyframes mascotEntra {
   0%   { opacity: 0; transform: translateY(10px) scale(.8) }

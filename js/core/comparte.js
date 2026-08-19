@@ -82,7 +82,11 @@
       // `negocio` solo si de verdad hay nombre. terms() devuelve "tu negocio"
       // como relleno, y eso en un visual público quedaría absurdo.
       negocio: t.tiene.nombre ? t.negocio : '',
-      idea: recorta(t.ideaCorta, 120),
+      /* `producto` ya viene saneado por terms(); `ideaCorta` no. Sin quitarle
+         el arranque, la idea entra tal cual la escribió el usuario y produce
+         frases como "Estoy construyendo quiero vender lámparas". Se prefiere
+         el producto, que sí está limpio, y la idea solo como último recurso. */
+      idea: recorta(t.tiene.producto ? t.producto : t.ideaCorta, 120),
       producto: recorta(t.producto, 110),
       cliente: recorta(t.clienteCorto, 80),
       sector: '',
@@ -166,9 +170,23 @@
     return true;
   }
 
-  /** Todo lo publicable ahora mismo, del avance más reciente al más básico. */
+  /** Todo lo publicable ahora mismo, del avance más alto al más básico.
+
+      Se ordena por etapa mínima y no por el orden del array: con reverse() a
+      secas, 'problema' quedaba siempre detrás de 'cliente' —ambos son etapa 2—
+      y como solo se ofrece el primero, no se mostraba nunca. */
   function disponibles() {
-    return C.LOGROS.filter(puede).reverse();
+    return C.LOGROS.filter(puede).sort(function (a, b) {
+      if (b.etapaMin !== a.etapaMin) return b.etapaMin - a.etapaMin;
+      return reciente(b.id) - reciente(a.id);
+    });
+  }
+
+  /** Cuándo se decidió esto por última vez. Desempata entre logros de la misma
+      etapa: se ofrece el avance que el usuario acaba de conseguir. */
+  function reciente(id) {
+    try { var dd = w.Venture.decision(id); return (dd && dd.at) || 0; }
+    catch (e) { return 0; }
   }
 
   /** La propuesta completa de un logro: mensaje, estilos y cara de Chispa.

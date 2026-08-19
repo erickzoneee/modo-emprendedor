@@ -71,8 +71,11 @@
   function footer() {
     var f = el('div', { class: 'lesson-foot', id: 'lesson-foot' });
     f.appendChild(el('div', { id: 'foot-msg' }));
-    // OJO: el botón de pista usa .icon-btn y no .btn, porque setFoot()
-    // y enablePrimary() buscan el primer .btn del pie.
+    /* El botón principal lleva id propio y se busca por él. Antes se cogía
+       "el primer .btn del pie", que funcionó mientras fue el único: al añadir
+       "Explicar mi error" dentro de #foot-msg —que va delante en el DOM— la
+       búsqueda empezó a devolver ESE, y el pie del ejercicio siguiente
+       arrancaba en rojo, habilitado y avanzando al pulsarlo. */
     f.appendChild(el('div', { class: 'row', style: { gap: '10px' } }, [
       el('button', {
         class: 'icon-btn', id: 'hint-btn', type: 'button', hidden: true,
@@ -82,7 +85,7 @@
                  display: 'flex', alignItems: 'center', justifyContent: 'center' },
         onclick: useHint
       }, [el('span', { text: '💡' }), el('span', { id: 'hint-count' })]),
-      UI.btn('Continuar', { variant: 'green', size: 'lg', block: true, onClick: onPrimary })
+      UI.btn('Continuar', { variant: 'green', size: 'lg', block: true, onClick: onPrimary, id: 'foot-primary' })
     ]));
     return f;
   }
@@ -134,7 +137,7 @@
   function setFoot(state, opts) {
     var f = d.getElementById('lesson-foot');
     var msg = d.getElementById('foot-msg');
-    var btn = f.querySelector('.btn');
+    var btn = d.getElementById('foot-primary');
     f.classList.remove('is-ok', 'is-ko');
     UI.clear(msg);
 
@@ -235,9 +238,20 @@
       estaba y «Entendido» continúa igual al cerrar. */
   function explicarError(opts) {
     var det = opts.details || [];
-    var elegida = det.filter(function (x) { return x.pick && !x.ok; })[0];
+    /* `pick` y `ok` NO son excluyentes. En los sliders el usuario cae dentro de
+       una banda que puede estar marcada como correcta a medias, y filtrar por
+       `pick && !ok` dejaba el panel sin «Elegiste» y llamaba «También era
+       correcta» a la banda que acababa de fallar. Se toma lo elegido tal cual
+       y se decide el tono comparándolo con la correcta. */
+    var elegida = det.filter(function (x) { return x.pick; })[0];
     var correcta = det.filter(function (x) { return x.ok; })[0];
-    var otrasOk = det.filter(function (x) { return x.ok; }).slice(1);
+    var elegidaEsCorrecta = !!(elegida && elegida.ok);
+    var otrasOk = det.filter(function (x) { return x.ok && x !== correcta; });
+    // Las incorrectas que el usuario NO eligió: su razón también estaba escrita
+    // y antes se mostraba. Va al final del panel para no competir con lo suyo.
+    var otrasKo = det.filter(function (x) {
+      return !x.ok && x !== elegida && x.why && String(x.why).trim();
+    });
 
     var partes = [];                       // lo que se leerá en voz alta
     var col = [];
@@ -265,14 +279,21 @@
     }
 
     if (elegida) {
-      bloque('Elegiste', elegida.t, 'ko');
-      bloque('Por qué no encaja', elegida.why, 'ko');
+      var tono = elegidaEsCorrecta ? 'ok' : 'ko';
+      bloque('Elegiste', elegida.t, tono);
+      bloque(elegidaEsCorrecta ? 'Por qué no bastaba' : 'Por qué no encaja', elegida.why, tono);
     }
-    if (correcta) {
+    if (correcta && correcta !== elegida) {
       bloque('La correcta era', correcta.t, 'ok');
       bloque('Por qué sí funciona', correcta.why, 'ok');
     }
     otrasOk.forEach(function (x) { bloque('También era correcta', x.t + (x.why ? ' — ' + x.why : ''), 'ok'); });
+
+    /* El resto de opciones descartadas, con su razón. Estaban escritas y se
+       veían antes en el desglose del pie; sin esto se perderían 139 de las 315
+       explicaciones del temario, que es justo lo que este panel viene a
+       conservar. */
+    otrasKo.forEach(function (x) { bloque('Tampoco era', x.t + ' — ' + x.why, 'ko'); });
 
     /* Aplicado a SU negocio, con sus palabras. terms() ya trae los datos con
        banderas de existencia y con relleno neutro si faltan, así que aquí no
@@ -391,7 +412,7 @@
 
   function enablePrimary(on, label) {
     var f = d.getElementById('lesson-foot');
-    var btn = f.querySelector('.btn');
+    var btn = d.getElementById('foot-primary');
     btn.disabled = !on;
     if (label) btn.querySelector('span:last-child').textContent = label;
   }

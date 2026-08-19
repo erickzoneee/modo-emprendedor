@@ -122,11 +122,14 @@
     var tam = opts.grande ? 'md' : 'sm';
 
     var yo = el('div', {
-      class: 'mascot mascot--' + tam + ' is-' + mood + (opts.entrada ? ' is-entrando' : ''),
+      class: 'mascot mascot--' + tam + ' is-' + mood,
       html: w.Mascot ? w.Mascot.svg(mood, opts.etiqueta ? { etiqueta: opts.etiqueta } : null) : ''
     });
 
-    return el('div', { class: 'chispa-dice' + (opts.grande ? ' chispa-dice--grande' : '') }, [
+    // La entrada la lleva el contenedor: en la mascota sustituiría al gesto
+    // del ánimo y Chispa no llegaría a celebrar.
+    return el('div', { class: 'chispa-dice' + (opts.grande ? ' chispa-dice--grande' : '') +
+                              (opts.entrada ? ' is-entrando' : '') }, [
       yo,
       el('div', { class: 'speech chispa-dice__voz' + (opts.tono ? ' speech--' + opts.tono : '') }, cuerpo)
     ]);
@@ -293,6 +296,8 @@
     var b = el('button', {
       class: classes.join(' '),
       type: 'button',
+      // Para poder encontrarlo después sin depender de su posición en el DOM.
+      id: opts.id || null,
       disabled: opts.disabled ? true : null,
       onclick: function (e) {
         if (b.disabled) return;

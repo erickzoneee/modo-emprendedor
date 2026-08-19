@@ -179,7 +179,11 @@ html[data-theme="dark"] .stage__glow { opacity: .3; }
   z-index: 9200;
   display: grid;
 }
-.modal-layer { place-items: center; padding: var(--s5); }
+/* El modal gana a la hoja. Con el mismo z-index mandaba el orden del
+   documento y la hoja quedaba encima, así que un aviso que no se puede
+   posponer —quedarse sin vidas, por ejemplo— aparecía debajo de un panel
+   informativo y no había forma de llegar a sus botones. */
+.modal-layer { place-items: center; padding: var(--s5); z-index: 9300; }
 .sheet-layer { align-items: end; }
 
 .scrim {

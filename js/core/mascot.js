@@ -161,9 +161,13 @@
   '<ellipse cx="50" cy="101" rx="24" ry="4.6" fill="#10203A" opacity=".13"/>' +
 
   // chispa superior
-  '<g class="m-spark" transform="translate(50 12)">' +
+  /* Dos grupos y no uno: el de fuera coloca, el de dentro anima. Con el
+     translate y la animación en el MISMO elemento, la propiedad `transform`
+     del CSS sustituye al atributo `transform` del SVG —no se suman— y la
+     chispa saltaba a la esquina superior izquierda, despegada de su tallo. */
+  '<g transform="translate(50 12)"><g class="m-spark">' +
     '<path d="M0 -12 L4.4 -3.4 L13 0 L4.4 3.4 L0 12 L-4.4 3.4 L-13 0 L-4.4 -3.4 Z" fill="url(#' + id + 's)"/>' +
-  '</g>' +
+  '</g></g>' +
   '<path d="M50 24 L50 30" stroke="' + tallo + '" stroke-width="4" stroke-linecap="round"/>' +
 
   // brazos

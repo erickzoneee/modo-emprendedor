@@ -276,6 +276,11 @@
         w.requestAnimationFrame(function () {
           montadaEn = ahora();
           pintado = true;
+          /* El guardián se rearma desde aquí. Se armó al montar, pero el
+             mínimo ahora se mide desde este instante: si el primer fotograma
+             tarda, los 3 s del guardián vencían antes que el mínimo y cortaban
+             la animación justo lo que se quería evitar. */
+          reloj(function () { cerrar('guardian'); }, GUARDIAN + minimo());
         });
       });
     } catch (e) { pintado = true; }
