@@ -700,14 +700,19 @@ html[data-theme="dark"] .why__item { background: rgba(255,255,255,.07); }
 }
 .msg { display: flex; gap: 9px; align-items: flex-end; max-width: 90%; }
 .msg--me { align-self: flex-end; flex-direction: row-reverse; }
+/* El avatar del chat era el caso más flagrante de "Chispa parece un emoji":
+   30 px de dibujo, la mitad que en cualquier otra pantalla. Ahora comparte la
+   escala del resto — 56 px de caja, unos 52 de personaje — y se le quita el
+   recorte circular, que le cortaba la chispa de la cabeza y los pies, que es
+   justo lo que lo hace reconocible.
+
+   No se agranda más por una razón medida: el chat guarda hasta 120 mensajes y
+   cada uno instancia un SVG completo con sus dos degradados. */
 .msg__av {
-  width: 34px; height: 34px; flex: none;
-  border-radius: 50%;
-  background: var(--brand-soft);
+  width: 56px; height: 56px; flex: none;
   display: grid; place-items: center;
-  overflow: hidden;
 }
-.msg__av svg { width: 30px; height: 30px; }
+.msg__av svg { width: 100%; height: 100%; overflow: visible; }
 .msg__bub {
   padding: 12px 15px;
   border-radius: 18px;

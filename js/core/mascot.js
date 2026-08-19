@@ -101,6 +101,21 @@
      respaldo que usa css/temas.css cuando el negocio no está clasificado. */
   var PALETA_BASE = { acento: '#14807A', acento2: '#1FA59C', acentoDark: '#0C635E', acentoFuerte: '#0B5C57' };
 
+  /* La silueta. Es lo único que de verdad define a Chispa: cambian la paleta,
+     el encuadre y los accesorios, pero esta curva no.
+
+     Vive aquí y se exporta porque hay un segundo dibujo del personaje —el
+     retrato del arranque, en js/core/splash.js— que la usaba copiada. Copiada
+     significa que el día que alguien afine la silueta, el arranque se queda
+     con la vieja y aparecen dos Chispas parecidas pero distintas. Compartida,
+     eso no puede pasar. */
+  var CUERPO = 'M50 28 C71 28 84 43 84 62 C84 82 69 93 50 93 C31 93 16 82 16 62 C16 43 29 28 50 28 Z';
+
+  /* Las mejillas y el brillo también se comparten: son parte de la cara, no
+     del estilo de cada pantalla. */
+  var BRILLO = { cx: 38, cy: 42, rx: 13, ry: 9, rot: -22 };
+  var MEJILLAS = [{ cx: 27, cy: 62 }, { cx: 73, cy: 62 }];
+
   /**
    * Devuelve el SVG de Chispa.
    * mood: neutral | happy | sad | think | party | wow | money
@@ -108,7 +123,12 @@
    *         capas: {cabeza,torso,mano,fondo,distintivo}, colores, plano, etiqueta }
    */
   function svg(mood, opts) {
-    mood = mood || 'neutral';
+    /* Traduce el momento al gesto: svg('celebrando') ya devuelve la cara de
+       fiesta. Antes no: la tabla ESTADOS estaba escrita con esmero y no la
+       llamaba nadie, así que pasar un nombre de estado caía en silencio en la
+       cara neutral. Los 28 llamadores que pasan un ánimo directo siguen igual,
+       porque estado() devuelve tal cual lo que ya es un ánimo. */
+    mood = estado(mood || 'neutral');
     opts = opts || {};
     var id = 'g' + Math.random().toString(36).slice(2, 8);
     var body1 = opts.color1 || '#FF8A2B';
@@ -157,7 +177,7 @@
   '<ellipse cx="61" cy="94" rx="9" ry="6" fill="' + patas + '"/>' +
 
   // cuerpo
-  '<path d="M50 28 C71 28 84 43 84 62 C84 82 69 93 50 93 C31 93 16 82 16 62 C16 43 29 28 50 28 Z" fill="url(#' + id + 'b)"/>' +
+  '<path d="' + CUERPO + '" fill="url(#' + id + 'b)"/>' +
   // brillo
   '<ellipse cx="38" cy="42" rx="13" ry="9" fill="#fff" opacity=".2" transform="rotate(-22 38 42)"/>' +
   // mejillas
@@ -243,6 +263,8 @@
 
   w.Mascot = {
     svg: svg, node: node, setMood: setMood,
-    estado: estado, ESTADOS: ESTADOS, MOODS: MOODS
+    estado: estado, ESTADOS: ESTADOS, MOODS: MOODS,
+    // Geometría compartida con el retrato del arranque (js/core/splash.js).
+    CUERPO: CUERPO, BRILLO: BRILLO, MEJILLAS: MEJILLAS
   };
 })(window);

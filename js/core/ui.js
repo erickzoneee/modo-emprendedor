@@ -99,6 +99,39 @@
       .replace(/\n/g, '<br>');
   }
 
+  /* ---------------------------- Chispa habla ----------------------------
+
+     Dieciséis sitios repetían a mano la misma fila: la mascota a la izquierda,
+     una burbuja a la derecha y un gap de 12px. Copiada, no compartida, así que
+     cualquier cambio de tamaño o de composición había que hacerlo dieciséis
+     veces y se desincronizaba a la primera.
+
+     `momento` es el estado, no el ánimo: 'celebrando', 'explicando',
+     'alertando'… Mascot lo traduce al gesto. Se pasa lo que ocurre y el
+     personaje decide la cara.
+     ------------------------------------------------------------------------ */
+
+  /**
+   * @param momento  estado o ánimo: celebrando, explicando, pensando, alertando…
+   * @param cuerpo   nodo o array de nodos que va dentro de la burbuja
+   * @param opts     { grande:bool, tono:'green'|'red', entrada:bool, etiqueta:string }
+   */
+  function chispaDice(momento, cuerpo, opts) {
+    opts = opts || {};
+    var mood = (w.Mascot && w.Mascot.estado) ? w.Mascot.estado(momento) : 'neutral';
+    var tam = opts.grande ? 'md' : 'sm';
+
+    var yo = el('div', {
+      class: 'mascot mascot--' + tam + ' is-' + mood + (opts.entrada ? ' is-entrando' : ''),
+      html: w.Mascot ? w.Mascot.svg(mood, opts.etiqueta ? { etiqueta: opts.etiqueta } : null) : ''
+    });
+
+    return el('div', { class: 'chispa-dice' + (opts.grande ? ' chispa-dice--grande' : '') }, [
+      yo,
+      el('div', { class: 'speech chispa-dice__voz' + (opts.tono ? ' speech--' + opts.tono : '') }, cuerpo)
+    ]);
+  }
+
   /* ---------------------------- Toasts ---------------------------- */
 
   function toast(msg, kind, icon, ms) {
@@ -448,6 +481,7 @@
     toast: toast, modal: modal, queueModal: queueModal, closeModal: closeModal,
     sheet: sheet, closeSheet: closeSheet,
     confirm: confirm, btn: btn, pbar: pbar, chip: chip, metric: metric,
+    chispaDice: chispaDice,
     backBtn: backBtn, closeBtn: closeBtn,
     Router: Router, shuffle: shuffle, mulberry: mulberry, delay: delay,
     copy: copy, download: download

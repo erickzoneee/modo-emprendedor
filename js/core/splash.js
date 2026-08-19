@@ -101,6 +101,10 @@
      resuelven igual. Trasladar, en cambio, no depende del origen en ninguno.
      ---------------------------------------------------------------------- */
 
+  /* Geometría compartida con la mascota de la app. */
+  var CUERPO = (w.Mascot && w.Mascot.CUERPO) ||
+    'M50 28 C71 28 84 43 84 62 C84 82 69 93 50 93 C31 93 16 82 16 62 C16 43 29 28 50 28 Z';
+
   var CARA =
 '<svg class="arranque__cara" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">' +
   '<defs>' +
@@ -117,7 +121,10 @@
   '<path d="M50 23 L50 32" stroke="#FFD766" stroke-width="4.4" stroke-linecap="round"/>' +
 
   // cuerpo, con el contorno crema que lo despega del fondo naranja
-  '<path d="M50 28 C71 28 84 43 84 62 C84 82 69 93 50 93 C31 93 16 82 16 62 C16 43 29 28 50 28 Z" ' +
+  // La silueta la manda js/core/mascot.js, no una copia. Es lo único que
+  // define al personaje, y tenerla en dos sitios era garantizar que algún día
+  // dejaran de ser el mismo. Con reserva, por si mascot.js no hubiera cargado.
+  '<path d="' + CUERPO + '" ' +
     'fill="url(#spCuerpo)" stroke="#FFF3E2" stroke-width="2.6" stroke-opacity=".85"/>' +
   '<ellipse cx="38" cy="42" rx="13" ry="9" fill="#fff" opacity=".22" transform="rotate(-22 38 42)"/>' +
   '<ellipse cx="27" cy="63" rx="6.2" ry="4.3" fill="#FF3E6C" opacity=".3"/>' +
