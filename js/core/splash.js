@@ -50,7 +50,8 @@
   /* ------------------------------ Estado ------------------------------ */
 
   var nodo = null;          // el elemento en el DOM, o null si ya no está
-  var montadaEn = 0;        // marca de tiempo del montaje
+  var montadaEn = 0;        // cuándo se PINTÓ el primer fotograma (no el montaje)
+  var pintado = false;      // ¿ha llegado ya ese primer fotograma?
   var listo = false;        // ¿ya avisó la app de que terminó de arrancar?
   var cerrando = false;     // guarda contra un segundo cierre
   var relojes = [];         // todos los setTimeout vivos, para poder limpiarlos
@@ -254,7 +255,24 @@
       else { nodo = null; return null; }   // sin body no hay nada que hacer
     }
 
+    /* Provisional: si rAF no llegara nunca —pestaña oculta al abrir, por
+       ejemplo— el guardián cierra igual y esto evita una marca en cero. El
+       valor bueno lo pone el doble rAF de abajo. */
     montadaEn = ahora();
+    pintado = false;
+
+    /* Dos fotogramas: el primero se encola antes de pintar, el segundo ya
+       corre con el arranque en pantalla. Ese es el instante en el que las
+       animaciones CSS empiezan a contar, así que es el que hay que medir. */
+    try {
+      w.requestAnimationFrame(function () {
+        w.requestAnimationFrame(function () {
+          montadaEn = ahora();
+          pintado = true;
+        });
+      });
+    } catch (e) { pintado = true; }
+
     tomarBarra();
 
     /* El guardián se arma AQUÍ, antes de que exista ningún otro módulo de la
@@ -312,7 +330,23 @@
     if (listo) return;
     listo = true;
     if (!nodo) return;
+    cerrarTrasElMinimo();
+  }
 
+  /* El mínimo en pantalla se cuenta desde el primer fotograma pintado, y por eso
+     hay que esperar a que llegue.
+
+     Aquí estaba el fallo que hacía que la animación solo se viera en escritorio.
+     `montadaEn` se fijaba al montar, pero el reloj de las animaciones CSS no
+     arranca hasta que el navegador pinta. En un escritorio el DOM está listo a
+     los 86 ms y sobraban dos segundos largos; en un móvil, con el megabyte de
+     scripts que carga esta app, boot() confirma pasados los 2450 ms del mínimo,
+     `falta` salía negativo y el arranque se cerraba en ese mismo instante —justo
+     cuando las animaciones acababan de empezar a verse—. El usuario veía un
+     destello naranja y nada más. */
+  function cerrarTrasElMinimo() {
+    if (!nodo || cerrando) return;
+    if (!pintado) { reloj(cerrarTrasElMinimo, 60); return; }   // el guardián acota la espera
     var falta = minimo() - (ahora() - montadaEn);
     if (falta <= 0) cerrar('app');
     else reloj(function () { cerrar('app'); }, falta);
