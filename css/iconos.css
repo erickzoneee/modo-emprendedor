@@ -1,0 +1,263 @@
+/* ==========================================================================
+   ICONOS — tamaño, apoyo y vida
+
+   El dibujo está en js/data/iconos.js. Aquí se decide cuánto miden, cómo se
+   sientan en la línea de texto y, sobre todo, cuándo se mueven.
+
+   La regla del movimiento, que es la que importa:
+
+     Todos los iconos llevan su animación cargada. Casi ninguno la tiene
+     andando. Se define una vez con animation-play-state: paused, y hay un
+     solo sitio —el bloque "El interruptor"— que la echa a andar: los seis
+     que viven en la barra superior, y cualquiera bajo el dedo o el cursor.
+
+     Encender por defecto era la tentación. Con quince iconos animados a la
+     vez la pantalla no descansa en ningún punto, y el ojo no puede leer un
+     párrafo que se mueve por los lados. Una app viva no es una app inquieta.
+
+   La preferencia de menos movimiento no se comprueba aquí: css/tokens.css ya
+   apaga toda animación del sitio cuando el sistema la pide.
+   ========================================================================== */
+
+/* ------------------------------- El envoltorio -------------------------------
+
+   Mide en em y no en px a propósito: el icono sustituye a un emoji, y un
+   emoji crece con el texto que lo rodea. Así el mismo icono sale pequeño en
+   una pista de lección y grande en el título de una celebración, sin que
+   nadie tenga que decírselo.
+
+   1.22em y no 1em porque el dibujo no llena su lienzo: deja aire alrededor
+   para la sombra de apoyo. A 1em se veía más chico que el emoji al que
+   sustituye y las líneas quedaban desparejas.                              */
+
+.ico {
+  display: inline-block;
+  width: 1.22em;
+  height: 1.22em;
+  vertical-align: -0.26em;
+  line-height: 1;
+  flex: none;
+  animation: icoEntra .34s var(--spring) both;
+}
+
+.ico__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Sin esto, la llama del cohete y el salto del corazón se recortan contra
+     el borde del viewBox justo en el fotograma en que salen. */
+  overflow: visible;
+}
+
+/* La entrada. Muy corta y sin rebote hacia arriba: un icono aparece dentro de
+   una pantalla que ya está entrando con su propia animación, y dos rebotes
+   sumados se ven como un tirón. */
+@keyframes icoEntra {
+  from { transform: scale(.76); opacity: 0 }
+  to   { transform: scale(1);   opacity: 1 }
+}
+
+/* Tamaños con nombre, para cuando el icono no acompaña a un texto sino que ES
+   el elemento: el sello de un logro, la cabecera de un nivel. */
+.ico--sm { width: 1em;    height: 1em;    vertical-align: -.16em }
+.ico--md { width: 1.6em;  height: 1.6em;  vertical-align: -.42em }
+.ico--lg { width: 2.4em;  height: 2.4em;  vertical-align: -.7em }
+.ico--xl { width: 3.6em;  height: 3.6em;  vertical-align: -1.1em }
+
+/* Un icono dentro de un botón o una pastilla no arrastra la línea base. */
+.btn .ico, .chip .ico, .tab .ico, .stat .ico { vertical-align: -.2em }
+
+/* ============================== Las animaciones ==============================
+   Cada una dice quién es el personaje: el fuego respira, la moneda se voltea,
+   el engranaje gira sin prisa, el cohete flota. Ninguna dura menos de un
+   segundo ni se mueve más de lo que se movería de verdad.
+   ========================================================================== */
+
+/* --- Fuego: respira. La llama se estira y se encoge desde su base, nunca
+       desde el centro, porque el fuego se agarra al suelo. --- */
+.i-flama  { animation: flamea 2.6s ease-in-out infinite; transform-origin: 50px 90px }
+.i-nucleo { animation: nucleo 1.25s ease-in-out infinite alternate; transform-origin: 50px 89px }
+
+@keyframes flamea {
+  0%, 100% { transform: scale(1, 1) skewX(0deg) }
+  25%      { transform: scale(.95, 1.06) skewX(2.5deg) }
+  55%      { transform: scale(1.05, .96) skewX(-2deg) }
+  78%      { transform: scale(.97, 1.03) skewX(1deg) }
+}
+@keyframes nucleo {
+  from { transform: scaleY(.9);  opacity: .82 }
+  to   { transform: scaleY(1.1); opacity: 1 }
+}
+
+/* --- Moneda: se voltea. Casi todo el rato está quieta; el giro es un gesto
+       corto y espaciado, que es como suena una moneda en el bolsillo. --- */
+.i-gira { animation: tintinea 5s ease-in-out infinite; transform-origin: 50px 50px }
+
+@keyframes tintinea {
+  0%, 62%   { transform: scaleX(1) }
+  74%       { transform: scaleX(.08) }
+  86%, 100% { transform: scaleX(1) }
+}
+
+/* --- Corazón: late. Dos golpes seguidos y una pausa larga, como un pulso
+       de verdad. Un solo golpe regular parecía un parpadeo. --- */
+.i-late { animation: late 2.4s ease-in-out infinite; transform-origin: 50px 60px }
+
+@keyframes late {
+  0%, 100%   { transform: scale(1) }
+  8%         { transform: scale(1.13) }
+  16%        { transform: scale(1) }
+  24%        { transform: scale(1.09) }
+  34%        { transform: scale(1) }
+}
+
+/* --- Chispa: destella. La de arriba manda y las otras dos entran tarde, para
+       que el brillo se lea como tres cosas y no como una. --- */
+/* transform-box: fill-box no es un adorno. Sin él, `center` no significa el
+   centro de la chispa: en SVG los orígenes se miden contra el lienzo entero,
+   así que la chispa pequeña de la esquina giraría alrededor del medio del
+   icono y saldría dando vueltas por la pantalla. */
+.i-brillo, .i-brillo-2, .i-brillo-3 { transform-box: fill-box; transform-origin: center }
+.i-brillo   { animation: destella 2.6s ease-in-out infinite }
+.i-brillo-2 { animation: destella 2.6s ease-in-out infinite .5s }
+.i-brillo-3 { animation: destella 2.6s ease-in-out infinite .9s }
+.es-destella { animation: respira 3.2s ease-in-out infinite }
+
+@keyframes destella {
+  0%, 100% { transform: scale(1) rotate(0deg);    opacity: .92 }
+  45%      { transform: scale(1.16) rotate(14deg); opacity: 1 }
+}
+@keyframes respira {
+  0%, 100% { transform: scale(1) }
+  50%      { transform: scale(1.05) }
+}
+
+/* --- Engranaje: gira. Lento, y a velocidad constante: un engranaje que
+       acelera y frena no está engranado con nada. --- */
+.i-rota { animation: rota 14s linear infinite; transform-origin: 50px 50px }
+
+@keyframes rota { to { transform: rotate(360deg) } }
+
+/* --- Cohete: flota y su llama titila el doble de rápido que él se mueve. --- */
+.i-flota { animation: flota 2.6s ease-in-out infinite; transform-origin: 50px 60px }
+.i-llama { animation: chorro .3s ease-in-out infinite alternate; transform-origin: 50px 66px }
+
+@keyframes flota {
+  0%, 100% { transform: translateY(0) }
+  50%      { transform: translateY(-3.5px) }
+}
+@keyframes chorro {
+  from { transform: scaleY(.82) scaleX(1.05); opacity: .85 }
+  to   { transform: scaleY(1.18) scaleX(.95); opacity: 1 }
+}
+
+/* --- Megáfono y globo de chat: vibran. Casi todo el ciclo están quietos; el
+       temblor dura tres décimas y vuelve el silencio. --- */
+.i-vibra { animation: vibra 3.4s ease-in-out infinite; transform-origin: 20px 50px }
+
+@keyframes vibra {
+  0%, 82%, 100% { transform: rotate(0deg) }
+  86%           { transform: rotate(-4deg) }
+  90%           { transform: rotate(4deg) }
+  94%           { transform: rotate(-2.5deg) }
+}
+
+/* --- Reloj: la manecilla salta. steps() y no un giro continuo: un segundero
+       que se desliza es un segundero de mentira. --- */
+.i-manecilla { animation: tictac 8s steps(8) infinite; transform-origin: 50px 54px }
+
+@keyframes tictac { to { transform: rotate(360deg) } }
+
+/* --- Planta: se mece desde la maceta, que es donde está sujeta. --- */
+.i-mece { animation: mece 3.6s ease-in-out infinite; transform-origin: 50px 76px }
+
+@keyframes mece {
+  0%, 100% { transform: rotate(-3.5deg) }
+  50%      { transform: rotate(3.5deg) }
+}
+
+/* --- Bandera: ondea. Se deforma, no se inclina: una bandera que gira entera
+       es un cartel, no una tela. --- */
+.i-ondea { animation: ondea 2.4s ease-in-out infinite; transform-origin: 32px 30px }
+
+@keyframes ondea {
+  0%, 100% { transform: skewY(0deg)  scaleY(1) }
+  30%      { transform: skewY(3deg)  scaleY(1.04) }
+  65%      { transform: skewY(-3deg) scaleY(.97) }
+}
+
+/* --- Mano: saluda desde la muñeca. --- */
+.i-saluda { animation: saluda 2.2s ease-in-out infinite; transform-origin: 50px 88px }
+
+@keyframes saluda {
+  0%, 60%, 100% { transform: rotate(0deg) }
+  70%           { transform: rotate(-16deg) }
+  80%           { transform: rotate(14deg) }
+  90%           { transform: rotate(-8deg) }
+}
+
+/* --- Sirena: pulsa. Lo urgente late; no gira ni salta. --- */
+.i-pulsa { animation: alerta 1.1s ease-in-out infinite; transform-origin: 50px 70px }
+
+@keyframes alerta {
+  0%, 100% { transform: scale(1);    opacity: 1 }
+  50%      { transform: scale(1.07); opacity: .82 }
+}
+
+/* --- Rayo: chisporrotea. Dos parpadeos secos y una espera larga. --- */
+.es-chisporrotea { animation: chisporrotea 4s linear infinite }
+
+@keyframes chisporrotea {
+  0%, 88%, 100% { opacity: 1 }
+  90%           { opacity: .45 }
+  92%           { opacity: 1 }
+  94%           { opacity: .55 }
+}
+
+/* --- Fiesta: da saltitos. El origen va en porcentaje y no en unidades del
+       lienzo porque esta animación vive en el <svg> de fuera, que para el
+       navegador es una caja normal del tamaño que le toque en pantalla. --- */
+.es-salta { animation: salta 1.8s ease-in-out infinite; transform-origin: 46% 92% }
+
+@keyframes salta {
+  0%, 70%, 100% { transform: translateY(0) rotate(0deg) }
+  78%           { transform: translateY(-5px) rotate(-6deg) }
+  86%           { transform: translateY(0) rotate(3deg) }
+}
+
+/* ============================== El interruptor ==============================
+
+   Todo lo de arriba nace en pausa. Estos son los únicos tres motivos por los
+   que algo se mueve:
+
+     data-vivo   lo pone js/core/iconos.js, y solo a seis iconos: los del HUD
+                 y los de celebrar. Son los que se miran de reojo.
+     :hover      el cursor encima. Es el premio por acercarse.
+     .ico--play  para pedirlo a mano desde el código.
+
+   Un solo bloque y un solo criterio: si mañana hay que apagar toda la vida de
+   la app, se apaga aquí y no en veinte reglas repartidas.
+   ========================================================================== */
+
+.ico__svg * { animation-play-state: paused }
+.ico__svg     { animation-play-state: paused }
+
+.ico[data-vivo] .ico__svg,
+.ico[data-vivo] .ico__svg *,
+.ico:hover .ico__svg,
+.ico:hover .ico__svg *,
+.ico--play .ico__svg,
+.ico--play .ico__svg * { animation-play-state: running }
+
+/* Al pulsar, el icono se hunde un poco. Es el mismo gesto que ya hacen los
+   botones de la app: lo que se toca, cede. */
+.ico:active { transform: scale(.9); transition: transform .09s var(--ease-out) }
+
+/* --------------------------------- Tema oscuro ---------------------------------
+
+   Los iconos no cambian de color con el tema, y es correcto: una moneda es
+   dorada de noche igual que de día. Lo único que se corrige es la sombra de
+   apoyo, que sobre un fondo oscuro se ve como un cerco sucio en vez de como
+   una sombra. */
+
+html[data-theme="dark"] .i-piso { opacity: .45 }

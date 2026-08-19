@@ -71,6 +71,7 @@
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/screens.css">
 <link rel="stylesheet" href="css/animations.css">
+<link rel="stylesheet" href="css/iconos.css">
 <!-- Va el último a propósito: sus reglas tienen la misma especificidad que las
      que sobrescribe, así que quien decide es el orden de la cascada. -->
 <link rel="stylesheet" href="css/temas.css">
@@ -130,6 +131,10 @@
 <script src="js/core/speech.js"></script>
 
 <!-- ============ Datos ============ -->
+<!-- El alfabeto visual. Va el primero de los datos porque no depende de
+     ninguno, y porque js/core/iconos.js —dos bloques más abajo— no puede
+     cargarse sin él. -->
+<script src="js/data/iconos.js"></script>
 <script src="js/data/config.js"></script>
 <script src="js/data/lessons-1.js"></script>
 <script src="js/data/lessons-2.js"></script>
@@ -147,8 +152,14 @@
 <script src="js/data/kb.js"></script>
 
 <!-- ============ Motor ============
+     iconos.js abre el bloque porque necesita a js/data/iconos.js, que acaba de
+     cargarse, y porque a partir de aquí ya hay pantallas que pintar. Se engancha
+     solo a las capas del caparazón y no lo llama nadie: cada emoji que aparezca
+     en pantalla, desde este punto, sale dibujado.
+
      venture.js va antes que ai.js y personalize.js: es la fuente de contexto
      que ambos consultan. personalize.js lee las plantillas al cargarse. -->
+<script src="js/core/iconos.js"></script>
 <script src="js/core/venture.js"></script>
 <script src="js/core/ai-worker.js"></script>
 <script src="js/core/local-ai.js"></script>

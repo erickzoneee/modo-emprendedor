@@ -61,6 +61,7 @@ Es un sitio estático puro. Sube la carpeta completa a Netlify, Vercel, GitHub P
 | **La app se adapta a tu negocio** | color secundario, ejemplos del oficio, orden del panel y Chispa con delantal, herramienta y su espacio de trabajo |
 | **Expediente Mi Negocio** | 12 secciones que se llenan solas y se exportan |
 | **Lectura en voz alta** | escucha las lecciones y las respuestas con la voz del dispositivo |
+| **Iconos propios** | 60 piezas dibujadas a mano en el mismo lenguaje que Chispa. Nada de emoji del sistema: se ven igual en cualquier teléfono y se mueven |
 
 > **Cómo se cuentan:** el mapa tiene **58 paradas** = **50 lecciones** + **8 retos reales**.
 > Cada lección cierra con una **misión aplicada** a tu propio negocio (50 en total), y cada nivel

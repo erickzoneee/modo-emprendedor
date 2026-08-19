@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iconos de barro · EMPRENDO</title>
+
+<link rel="stylesheet" href="../css/fonts.css">
+<link rel="stylesheet" href="../css/tokens.css">
+<link rel="stylesheet" href="../css/iconos.css">
+
+<style>
+  /* Esta hoja es solo de la hoja de contactos: no viaja con la app.
+     Los colores y las curvas salen de css/tokens.css, para que lo que se ve
+     aquí sea exactamente lo que se verá dentro. */
+  * { box-sizing: border-box }
+  body {
+    margin: 0;
+    font-family: var(--font);
+    color: var(--ink);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+  .lienzo { max-width: 1080px; margin: 0 auto; padding: 40px 20px 100px }
+
+  header.cab { padding: 48px 0 8px }
+  .marca {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-weight: 900; letter-spacing: .1em; font-size: var(--fs-sm);
+    color: var(--brand); text-transform: uppercase;
+  }
+  h1 { font-size: var(--fs-3xl); margin: 14px 0 10px; letter-spacing: -.02em }
+  .bajada { font-size: var(--fs-lg); color: var(--ink-2); max-width: 62ch; line-height: 1.55; margin: 0 }
+
+  h2 {
+    font-size: var(--fs-xl); margin: 56px 0 6px; letter-spacing: -.01em;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  h2 small { font-weight: 700; font-size: var(--fs-sm); color: var(--ink-3) }
+  .nota { color: var(--ink-2); font-size: var(--fs-md); line-height: 1.6; max-width: 66ch; margin: 8px 0 22px }
+
+  .tarjeta {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--r-lg); box-shadow: var(--sh-1);
+  }
+
+  /* --- La rejilla de iconos --- */
+  .rejilla {
+    display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  }
+  .celda {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 18px 8px 12px; border-radius: var(--r-md);
+    background: var(--card); border: 1px solid var(--line);
+    transition: transform .16s var(--spring), box-shadow .16s var(--ease-out);
+    cursor: pointer;
+  }
+  .celda:hover { transform: translateY(-3px); box-shadow: var(--sh-2) }
+  .celda .ico { font-size: 46px }
+  .celda b { font-size: var(--fs-xs); font-weight: 800; color: var(--ink-2); text-align: center }
+  .celda span.viv {
+    font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--brand); background: var(--brand-soft);
+    padding: 2px 6px; border-radius: var(--r-full);
+  }
+
+  /* --- Comparación --- */
+  .compara { display: grid; gap: 0; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) }
+  .par { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 16px 8px }
+  .par .antes { font-size: 34px; line-height: 1; opacity: .95 }
+  .par .flecha { color: var(--ink-3); font-weight: 900 }
+  .par .ico { font-size: 34px }
+
+  /* --- Escalera de tamaños --- */
+  .escalera { display: flex; align-items: flex-end; gap: 26px; flex-wrap: wrap; padding: 28px 24px }
+  .peldano { text-align: center }
+  .peldano small { display: block; margin-top: 8px; color: var(--ink-3); font-size: var(--fs-xs); font-weight: 800 }
+
+  /* --- Texto real --- */
+  .prosa { padding: 26px 28px; font-size: var(--fs-lg); line-height: 1.75; max-width: 70ch }
+  .prosa p { margin: 0 0 14px }
+  .prosa p:last-child { margin: 0 }
+
+  /* --- Pendientes --- */
+  .pendientes { padding: 20px 24px; font-size: 26px; line-height: 1.9; letter-spacing: 6px }
+
+  /* --- Barra de mandos --- */
+  .mandos {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    padding: 12px 0; margin-bottom: 8px;
+    background: linear-gradient(var(--bg) 72%, transparent);
+  }
+  .boton {
+    font: inherit; font-weight: 800; font-size: var(--fs-sm);
+    padding: 9px 16px; border-radius: var(--r-full); cursor: pointer;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    transition: transform .12s var(--spring);
+  }
+  .boton:hover { transform: translateY(-1px) }
+  .boton[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff }
+  .cuenta { margin-left: auto; color: var(--ink-3); font-size: var(--fs-sm); font-weight: 800 }
+
+  /* Sobre el naranja de marca el texto va en marrón oscuro y no en el gris
+     azulado de la app: ese gris sobre naranja da 2.5 de contraste y no se lee.
+     Solo cambia lo que se apoya en el naranja; dentro de las tarjetas manda el
+     color de siempre. */
+  body.naranja h1, body.naranja h2, body.naranja .bajada,
+  body.naranja .nota, body.naranja .marca { color: #4A1B00 }
+  body.naranja .cuenta { color: rgba(74,27,0,.75) }
+
+  .aviso {
+    display: flex; gap: 12px; padding: 16px 20px; border-radius: var(--r-md);
+    background: var(--gold-soft); color: var(--ink-2);
+    font-size: var(--fs-sm); line-height: 1.6; margin-top: 14px;
+  }
+</style>
+</head>
+<body>
+<div class="lienzo">
+
+  <header class="cab">
+    <div class="marca">EMPRENDO · sistema visual</div>
+    <h1>Iconos de barro</h1>
+    <p class="bajada">
+      La hoja de contactos del alfabeto visual. Todo lo de esta página está dibujado
+      a mano en el mismo lenguaje que Chispa —volumen sin contorno, luz por arriba a
+      la izquierda, sombra que apoya— y no depende del emoji de ningún teléfono.
+      Pasa el cursor por encima de cualquiera para verlo moverse.
+    </p>
+  </header>
+
+  <div class="mandos">
+    <button class="boton" id="tema" aria-pressed="false">Tema oscuro</button>
+    <button class="boton" id="vida" aria-pressed="false">Animarlos todos</button>
+    <button class="boton" id="fondo" aria-pressed="false">Fondo naranja</button>
+    <span class="cuenta" id="cuenta"></span>
+  </div>
+
+  <h2>El catálogo <small id="tituloCat"></small></h2>
+  <p class="nota">
+    La etiqueta <b>vivo</b> marca los seis que se animan solos dentro de la app: los que
+    viven en la barra superior y en las celebraciones. Los demás están quietos a propósito
+    y solo se mueven cuando el dedo pasa por encima.
+  </p>
+  <div class="rejilla" id="rejilla"></div>
+
+  <h2>Antes y después</h2>
+  <p class="nota">
+    A la izquierda, el emoji que pintaba el sistema operativo —distinto en cada teléfono—.
+    A la derecha, el nuestro. No es solo un cambio de dibujo: el de la derecha conoce la
+    paleta de la app, se puede animar y se ve igual en un iPhone que en un Android de 2018.
+  </p>
+  <div class="tarjeta compara" id="compara"></div>
+
+  <h2>La misma pieza, de 14 a 96 px</h2>
+  <p class="nota">
+    Los iconos miden en <code>em</code>, así que crecen con el texto que los rodea. La prueba
+    de fuego es la columna de la izquierda: a tamaño de pista de lección tienen que seguir
+    leyéndose de un vistazo, sin lupa.
+  </p>
+  <div class="tarjeta escalera" id="escalera"></div>
+
+  <h2>En texto de verdad</h2>
+  <p class="nota">
+    Este párrafo está escrito con emojis, tal cual se escriben dentro de una lección.
+    Lo que ves ya son iconos: el cambio lo hace <code>js/core/iconos.js</code> al vuelo, sin que
+    haya que tocar el texto de la lección.
+  </p>
+  <div class="tarjeta prosa">
+    <p>Hoy toca 🎯 definir a tu cliente ideal. Llevas 🔥 5 días seguidos y 🪙 240 monedas.</p>
+    <p>Si terminas la misión sin fallos te llevas 💎 y una ⭐. Ojo ⚠️ con el precio: revisa tus 🧮 números antes de mandar la cotización 💬.</p>
+    <p>Tu ruta: 🔎 Descubre · 🧪 Valida · 🔧 Construye · 🤝 Vende · 📊 Administra · 📈 Crece · ⚙️ Sistematiza · 🚀 Escala.</p>
+  </div>
+
+  <h2>Lo que falta por dibujar</h2>
+  <p class="nota" id="notaPendiente"></p>
+  <div class="tarjeta pendientes sin-iconos" id="pendientes"></div>
+
+  <div class="aviso">
+    <span>👉</span>
+    <span>
+      Para dibujar uno nuevo: se añade a <code>js/data/iconos.js</code> con su entrada en la tabla
+      <code>EMOJI</code>, y aparece solo en toda la app. No hay que tocar ninguna lección ni ninguna pantalla.
+    </span>
+  </div>
+
+</div>
+
+<script src="../js/data/iconos.js"></script>
+<script src="../js/core/iconos.js"></script>
+<script>
+(function () {
+  'use strict';
+  var D = window.ICONOS, Ic = window.Iconos;
+
+  /* ---------- El catálogo ---------- */
+  var nombres = D.nombres();
+  var rejilla = document.getElementById('rejilla');
+  nombres.forEach(function (n) {
+    var i = D.catalogo[n];
+    var celda = document.createElement('div');
+    celda.className = 'celda';
+    celda.title = i.et;
+    celda.innerHTML = Ic.html(n, { vivo: false }) +
+      '<b>' + n + '</b>' + (i.vivo ? '<span class="viv">vivo</span>' : '');
+    // Al pulsar se copia el nombre: es lo que se escribe en el código.
+    celda.addEventListener('click', function () {
+      if (navigator.clipboard) navigator.clipboard.writeText(n);
+      celda.classList.add('ico--play');
+    });
+    rejilla.appendChild(celda);
+  });
+  document.getElementById('tituloCat').textContent = nombres.length + ' piezas';
+
+  /* ---------- Antes y después ----------
+     El emoji de la izquierda va dentro de .sin-iconos: es la única forma de
+     que sobreviva, porque si no el propio sistema lo cambiaría por su icono
+     y la comparación mostraría lo mismo dos veces. */
+  var muestra = ['🔥', '🪙', '🚀', '💡', '🎯', '🏆', '📈', '🤝', '🧠', '🎉', '💎', '🧭'];
+  var comp = document.getElementById('compara');
+  muestra.forEach(function (e) {
+    var par = document.createElement('div');
+    par.className = 'par';
+    par.innerHTML = '<span class="antes sin-iconos">' + e + '</span>' +
+                    '<span class="flecha">→</span>' + Ic.html(D.emoji[e], { vivo: false });
+    comp.appendChild(par);
+  });
+
+  /* ---------- Escalera ---------- */
+  var esc = document.getElementById('escalera');
+  [14, 20, 28, 40, 56, 72, 96].forEach(function (px) {
+    var p = document.createElement('div');
+    p.className = 'peldano';
+    p.innerHTML = '<div style="font-size:' + px + 'px">' + Ic.html('cohete', { vivo: false }) + '</div>' +
+                  '<small>' + px + ' px</small>';
+    esc.appendChild(p);
+  });
+
+  /* ---------- Cobertura y pendientes ----------
+     La lista se escribe a mano y a propósito: es el trabajo que queda, y verlo
+     escrito es lo que hace que se acabe. */
+  var PENDIENTES = ['🔊','📲','🖨️','⚖️','💪','🩹','🍰','💻','🐣','⚔️','🚚','🎟️','⏸️','↩️','☁️',
+                    '👣','🌙','🌅','🔷','🔴','🧵','👔','🪵','🧼','🐥','🦅','🫙','♟️','📡','🃏',
+                    '🐕','📏','☕','🙈','🧯','🚦','🔀','🧱','🛵','✂️','📐','🩺','👂','🎂','🥤'];
+  document.getElementById('pendientes').textContent = PENDIENTES.join(' ');
+  document.getElementById('notaPendiente').innerHTML =
+    'Los ' + nombres.length + ' iconos de arriba cubren <b>el 80 % de los emojis que la app pinta hoy</b> ' +
+    '(456 de 567 apariciones). Lo que queda son piezas de una sola aparición dentro de una lección suelta. ' +
+    'Mientras no estén dibujadas se siguen viendo como emoji del sistema: nada desaparece por no estar aún.';
+  document.getElementById('cuenta').textContent = nombres.length + ' iconos · 80 % de cobertura';
+
+  /* ---------- Mandos ---------- */
+  function alterna(id, fn) {
+    var b = document.getElementById(id);
+    b.addEventListener('click', function () {
+      var on = b.getAttribute('aria-pressed') !== 'true';
+      b.setAttribute('aria-pressed', String(on));
+      fn(on);
+    });
+  }
+  alterna('tema', function (on) {
+    document.documentElement.setAttribute('data-theme', on ? 'dark' : 'light');
+  });
+  alterna('vida', function (on) {
+    document.querySelectorAll('.ico').forEach(function (n) { n.classList.toggle('ico--play', on); });
+  });
+  alterna('fondo', function (on) {
+    document.body.classList.toggle('naranja', on);
+    document.body.style.background = on ? '#FF6B1A' : '';
+  });
+})();
+</script>
+</body>
+</html>
