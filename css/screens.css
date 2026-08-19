@@ -946,3 +946,49 @@ html[data-theme="dark"] .why__item { background: rgba(255,255,255,.07); }
   color: var(--green-dark);
   font-weight: 800; font-size: var(--fs-sm); line-height: 1.55;
 }
+
+/* ---------- Explicación progresiva del error ----------
+
+   La corrección corta vive en el pie; lo hondo espera detrás de este botón.
+   Va alineado a la derecha y en tono discreto a propósito: acompaña a
+   "Entendido", que es el botón que de verdad manda, y no debe competir con él. */
+
+.lesson-foot__mas {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--s3);
+}
+.lesson-foot.is-ko .lesson-foot__mas .btn {
+  color: var(--red-dark);
+  border-color: color-mix(in srgb, var(--red) 40%, transparent);
+}
+
+/* Bloques del panel hondo. Cada uno responde una pregunta y se lee solo. */
+.exp {
+  background: var(--card-2, rgba(0, 0, 0, .04));
+  border-radius: var(--r3);
+  padding: var(--s3) var(--s4);
+  text-align: left;
+}
+.exp + .exp { margin-top: var(--s2); }
+.exp__t {
+  font-size: var(--fs-xs);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  opacity: .65;
+}
+.exp__p {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+/* El verde y el rojo solo tiñen el borde y el rótulo: el cuerpo se queda con
+   el color de texto normal, que es el que se lee sin esfuerzo. */
+.exp--ok { border-left: 4px solid var(--green); }
+.exp--ko { border-left: 4px solid var(--red); }
+.exp--ok .exp__t { color: var(--green-dark); opacity: 1; }
+.exp--ko .exp__t { color: var(--red-dark); opacity: 1; }
+
+html[data-theme="dark"] .exp { background: rgba(255, 255, 255, .07); }

@@ -143,9 +143,15 @@
       var leerFeedback = function () {
         var partes = [opts.title];
         if (opts.text) partes.push(opts.text);
-        (opts.details || []).forEach(function (x) {
-          partes.push((x.ok ? 'Correcta: ' : 'Incorrecta: ') + x.t + (x.why ? '. ' + x.why : ''));
-        });
+        // Solo se lee lo que está a la vista. Al fallar, el desglose vive
+        // ahora detrás de «Explicar mi error»: leerlo en alto sin que nadie lo
+        // haya pedido devolvería por el oído la avalancha que se quitó de la
+        // pantalla, y encima sin poder mirarla mientras suena.
+        if (state === 'ok') {
+          (opts.details || []).forEach(function (x) {
+            partes.push((x.ok ? 'Correcta: ' : 'Incorrecta: ') + x.t + (x.why ? '. ' + x.why : ''));
+          });
+        }
         return partes;
       };
 
@@ -157,7 +163,19 @@
         ]),
         speakBtn(leerFeedback, { small: true })
       ]));
-      if (opts.details && opts.details.length) msg.appendChild(whyList(opts.details));
+      /* Al acertar, el desglose completo se queda a la vista: no hay error que
+         procesar y saber por qué las otras no valían es la mitad del aprendizaje.
+
+         Al fallar es distinto. Volcar aquí las cuatro opciones con su razón
+         llenaba la pantalla justo en el momento de más carga mental, obligaba a
+         desplazarse y rompía el ritmo. Ahora se ofrece, no se impone — y solo
+         si de verdad hay algo que contar: de los 248 ejercicios de tipo `multi`
+         ninguno tiene razones escritas, y en tf, order, match y fill no existe
+         el desglose. Un botón que abre un panel vacío es peor que no tenerlo. */
+      if (opts.details && opts.details.length) {
+        if (state === 'ok') msg.appendChild(whyList(opts.details));
+        else if (hayPorQue(opts.details)) msg.appendChild(botonExplicar(opts));
+      }
       if (w.Speech && w.Speech.canAuto()) w.Speech.autoSpeak(leerFeedback());
     }
     btn.className = 'btn btn--block btn--lg ' + (state === 'ko' ? 'btn--red' : 'btn--green');
@@ -183,6 +201,101 @@
     var body = d.getElementById('lesson-body');
     if (!foot || !body || !foot.isConnected || !body.isConnected) return;
     body.style.paddingBottom = (foot.offsetHeight + 16) + 'px';
+  }
+
+  /* ==================================================================
+     EXPLICACIÓN PROGRESIVA DEL ERROR
+
+     La corrección breve va en el pie y se entiende en dos segundos. Lo hondo
+     —qué elegiste, por qué no encaja, por qué la otra sí, qué principio hay
+     detrás y cómo se aplica a tu negocio— espera detrás de un botón.
+
+     Nada de esto se pierde: es el mismo `details` que antes se volcaba entero
+     en el pie. Solo cambió el momento en que aparece.
+     ================================================================== */
+
+  /** ¿Hay razones escritas de verdad, o solo etiquetas de opción? */
+  function hayPorQue(details) {
+    for (var i = 0; i < details.length; i++) {
+      if (details[i].why && String(details[i].why).trim()) return true;
+    }
+    return false;
+  }
+
+  function botonExplicar(opts) {
+    return el('div', { class: 'lesson-foot__mas' }, [
+      UI.btn('Explicar mi error', {
+        variant: 'ghost', size: 'sm', block: false, silent: true,
+        onClick: function () { explicarError(opts); }
+      })
+    ]);
+  }
+
+  /** Panel hondo. No toca S.phase ni el progreso: el ejercicio sigue donde
+      estaba y «Entendido» continúa igual al cerrar. */
+  function explicarError(opts) {
+    var det = opts.details || [];
+    var elegida = det.filter(function (x) { return x.pick && !x.ok; })[0];
+    var correcta = det.filter(function (x) { return x.ok; })[0];
+    var otrasOk = det.filter(function (x) { return x.ok; }).slice(1);
+
+    var partes = [];                       // lo que se leerá en voz alta
+    var col = [];
+
+    /* Chispa a 88 px y con cara de estar explicando, no de regañar. Es el
+       momento en el que más falta hace que se note que hay alguien al lado. */
+    col.push(el('div', { class: 'row', style: { gap: '12px', alignItems: 'flex-start' } }, [
+      el('div', { class: 'mascot mascot--lg', style: { '--m-size': '88px' },
+        html: w.Mascot.svg('think') }),
+      el('div', { class: 'speech grow' }, [
+        el('h2', { class: 'h4', text: 'Vamos a verlo' }),
+        opts.text ? el('div', { class: 'small', style: { marginTop: '6px' }, html: UI.rich(opts.text) }) : null
+      ])
+    ]));
+    partes.push('Vamos a verlo.');
+    if (opts.text) partes.push(opts.text);
+
+    function bloque(titulo, texto, tono) {
+      if (!texto) return;
+      partes.push(titulo + '. ' + texto);
+      col.push(el('div', { class: 'exp' + (tono ? ' exp--' + tono : '') }, [
+        el('div', { class: 'exp__t', text: titulo }),
+        el('div', { class: 'exp__p', html: UI.rich(texto) })
+      ]));
+    }
+
+    if (elegida) {
+      bloque('Elegiste', elegida.t, 'ko');
+      bloque('Por qué no encaja', elegida.why, 'ko');
+    }
+    if (correcta) {
+      bloque('La correcta era', correcta.t, 'ok');
+      bloque('Por qué sí funciona', correcta.why, 'ok');
+    }
+    otrasOk.forEach(function (x) { bloque('También era correcta', x.t + (x.why ? ' — ' + x.why : ''), 'ok'); });
+
+    /* Aplicado a SU negocio, con sus palabras. terms() ya trae los datos con
+       banderas de existencia y con relleno neutro si faltan, así que aquí no
+       se inventa nada: si no hay negocio registrado, este bloque no sale. */
+    try {
+      var t = w.Venture.terms();
+      if (t.tiene.producto || t.tiene.cliente) {
+        var linea = 'Piensa en ' + t.productoCorto +
+          (t.tiene.cliente ? ' y en ' + t.clienteCorto : '') + ': lo mismo aplica ahí.';
+        bloque('En ' + t.negocio, linea, null);
+      }
+    } catch (e) {}
+
+    col.push(el('div', { class: 'row', style: { gap: '8px', justifyContent: 'center' } }, [
+      speakBtn(function () { return partes; }, {})
+    ]));
+
+    col.push(UI.btn('Entendido', {
+      variant: 'brand', size: 'lg',
+      onClick: function () { UI.closeSheet(); }
+    }));
+
+    UI.sheet(col);
   }
 
   /** Desglose "por qué esta sí y las otras no".
