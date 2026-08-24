@@ -449,7 +449,8 @@
 
   /** Cambia campos del núcleo. Acepta rutas planas: {'resources.budget': 'low'} */
   function patchCore(patch) {
-    return set(function (v) {
+    var teniaNombre = !!txt(active().core.name);
+    var v = set(function (v) {
       for (var k in patch) {
         if (!Object.prototype.hasOwnProperty.call(patch, k)) continue;
         var val = patch[k];
@@ -458,6 +459,16 @@
       }
       if (!v.core.sector) v.core.sector = guessSector(v);
     }, 'venture-core');
+
+    /* Ponerle nombre al emprendimiento es un avance del negocio como cualquier
+       otro, pero no pasa por recordDecision —el nombre vive en el núcleo, no
+       en el expediente— así que hay que avisar desde aquí.
+
+       Solo al pasar de vacío a lleno. Corregir una errata en el nombre no es
+       un logro, y ofrecer una publicación en cada guardado del perfil sería
+       exactamente la clase de molestia que esta función tiene que evitar. */
+    if (!teniaNombre && txt(v.core.name)) avisarAvance('nombre');
+    return v;
   }
 
   /* ==================================================================
@@ -539,16 +550,22 @@
      envuelto, porque si compartir fallara no puede llevarse por delante el
      guardado de la decisión, que es lo importante. */
   var avisoPendiente = null;
+  var clavesPendientes = [];      // lo decidido en esta tanda
+  var esperandoRuta = false;      // hay un aviso aparcado esperando buen momento
+  var rutasVistas = 0;
 
   function avisarAvance(key) {
     if (!w.CompartirAvance || !w.Comparte || !w.LOGROS_COMPARTIBLES) return;
     // Solo las claves con un visual definido; las sintéticas (mision:*,
     // reflexion:*) no son avances presentables por sí solas.
-    /* Vale como disparador cualquier clave que sea un logro Y cualquiera que
-       mueva la etapa. 'canales' no es un logro por sí misma, pero es una de
-       las dos que desbloquean la etapa 5: sin contarla, el avance más alto
-       —«listo para vender»— no se ofrecía nunca. */
-    var esLogro = (w.LOGROS_COMPARTIBLES.LOGROS || []).some(function (x) { return x.id === key; });
+    /* Vale como disparador cualquier clave que sea un logro, cualquiera que
+       mueva la etapa y cualquiera declarada como disparador de un logro. Lo
+       tercero importa para la propuesta de valor, que se captura dentro de la
+       misión del precio y por tanto nunca llega con su propio nombre. */
+    var L = w.LOGROS_COMPARTIBLES.LOGROS || [];
+    var esLogro = L.some(function (x) {
+      return x.id === key || (x.disparadores || []).indexOf(key) >= 0;
+    });
     var mueveEtapa = (w.LOGROS_COMPARTIBLES.ETAPAS || []).some(function (e) {
       return (e.todos || []).indexOf(key) >= 0 || (e.alguno || []).indexOf(key) >= 0;
     });
@@ -556,17 +573,103 @@
 
     /* Agrupado. Terminar el registro o una misión guarda varias decisiones
        seguidas, y una invitación por cada una sería insufrible. Se espera a
-       que pare de llegar y se ofrece UNA, la del avance más alto que ya tenga
-       todos sus datos. */
+       que pare de llegar y se ofrece UNA: la que corresponde a lo que el
+       usuario acaba de conseguir, no el avance más alto que tenga guardado. */
+    if (clavesPendientes.indexOf(key) < 0) clavesPendientes.push(key);
     if (avisoPendiente) w.clearTimeout(avisoPendiente);
-    avisoPendiente = w.setTimeout(function () {
-      avisoPendiente = null;
-      if (!momentoBueno()) return;
-      try {
-        var mejor = w.Comparte.disponibles()[0];   // ya vienen del más avanzado al más básico
-        if (mejor) w.CompartirAvance.ofrecer(mejor.id);
-      } catch (e) { console.warn('[comparte]', e); }
-    }, 1400);
+    avisoPendiente = w.setTimeout(intentarAviso, 1400);
+  }
+
+  /* Antes esto era un `return` seco y ahí se acababa todo.
+
+     Y se acababa siempre, porque las decisiones que mueven la etapa se graban
+     al entregar una misión —con la ruta en 'mission'— y el modal de
+     celebración retiene ahí al usuario bastante más que los 1400 ms del
+     agrupado. Cuando el temporizador saltaba, momentoBueno() decía que no y
+     el aviso se tiraba sin reintento: el único momento en que el usuario
+     acaba de lograr algo era justo el que nunca lo ofrecía.
+
+     Ahora se aparca y lo recoge onRutaCambiada() al aterrizar en una pantalla
+     donde sí se puede. Vive en memoria del módulo y jamás se persiste:
+     escribirlo en el venture subiría `rev` e invalidaría la caché de IA. */
+  function intentarAviso() {
+    avisoPendiente = null;
+    if (!clavesPendientes.length) return;
+
+    /* «Todavía no» y «esto no cuenta» son cosas distintas.
+
+       El registro escribe nombre, idea, oferta y cliente de una vez, y lo hace
+       mientras dura la animación de «tu ruta está lista» —tres segundos y
+       medio— con `onboarded` aún en false. Aparcar eso significaba que el
+       ofrecimiento saltaba encima de la primera pantalla del usuario, antes de
+       que hubiera visto la app. Un avance conseguido dentro del registro no se
+       celebra fuera: se descarta. */
+    if (!olvidable()) {
+      clavesPendientes = [];
+      esperandoRuta = false;
+      return;
+    }
+
+    if (!momentoBueno()) {
+      // rutasVistas NO se reinicia aquí: si se pusiera a cero en cada intento
+      // fallido, la caducidad de cuatro rutas no llegaría nunca y el aviso
+      // quedaría dando vueltas el resto de la sesión.
+      if (!esperandoRuta) { esperandoRuta = true; rutasVistas = 0; }
+      return;
+    }
+
+    esperandoRuta = false;
+    var claves = clavesPendientes;
+    clavesPendientes = [];
+    try {
+      /* Se recorren los candidatos, no solo el mejor: ofrecer() puede decir
+         que no —porque ese avance ya se ofreció en esta sesión, o porque le
+         faltan datos— y quedarse con las manos vacías teniendo otro válido
+         detrás era desperdiciar el aviso. */
+      var candidatos = w.Comparte.paraClaves(claves);
+      for (var i = 0; i < candidatos.length; i++) {
+        if (w.CompartirAvance.ofrecer(candidatos[i].id)) break;
+      }
+    } catch (e) { console.warn('[comparte]', e); }
+  }
+
+  /** ¿Este avance merece ofrecerse fuera del momento en que se consiguió?
+      No, si se decidió dentro del registro: ahí el usuario todavía no ha
+      entrado a la app. */
+  function olvidable() {
+    try {
+      if (!w.Store.state.onboarded) return false;
+      var ruta = w.UI && w.UI.Router ? w.UI.Router.current : null;
+      return ruta !== 'onboarding';
+    } catch (e) { return false; }
+  }
+
+  /** La llama js/app.js en cada cambio de ruta. Si había un aviso aparcado y
+      esta pantalla sirve, sale ahora.
+
+      Con caducidad: un ofrecimiento que aparece tres pantallas después ya no
+      se lee como «acabas de conseguir esto», se lee como una interrupción sin
+      motivo. Pasadas cuatro rutas sin poder salir, se descarta. */
+  var ultimaRuta = null;
+
+  function onRutaCambiada(nombre) {
+    /* Solo cuenta cambiar de pantalla, no repintarla. `Router.refresh()` pasa
+       por `go()` y por tanto por aquí, y hay pantallas —personalizar, mi
+       emprendimiento— que se repintan varias veces seguidas mientras el
+       usuario toca ajustes sin moverse de sitio. Contando repintados, la
+       caducidad de cuatro rutas se consumía sola. */
+    var cambio = nombre !== ultimaRuta;
+    ultimaRuta = nombre;
+    if (!esperandoRuta) return;
+    if (cambio && ++rutasVistas > 4) {
+      esperandoRuta = false;
+      clavesPendientes = [];
+      return;
+    }
+    // Un respiro para que la pantalla nueva termine de montarse y para que la
+    // celebración que venía antes tenga su momento.
+    if (avisoPendiente) w.clearTimeout(avisoPendiente);
+    avisoPendiente = w.setTimeout(intentarAviso, 900);
   }
 
   /* Ofrecer no puede ser irrumpir.
@@ -1046,6 +1149,13 @@
     var v = blank(id);
     w.Store.set(function () { b.list[id] = v; b.activeId = id; }, 'venture-reset');
     _cache = v;
+    /* Cualquier aviso a medio camino era del negocio anterior. Sin esto, quien
+       registra una idea nueva podía recibir el ofrecimiento del emprendimiento
+       que acaba de borrar. */
+    if (avisoPendiente) w.clearTimeout(avisoPendiente);
+    avisoPendiente = null;
+    clavesPendientes = [];
+    esperandoRuta = false;
     return v;
   }
 
@@ -1066,6 +1176,7 @@
 
     recordDecision: recordDecision, decision: decision, decisions: decisionList,
     knows: knows, absorb: absorb,
+    onRutaCambiada: onRutaCambiada, momentoBueno: momentoBueno,
 
     addObjective: addObjective, addTask: addTask, addResult: addResult,
     openTasks: openTasks,

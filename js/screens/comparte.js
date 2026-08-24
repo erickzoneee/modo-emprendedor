@@ -13,20 +13,79 @@
 
   var UI = w.UI, el = UI.el;
 
-  /* Un canvas por estilo cuesta tres rasterizados del SVG. Se guardan mientras
-     la hoja está abierta: deslizar entre estilos no debe volver a dibujar. */
+  /* Un pintado cuesta un rasterizado del SVG y una codificación PNG. Se guarda
+     el resultado mientras la hoja está abierta: deslizar entre estilos no debe
+     volver a hacer nada de eso.
+
+     El blob va precalculado a propósito. En iOS, navigator.share() solo
+     funciona mientras dura la activación del gesto, y codificar dos
+     megapíxeles en medio del handler la consume: el menú nativo no llegaba a
+     abrirse. Con el blob ya hecho, compartir es una llamada y punto.
+
+     Se guarda el blob y una URL de objeto, NO el lienzo ni un data: URI. Un
+     lienzo de 1080x1920 son 8,3 MB de mapa de bits y su base64 varios cientos
+     de KB; con seis combinaciones vivas eso pasaba de 50 MB en un móvil de
+     gama baja. El mapa de bits se suelta en cuanto existe el PNG, que es lo
+     único que se comparte, se descarga y se enseña. */
   var cache = {};
   var enCurso = {};
 
-  /* Tres lienzos de 1080x1920 son unos 25 MB de mapa de bits. Se sueltan al
-     cerrar la hoja: sin esto quedaban retenidos toda la sesión. */
+  /* La sesión de la hoja. Sin esto, un trabajo lanzado por una hoja anterior
+     terminaba después de limpiarCache() y escribía su resultado en la caché de
+     la hoja NUEVA. Como la clave no llevaba el logro, aterrizaba justo sobre la
+     que la hoja nueva iba a usar: el usuario veía un avance y compartía otro.
+     Ahora la clave lleva el id del logro y, además, el trabajo comprueba que
+     sigue siendo el vigente antes de escribir nada. */
+  var sesion = 0;
+
+  function soltar(listo) {
+    if (!listo) return;
+    try { if (listo.objeto) URL.revokeObjectURL(listo.url); } catch (e) {}
+  }
+
   function limpiarCache() {
+    sesion++;
     for (var k in cache) {
       if (!Object.prototype.hasOwnProperty.call(cache, k)) continue;
-      try { cache[k].width = cache[k].height = 0; } catch (e) {}
+      soltar(cache[k]);
     }
     cache = {};
     enCurso = {};
+  }
+
+  /** Vista previa y blob de una combinación logro × estilo × formato. */
+  function preparar(prop, estilo, formato) {
+    var clave = prop.logro.id + ':' + estilo + ':' + formato;
+    if (cache[clave]) return Promise.resolve(cache[clave]);
+    if (enCurso[clave]) return enCurso[clave];
+
+    var mia = sesion;
+    var trabajo = w.Comparte.componer(prop, estilo, formato)
+      .then(function (cv) {
+        return w.Comparte.aBlob(cv).then(function (blob) {
+          return { blob: blob, url: URL.createObjectURL(blob), objeto: true };
+        }, function () {
+          /* Sin canvas.toBlob no hay nada que compartir, pero sí se puede
+             enseñar la vista previa. Antes este fallo dejaba la hoja en blanco
+             con un «no se pudo preparar la imagen»; ahora se ve el diseño y
+             solo se caen compartir y descargar. */
+          return { blob: null, url: cv.toDataURL('image/png'), objeto: false };
+        }).then(function (listo) {
+          // El mapa de bits ya no lo lee nadie: el PNG está hecho.
+          try { cv.width = cv.height = 0; } catch (e) {}
+          if (mia !== sesion) { soltar(listo); return listo; }
+          cache[clave] = listo;
+          delete enCurso[clave];
+          return listo;
+        });
+      })
+      .catch(function (e) {
+        if (mia === sesion) delete enCurso[clave];
+        throw e;
+      });
+
+    enCurso[clave] = trabajo;
+    return trabajo;
   }
 
   /* ------------------------- Ofrecimiento -------------------------
@@ -51,11 +110,22 @@
     /* queueModal recibe una FUNCIÓN, no contenido: así el modal se construye
        en el momento en que le toca salir y no cuando se encola. Importa aquí,
        porque entre encolar y mostrar puede haberse abierto la celebración del
-       logro, que es justo la que no hay que pisar. */
+       logro, que es justo la que no hay que pisar.
+
+       Y por eso hay que volver a preguntar si el momento sigue siendo bueno:
+       entre encolar y salir el usuario puede haberse ido a otra pantalla. El
+       caso feo era ponerle nombre al negocio y entrar acto seguido a
+       «Registrar una idea nueva»: el ofrecimiento del negocio anterior
+       aparecía encima del registro. Si ya no toca, se libera la marca para
+       que el avance pueda volver a ofrecerse más tarde. */
     UI.queueModal(function () {
+      if (w.Venture && w.Venture.momentoBueno && !w.Venture.momentoBueno()) {
+        yaOfrecidos[idLogro] = false;
+        return;
+      }
       UI.modal([
         UI.chispaDice(prop.chispa, [
-          el('h2', { class: 'h3', text: 'Este avance también sirve fuera de aquí' }),
+          el('h2', { class: 'h3', text: 'Este avance también puede ayudarte fuera de Emprendo' }),
           el('div', { class: 'small', style: { marginTop: '6px' },
             text: 'Preparé algo para que presentes tu idea y la impulses. Tú eliges si lo usas.' })
         ], { grande: true, entrada: true }),
@@ -69,6 +139,60 @@
     return true;
   }
 
+  /* ------------------------- Elegir avance -------------------------
+
+     La puerta permanente, desde Mi Negocio. Sin ella, decir "ahora no" perdía
+     los diseños para siempre: el ofrecimiento automático era la única entrada
+     que tenía la función en toda la app.
+     ----------------------------------------------------------------- */
+
+  function elegir() {
+    var lista = w.Comparte.disponibles().filter(function (l) {
+      return !!w.Comparte.propuesta(l.id);
+    });
+    if (!lista.length) {
+      UI.toast('Todavía no hay un avance con datos suficientes', 'blue', '💡');
+      return;
+    }
+    if (lista.length === 1) { abrir(lista[0].id); return; }
+
+    var filas = lista.map(function (l) {
+      return el('button', {
+        class: 'card card--tight', type: 'button',
+        style: { display: 'flex', gap: '10px', alignItems: 'center', textAlign: 'left', width: '100%' },
+        onclick: function () {
+          w.Sound.tap();
+          UI.closeSheet();
+          setTimeout(function () { abrir(l.id); }, 220);
+        }
+      }, [
+        el('span', { class: 'grow', style: { minWidth: '0' } }, [
+          el('span', { class: 'small', style: { display: 'block', fontWeight: '900' }, text: l.titulo }),
+          el('span', { class: 'tiny', style: { display: 'block', textTransform: 'none', letterSpacing: '0' },
+            text: 'Sobre ' + l.tema })
+        ]),
+        el('span', { style: { flex: 'none', fontSize: '18px' }, text: '›' })
+      ]);
+    });
+
+    UI.sheet([
+      el('h2', { class: 'h3', text: '¿Qué avance quieres compartir?' }),
+      el('div', { class: 'small', text: 'Todos usan lo que ya contaste. No hay nada que rellenar.' }),
+      el('div', { class: 'col', style: { gap: '10px' } }, filas),
+      UI.btn('Cerrar', { variant: 'flat', onClick: UI.closeSheet })
+    ]);
+  }
+
+  /** ¿Hay algo publicable ahora mismo? Lo consulta Mi Negocio para no pintar
+      una puerta que no lleva a ningún sitio. */
+  function hayAlgo() {
+    try {
+      return w.Comparte.disponibles().some(function (l) {
+        return !!w.Comparte.propuesta(l.id);
+      });
+    } catch (e) { return false; }
+  }
+
   /* ------------------------- La hoja -------------------------- */
 
   function abrir(idLogro) {
@@ -79,35 +203,61 @@
     var estiloActual = prop.estilos[0].id;
     var formatoActual = 'historia';
 
+    /* El 4:5 solo si la estructura lo permite, que es la condición literal del
+       encargo. Tiene bastante menos alto útil que la historia, y un mensaje
+       largo no le cabe: en vez de recortarlo por abajo, no se ofrece. */
+    var formatosOk = ['historia', 'post'].filter(function (f) {
+      try { return w.Comparte.cabe(prop, f); } catch (e) { return false; }
+    });
+    if (formatosOk.indexOf('historia') < 0) {
+      UI.toast('No se pudo preparar la imagen con este texto', 'red', '⚠️');
+      return;
+    }
+
     var lienzo = el('div', { class: 'comparte__lienzo' });
     var pie = el('div', { class: 'col', style: { gap: '10px' } });
+    var btnCompartir, btnDescargar;
 
     /* Cada pintado lleva número. Deslizar deprisa entre estilos lanzaba varios
        dibujados a la vez y el que terminaba último ganaba la vista previa, que
        podía no ser el elegido: se veía uno y se compartía otro. */
     var generacion = 0;
+    var actual = null;              // el {canvas, blob, url} que se está viendo
+
+    function habilitar(on) {
+      if (btnCompartir) btnCompartir.disabled = !on;
+      if (btnDescargar) btnDescargar.disabled = !on;
+    }
+
+    /* Sin blob no hay archivo: el navegador no sabe exportar el lienzo. La
+       vista previa sí se ve, así que el usuario puede mirar los diseños; lo
+       que no puede es sacarlos, y se le dice en vez de fallar en silencio. */
+    function listoParaSalir() {
+      if (!actual) { UI.toast('La imagen todavía se está preparando', 'blue', '⏳'); return false; }
+      if (!actual.blob) {
+        UI.toast('Este navegador no puede exportar la imagen', 'red', '⚠️');
+        return false;
+      }
+      return true;
+    }
 
     function pintar() {
       var mio = ++generacion;
+      actual = null;
+      habilitar(false);
       UI.clear(lienzo);
       lienzo.appendChild(el('div', { class: 'comparte__cargando', text: 'Preparando…' }));
-      var clave = estiloActual + ':' + formatoActual;
 
-      var listo = cache[clave]
-        ? Promise.resolve(cache[clave])
-        : w.Comparte.componer(prop, estiloActual, formatoActual)
-            .then(function (cv) { cache[clave] = cv; return cv; });
-      enCurso[clave] = listo;
-
-      listo.then(function (cv) {
+      preparar(prop, estiloActual, formatoActual).then(function (listo) {
         if (mio !== generacion) return;      // llegó tarde: manda el último
+        actual = listo;
         UI.clear(lienzo);
-        var img = el('img', {
+        lienzo.appendChild(el('img', {
           class: 'comparte__img',
           alt: 'Vista previa de tu publicación: ' + prop.logro.titulo,
-          src: cv.toDataURL('image/png')
-        });
-        lienzo.appendChild(img);
+          src: listo.url
+        }));
+        habilitar(true);
       }).catch(function (e) {
         if (mio !== generacion) return;
         UI.clear(lienzo);
@@ -136,44 +286,68 @@
     });
 
     var formatos = el('div', { class: 'row', style: { gap: '8px', justifyContent: 'center' } });
-    ['historia', 'post'].forEach(function (f) {
-      var b = UI.btn(w.Comparte.FORMATOS[f].nombre, {
-        variant: f === formatoActual ? 'ghost' : 'flat', size: 'sm', block: false,
-        onClick: function () {
-          formatoActual = f;
-          UI.qsa('.btn', formatos).forEach(function (n) {
-            n.classList.remove('btn--ghost'); n.classList.add('btn--flat');
-          });
-          b.classList.remove('btn--flat'); b.classList.add('btn--ghost');
-          pintar();
-        }
+    if (formatosOk.length > 1) {
+      formatosOk.forEach(function (f) {
+        var b = UI.btn(w.Comparte.FORMATOS[f].nombre, {
+          variant: f === formatoActual ? 'ghost' : 'flat', size: 'sm', block: false,
+          onClick: function () {
+            formatoActual = f;
+            UI.qsa('.btn', formatos).forEach(function (n) {
+              n.classList.remove('btn--ghost'); n.classList.add('btn--flat');
+            });
+            b.classList.remove('btn--flat'); b.classList.add('btn--ghost');
+            pintar();
+          }
+        });
+        formatos.appendChild(b);
       });
-      formatos.appendChild(b);
-    });
+    }
 
-    pie.appendChild(UI.btn('Compartir', {
+    btnCompartir = UI.btn('Compartir', {
       variant: 'brand', size: 'lg',
-      onClick: function (e, boton) {
-        var clave = estiloActual + ':' + formatoActual;
-        // Antes salía en silencio si el lienzo no estaba listo: pulsar durante
-        // el "Preparando…" no hacía absolutamente nada y parecía roto. Ahora
-        // espera al dibujado en curso.
-        var espera = cache[clave] ? Promise.resolve(cache[clave]) : enCurso[clave];
-        if (!espera) { UI.toast('La imagen todavía se está preparando', 'blue', '⏳'); return; }
-        boton.disabled = true;
-        espera.then(function (cv) { return w.Comparte.aBlob(cv); })
-          .then(function (blob) { return w.Comparte.salir(blob, prop, formatoActual); })
+      onClick: function () {
+        if (!listoParaSalir()) return;
+        /* Se bloquean los dos botones durante el reparto. En un móvil lento
+           pasan hasta medio segundo entre share() y el momento en que el menú
+           del sistema tapa la página; un segundo toque en ese hueco —lo normal
+           cuando el primero no parece haber hecho nada— entraba otra vez, el
+           navegador rechazaba con InvalidStateError y el código lo trataba
+           como fallo genérico: descargaba el PNG por detrás del menú. */
+        habilitar(false);
+        // El blob ya está hecho: share() sale sin trabajo asíncrono de por
+        // medio, que es lo único que iOS acepta dentro de un gesto.
+        w.Comparte.salir(actual.blob, prop, formatoActual)
           .then(function (r) {
-            boton.disabled = false;
+            habilitar(true);
             if (r === 'descargado') UI.toast('Imagen descargada', 'green', '⬇️');
+            else if (r === 'sin-permiso') UI.toast('Usa el botón Descargar', 'blue', '⬇️');
           })
           .catch(function (err) {
-            boton.disabled = false;
+            habilitar(true);
             UI.toast((err && err.message) || 'No se pudo compartir', 'red', '⚠️');
           });
       }
-    }));
+    });
+
+    btnDescargar = UI.btn('Descargar', {
+      variant: 'ghost',
+      onClick: function () {
+        if (!listoParaSalir()) return;
+        habilitar(false);
+        try {
+          w.Comparte.descargar(actual.blob, prop, formatoActual);
+          UI.toast('Imagen descargada', 'green', '⬇️');
+        } catch (err) {
+          UI.toast('No se pudo descargar', 'red', '⚠️');
+        }
+        habilitar(true);
+      }
+    });
+
+    pie.appendChild(btnCompartir);
+    pie.appendChild(btnDescargar);
     pie.appendChild(UI.btn('Cerrar', { variant: 'flat', onClick: UI.closeSheet }));
+    habilitar(false);
 
     UI.sheet([
       el('div', { class: 'col', style: { gap: '4px' } }, [
@@ -190,5 +364,5 @@
     pintar();
   }
 
-  w.CompartirAvance = { ofrecer: ofrecer, abrir: abrir };
+  w.CompartirAvance = { ofrecer: ofrecer, abrir: abrir, elegir: elegir, hayAlgo: hayAlgo };
 })(window, document);

@@ -139,6 +139,11 @@
       renderTopbar();
       renderTabbar(TABS.some(function (t) { return t.key === name; }) ? name : null);
     }
+    /* Si un avance del negocio quedó sin poder ofrecerse —se decidió dentro de
+       una misión, y ahí no se interrumpe— este es el momento de recogerlo.
+       Envuelto: compartir es un extra y no puede tumbar la navegación. */
+    try { if (w.Venture && w.Venture.onRutaCambiada) w.Venture.onRutaCambiada(name); }
+    catch (e) { console.warn('[comparte]', e); }
   }
 
   /* ------------------------- Respaldo ------------------------- */

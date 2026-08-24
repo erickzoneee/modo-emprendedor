@@ -51,6 +51,26 @@
       el('span', { style: { flex: 'none', fontSize: '18px' }, text: '›' })
     ]));
 
+    /* La puerta permanente a compartir un avance. El ofrecimiento automático
+       sale una vez y quien dice «ahora no» no debería perder los diseños para
+       siempre. Solo se pinta si de verdad hay algo publicable: una entrada que
+       lleva a «todavía no hay datos» es peor que no tenerla. */
+    if (w.CompartirAvance && w.CompartirAvance.hayAlgo && w.CompartirAvance.hayAlgo()) {
+      root.appendChild(el('button', {
+        class: 'card card--tight', type: 'button',
+        style: { display: 'flex', gap: '10px', alignItems: 'center', textAlign: 'left', width: '100%' },
+        onclick: function () { w.Sound.tap(); w.CompartirAvance.elegir(); }
+      }, [
+        el('span', { style: { fontSize: '22px', flex: 'none' }, text: '📣' }),
+        el('span', { class: 'grow', style: { minWidth: '0' } }, [
+          el('span', { class: 'small', style: { display: 'block', fontWeight: '900' }, text: 'Compartir un avance' }),
+          el('span', { class: 'tiny', style: { display: 'block', textTransform: 'none', letterSpacing: '0' },
+            text: 'Un visual con lo que ya contaste, listo para publicar' })
+        ]),
+        el('span', { style: { flex: 'none', fontSize: '18px' }, text: '›' })
+      ]));
+    }
+
     var list = el('div', { class: 'col stagger', style: { gap: '10px' } });
     C.DOSSIER.forEach(function (sec) {
       var data = s.dossier[sec.key];

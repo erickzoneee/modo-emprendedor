@@ -77,12 +77,31 @@
   var SIN_CAPAS = { cabeza: '', torso: '', mano: '', fondo: '', distintivo: '' };
 
   /** Las capas que toca pintar ahora mismo, ya convertidas a SVG.
-      `opts.capas` permite forzarlas (vista previa); `opts.plano` las apaga. */
+      `opts.capas` permite forzarlas (vista previa); `opts.plano` las apaga;
+      `opts.sinDistintivo` quita solo la insignia de avance. */
   function capasDe(opts) {
     if (opts.plano) return SIN_CAPAS;
-    if (opts.capas) return armar(opts.capas, opts.colores);
-    if (!w.Persona || typeof w.Persona.capasSVG !== 'function') return SIN_CAPAS;
-    try { return w.Persona.capasSVG() || SIN_CAPAS; } catch (e) { return SIN_CAPAS; }
+    var c;
+    if (opts.capas) c = armar(opts.capas, opts.colores);
+    else if (!w.Persona || typeof w.Persona.capasSVG !== 'function') return SIN_CAPAS;
+    else {
+      try { c = w.Persona.capasSVG() || SIN_CAPAS; } catch (e) { return SIN_CAPAS; }
+    }
+    /* El distintivo se decide con el contador de misiones, así que es progreso
+       dentro de la app, no un rasgo del negocio. Quien exporta una imagen para
+       publicarla lo apaga: el resto de las capas —delantal, herramienta,
+       escenario— sí describen el emprendimiento y se quedan.
+
+       Se copia en vez de borrar sobre el original porque `capasSVG()` devuelve
+       el mapa que Persona tiene cacheado, y vaciarlo ahí lo apagaría también
+       en toda la app hasta el siguiente refresco. */
+    if (opts.sinDistintivo && c && c.distintivo) {
+      var copia = {}, r;
+      for (r in c) { if (Object.prototype.hasOwnProperty.call(c, r)) copia[r] = c[r]; }
+      copia.distintivo = '';
+      return copia;
+    }
+    return c;
   }
 
   /** Convierte un mapa {ranura: clave} en un mapa {ranura: svg}. */
@@ -120,7 +139,8 @@
    * Devuelve el SVG de Chispa.
    * mood: neutral | happy | sad | think | party | wow | money
    * opts: { color1, color2, patas, chispa1, chispa2, tallo, mejilla,
-   *         capas: {cabeza,torso,mano,fondo,distintivo}, colores, plano, etiqueta }
+   *         capas: {cabeza,torso,mano,fondo,distintivo}, colores, plano,
+   *         sinDistintivo, etiqueta }
    */
   function svg(mood, opts) {
     /* Traduce el momento al gesto: svg('celebrando') ya devuelve la cara de

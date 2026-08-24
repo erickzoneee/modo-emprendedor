@@ -1,6 +1,9 @@
 # Plan: Chispa, retroalimentación y compartir logros
 
-**Estado:** propuesta. Nada implementado. Pendiente de tu confirmación.
+**Estado:** los cuatro bloques están implementados. El bloque D (compartir logros) se
+rehízo después contra una especificación más precisa: **el mapa vigente es
+[mapa-compartir-logros.md](mapa-compartir-logros.md)**, y la sección 4 de este documento
+queda como registro de cómo se llegó hasta ahí.
 **Base:** investigación de 5 exploradores sobre el código real, commit `2aae811`.
 
 ---
