@@ -117,7 +117,9 @@
   font-size: 28px;
   color: #fff;
   background: var(--node-c, var(--green));
-  box-shadow: 0 7px 0 var(--node-sh, var(--green-dark));
+  /* El segundo halo solo existe sobre el telón de la Ruta: --node-amb lo
+     enciende .home en modo oscuro y en el resto de la app vale transparente. */
+  box-shadow: 0 7px 0 var(--node-sh, var(--green-dark)), var(--node-amb, 0 0 transparent);
   transition: transform .12s var(--ease-out), box-shadow .12s var(--ease-out), filter .2s;
   -webkit-tap-highlight-color: transparent;
   border: 0;
@@ -274,6 +276,244 @@ html[data-theme="dark"] .node.is-locked { --node-sh: #1A2434; }
   opacity: .92;
   overflow-wrap: anywhere;
 }
+
+/* ------------------------- Retos de la semana: sección plegable -------------
+
+   Cerrada es una barra y nada más: la Ruta sube sola porque todo esto sigue
+   en el flujo normal de la columna: nada absoluto, nada de alturas fijas y
+   ningún hueco reservado que dejar vacío.
+
+   El cuerpo ocupa el ancho completo del teléfono (margen negativo) y el
+   carrusel de dentro renuncia al suyo. Así el recorte que hace falta durante
+   la animación cae justo donde el carrusel ya se cortaba, y abrir no ensancha
+   las tarjetas de golpe al final del movimiento.
+   --------------------------------------------------------------------------- */
+
+.acc__head {
+  display: flex; align-items: center; gap: var(--s3);
+  width: 100%;
+  min-height: 52px;
+  padding: 10px var(--s4);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  border: 2px solid var(--line-2);
+  box-shadow: var(--sh-1);
+  text-align: left;
+  transition: transform .12s var(--ease-out), border-color .2s, background .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.acc__head:active { transform: scale(.99); }
+.acc.is-open .acc__head { border-color: var(--line); }
+
+.acc__meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* Una línea cada uno, siempre. Sin esto la barra cerrada mide 57 px unas veces
+   y 87 px otras según lo que quepa, y eso es justo el salto que no debe haber. */
+.acc__t, .acc__s { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc__t { font-size: var(--fs-sm); font-weight: 900; line-height: 1.25; color: var(--ink); }
+.acc__s { font-size: var(--fs-xs); font-weight: 800; line-height: 1.3; color: var(--ink-3); }
+
+/* El premio ganado no se esconde con la sección: se anuncia en la barra. */
+.acc__premio { flex: none; font-size: var(--fs-xs); padding: 5px 10px; }
+/* En un teléfono de 320 o 350 px la frase entera no cabe con el título. Se
+   queda el gorro y el número —que es la señal— y las palabras se van; la
+   etiqueta accesible del elemento sigue diciendo la frase completa. De 375 px
+   en adelante caben las dos cosas, y si algún día no cupieran el título se
+   recorta con puntos suspensivos en vez de partirse en dos líneas. */
+@media (max-width: 359px) {
+  .acc__premio-txt { display: none; }
+}
+
+.acc__arrow {
+  flex: none;
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border-radius: var(--r-full);
+  background: var(--line-2);
+  color: var(--ink-2);
+  transition: transform .26s var(--ease-out), background .2s, color .2s;
+}
+.acc.is-open .acc__arrow { transform: rotate(180deg); }
+
+.acc__body {
+  /* El ancho completo del teléfono: el carrusel sangra hasta los bordes. */
+  margin: 0 calc(var(--s5) * -1);
+  /* Estos 260 ms tienen pareja: RETOS_MS en js/screens/home.js. Es el plazo
+     tras el que la altura vuelve a `auto`. Si se cambia uno hay que cambiar
+     el otro, o el cuerpo se soltaría antes de terminar de crecer. */
+  transition: height .26s var(--ease-out);
+}
+/* El espacio entre la barra y las tarjetas va DENTRO del cuerpo, en el
+   relleno del carrusel. Puesto como gap del acordeón o como margen del
+   cuerpo quedaría un hueco de aire con la sección cerrada. */
+.acc__body .hscroll { margin: 0; padding: 10px var(--s5) 8px; }
+
+/* ==========================================================================
+   EL TELÓN DE LA RUTA
+
+   La Ruta dejó de ser una lista de botones sobre un fondo vacío para ser un
+   escenario. Son tres capas, y ninguna se mueve sola:
+
+     1. El telón   — va en `.phone`, el único elemento de la app que nunca se
+                     desplaza. Degradado con matices, resplandores ambientales
+                     y un grano finísimo. Queda quieto mientras el mapa pasa
+                     por delante: eso es lo que da la sensación de avanzar por
+                     dentro de un sitio en vez de mirar una lista.
+     2. El mundo   — `.home::before`. Formas, símbolos y partículas de
+                     emprendimiento a muy baja opacidad, en una tesela que se
+                     repite a lo largo de todo el recorrido. SÍ se desplaza:
+                     es el paisaje por el que se avanza.
+     3. La luz     — el aura de la lección activa y la estela del camino, que
+                     viven pegadas a sus nodos.
+
+   NADA DE ESTO SE MUEVE
+   No hay una sola animación nueva. Los adornos son estáticos, el grano es una
+   trama repetida y los resplandores son degradados: el navegador los pinta
+   una vez y no vuelve a tocarlos. La app ya tenía el rebote del nodo activo y
+   el de la burbuja; añadir más habría sido ruido, y en un teléfono modesto,
+   ruido que cuesta batería.
+
+   CADA MODO CON SU POLARIDAD
+   El azul marino es del modo oscuro y ahí se queda: en modo claro el mismo
+   escenario se pinta en luminoso. Así ningún texto de la Ruta cambia de
+   color y no hay nada que pueda quedar ilegible.
+   ========================================================================== */
+
+/* ------------------------- 1. El telón ------------------------- */
+
+.phone[data-screen="home"] {
+  background-color: var(--bg);
+  background-image:
+    /* grano finísimo: rompe la superficie plana sin dibujar nada */
+    radial-gradient(rgba(16,32,58,.05) 1px, transparent 1.4px),
+    /* ámbar arriba: la zona donde suele estar la lección activa */
+    radial-gradient(115% 52% at 50% 4%, rgba(255,170,60,.16), transparent 60%),
+    /* verde abajo a la izquierda: crecimiento */
+    radial-gradient(88% 46% at 2% 76%, rgba(67,201,94,.13), transparent 66%),
+    /* naranja de marca arriba a la derecha */
+    radial-gradient(78% 42% at 100% 30%, rgba(255,107,26,.12), transparent 62%),
+    linear-gradient(180deg, #FFFFFF 0%, var(--bg) 34%, #EDF1FA 70%, #EAE8F8 100%);
+  background-size: 3px 3px, auto, auto, auto, auto;
+}
+
+html[data-theme="dark"] .phone[data-screen="home"] {
+  background-color: #0B121F;
+  background-image:
+    radial-gradient(rgba(255,255,255,.05) 1px, transparent 1.4px),
+    radial-gradient(115% 52% at 50% 5%, rgba(255,178,64,.11), transparent 62%),
+    radial-gradient(88% 46% at 2% 76%, rgba(67,201,94,.10), transparent 66%),
+    radial-gradient(78% 42% at 100% 32%, rgba(255,107,26,.11), transparent 62%),
+    /* azul marino → azul algo más vivo → un matiz morado al fondo */
+    linear-gradient(180deg, #0F1B33 0%, #101F3D 36%, #141B3A 70%, #1A1440 100%);
+  background-size: 3px 3px, auto, auto, auto, auto;
+}
+
+/* ------------------------- 2. El mundo -------------------------
+
+   `z-index: -1` dentro del contexto de apilamiento que crea `.home`: el
+   paisaje queda por debajo de todo el contenido de la Ruta y por encima del
+   telón, sin tener que tocar el z-index de una sola tarjeta.
+
+   La opacidad va dentro del propio dibujo y no en la capa, para que los dos
+   resplandores que la acompañan conserven la suya.
+   ---------------------------------------------------------------------- */
+
+.home { position: relative; z-index: 0; }
+
+.home::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(closest-side, rgba(46,155,68,.07), transparent),
+    radial-gradient(closest-side, rgba(217,164,0,.07), transparent),
+    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 780'><g fill='none' stroke='%2310203A' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' opacity='.05'><circle cx='352' cy='104' r='54'/><circle cx='34' cy='486' r='68'/><path d='M0 250c90 40 180-40 270 0s90 62 130 30'/><path d='M400 646c-92 40-192-30-282 6'/><g transform='translate(46 62)'><path d='M18 40a20 20 0 1 1 24 0c-4 3-5 6-5 10H23c0-4-1-7-5-10Z'/><path d='M24 58h12M26 65h8'/><path d='M30 2V-8M2 22H-8M68 22h-8M9 3 2-4M51 3l7-7'/></g><g transform='translate(292 178)'><path d='M30 0c14 12 20 28 20 44l-14 14H24L10 44C10 28 16 12 30 0Z'/><circle cx='30' cy='30' r='7'/><path d='M24 58l6 16 6-16'/><path d='M10 44-2 56l10 2M50 44l12 12-10 2'/></g><g transform='translate(50 332)'><path d='M0 70h84M8 70V48M30 70V32M52 70V40M74 70V16'/><path d='M4 22 30 6l20 12 30-18'/></g><path d='M330 400l7 18 18 7-18 7-7 18-7-18-18-7 18-7z'/><path d='M104 640l5 13 13 5-13 5-5 13-5-13-13-5 13-5z'/><g transform='translate(276 540)'><circle cx='34' cy='34' r='13'/><path d='M34 0v12M34 56v12M0 34h12M56 34h12M10 10l8 8M50 50l8 8M58 10l-8 8M18 50l-8 8'/></g><g transform='translate(160 690)'><path d='M28 58V28'/><path d='M28 36C18 36 8 28 8 14c14 0 20 8 20 22Z'/><path d='M28 42c10 0 20-8 20-22-14 0-20 8-20 22Z'/></g><g stroke='none' fill='%2310203A'><circle cx='196' cy='120' r='3'/><circle cx='250' cy='300' r='2.4'/><circle cx='120' cy='214' r='2.4'/><circle cx='360' cy='332' r='3'/><circle cx='70' cy='560' r='2.6'/><circle cx='330' cy='702' r='3'/><circle cx='210' cy='470' r='2.2'/><circle cx='150' cy='170' r='2'/></g></g></svg>");
+  background-position: 10% 20%, 90% 64%, center top;
+  background-size: 380px 380px, 340px 340px, 100% 780px;
+  background-repeat: repeat-y, repeat-y, repeat-y;
+}
+
+html[data-theme="dark"] .home::before {
+  background-image:
+    radial-gradient(closest-side, rgba(67,201,94,.09), transparent),
+    radial-gradient(closest-side, rgba(255,200,0,.075), transparent),
+    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 780'><g fill='none' stroke='%23FFFFFF' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' opacity='.055'><circle cx='352' cy='104' r='54'/><circle cx='34' cy='486' r='68'/><path d='M0 250c90 40 180-40 270 0s90 62 130 30'/><path d='M400 646c-92 40-192-30-282 6'/><g transform='translate(46 62)'><path d='M18 40a20 20 0 1 1 24 0c-4 3-5 6-5 10H23c0-4-1-7-5-10Z'/><path d='M24 58h12M26 65h8'/><path d='M30 2V-8M2 22H-8M68 22h-8M9 3 2-4M51 3l7-7'/></g><g transform='translate(292 178)'><path d='M30 0c14 12 20 28 20 44l-14 14H24L10 44C10 28 16 12 30 0Z'/><circle cx='30' cy='30' r='7'/><path d='M24 58l6 16 6-16'/><path d='M10 44-2 56l10 2M50 44l12 12-10 2'/></g><g transform='translate(50 332)'><path d='M0 70h84M8 70V48M30 70V32M52 70V40M74 70V16'/><path d='M4 22 30 6l20 12 30-18'/></g><path d='M330 400l7 18 18 7-18 7-7 18-7-18-18-7 18-7z'/><path d='M104 640l5 13 13 5-13 5-5 13-5-13-13-5 13-5z'/><g transform='translate(276 540)'><circle cx='34' cy='34' r='13'/><path d='M34 0v12M34 56v12M0 34h12M56 34h12M10 10l8 8M50 50l8 8M58 10l-8 8M18 50l-8 8'/></g><g transform='translate(160 690)'><path d='M28 58V28'/><path d='M28 36C18 36 8 28 8 14c14 0 20 8 20 22Z'/><path d='M28 42c10 0 20-8 20-22-14 0-20 8-20 22Z'/></g><g stroke='none' fill='%23FFFFFF'><circle cx='196' cy='120' r='3'/><circle cx='250' cy='300' r='2.4'/><circle cx='120' cy='214' r='2.4'/><circle cx='360' cy='332' r='3'/><circle cx='70' cy='560' r='2.6'/><circle cx='330' cy='702' r='3'/><circle cx='210' cy='470' r='2.2'/><circle cx='150' cy='170' r='2'/></g></g></svg>");
+}
+
+/* ------------------------- 3. La luz -------------------------
+
+   El aura va delante del nodo en el DOM justamente para que se pinte debajo:
+   dos elementos posicionados sin z-index se ordenan por orden de documento, y
+   así no hace falta inventar una capa negativa que luego haya que vigilar.
+   ------------------------------------------------------------------------- */
+
+.node__aura {
+  position: absolute;
+  top: 34px; left: 50%;
+  width: 200px; height: 200px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle,
+    rgba(255,183,77,.30) 0%, rgba(255,140,40,.13) 40%, transparent 70%);
+}
+html[data-theme="dark"] .node__aura {
+  background: radial-gradient(circle,
+    rgba(255,196,92,.26) 0%, rgba(255,138,40,.12) 42%, transparent 72%);
+}
+
+/* El camino, con estela y con significado: dorado por donde ya se pasó, del
+   color del nivel al llegar a la parada activa, apagado en lo que falta.
+   La caja no cambia ni un píxel —la estela es una capa absoluta— así que el
+   mapa mide exactamente lo que medía antes. */
+.path-dots::before {
+  content: '';
+  position: absolute;
+  top: -3px; bottom: -3px; left: 50%;
+  width: 3px; margin-left: -1.5px;
+  border-radius: var(--r-full);
+  background: linear-gradient(180deg, transparent,
+    var(--trail, var(--line)) 28%, var(--trail, var(--line)) 72%, transparent);
+  opacity: .45;
+}
+/* El tramo que falta por recorrer no puede ser invisible: para quien acaba de
+   entrar, ESO es el 90 % del mapa. Sube del color de una línea divisoria a un
+   tono intermedio —visible, pero claramente por detrás de las paradas y de los
+   tramos ya hechos, que son los que llevan color de verdad. */
+.home .path-dots { --trail: #C6D2E4; }
+html[data-theme="dark"] .home .path-dots { --trail: #3D4E6E; }
+
+.path-dots i { background: var(--trail, var(--line)); }
+html[data-theme="dark"] .path-dots i {
+  box-shadow: 0 0 8px -1px var(--trail, transparent);
+}
+
+/* ------------------------- Profundidad -------------------------
+
+   Sobre el telón, las superficies necesitan despegarse. El halo del nodo se
+   pasa por una variable y no por una regla nueva: si se escribiera como
+   `.home .node { box-shadow: … }` empataría en especificidad con
+   `.node:active` y, al ir después, se quedaría con el efecto de pulsado.
+   ---------------------------------------------------------------------- */
+
+html[data-theme="dark"] .home { --node-amb: 0 14px 26px -12px rgba(0,0,0,.75); }
+
+html[data-theme="dark"] .phone[data-screen="home"] .card,
+html[data-theme="dark"] .phone[data-screen="home"] .acc__head {
+  box-shadow: var(--sh-1), 0 12px 26px -16px rgba(0,0,0,.9);
+}
+
+.home .unit-head { box-shadow: 0 4px 0 rgba(0,0,0,.14), 0 14px 24px -16px rgba(6,12,26,.55); }
+html[data-theme="dark"] .home .unit-head { box-shadow: 0 4px 0 rgba(0,0,0,.3), 0 16px 26px -14px rgba(0,0,0,.8); }
+
+/* Los dos textos que se apoyan DIRECTAMENTE en el telón, sin tarjeta debajo:
+   el rótulo "opcional" y el contador de XP del día. En --ink-3 se quedaban en
+   4,1:1 sobre la zona iluminada del escenario —y el "opcional" ya venía de
+   3,4:1 sobre el fondo plano de antes—. Es la misma corrección que ya se le
+   hizo al nombre de la parada, y por el mismo motivo. */
+.home .node-optional,
+.home .daily-xp { color: var(--ink-2); }
 
 /* =========================================================
    LECCIÓN

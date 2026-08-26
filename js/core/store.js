@@ -118,7 +118,14 @@
         // (js/core/persona.js). Va aquí y no en el perfil del negocio porque
         // es una preferencia de la persona: debe sobrevivir a registrar otra
         // idea. merge() lo inyecta solo en los guardados que ya existían.
-        personalizacion: true
+        personalizacion: true,
+        // ¿Los retos de la semana se ven desplegados en la Ruta?
+        // Empieza en true a propósito: quien entra por primera vez —y quien ya
+        // venía usando la app, porque merge() da el valor base a las claves que
+        // no existen en su guardado— tiene que ver la función al menos una vez
+        // antes de poder decidir esconderla. A partir del primer toque manda
+        // su elección, y sobrevive a cambiar de pantalla y a cerrar la app.
+        retosAbiertos: true
       },
 
       // Respaldo: el progreso vive solo en este dispositivo, así que hay que

@@ -37,7 +37,9 @@
       }
       container.appendChild(nodeRow(item, i));
       if (i < ps.length - 1 && ps[i + 1].node.level === currentLevel) {
-        container.appendChild(connector(i));
+        // El tramo sabe qué une: por eso puede pintarse como recorrido o
+        // como camino por recorrer en vez de como dos puntos grises.
+        container.appendChild(connector(i, item, ps[i + 1]));
       }
     });
 
@@ -98,19 +100,109 @@
       el('span', { style: { fontSize: '22px' }, text: '›' })
     ]);
 
+    // Esta fila no tiene tarjeta debajo: se apoya en el telón de la Ruta. Por
+    // eso el contador lleva clase propia y no el gris de --ink-3.
     var meta = el('div', { class: 'row', style: { gap: '10px', marginTop: '10px' } }, [
-      el('span', { class: 'tiny nowrap', text: s.xpToday + '/' + s.dailyGoal + ' XP' }),
+      el('span', { class: 'tiny nowrap daily-xp', text: s.xpToday + '/' + s.dailyGoal + ' XP' }),
       UI.pbar(pct, 'gold', true)
     ]);
 
     return el('div', { class: 'col', style: { gap: '0' } }, [card, meta]);
   }
 
-  /* ------------------------- Retos semanales ------------------------- */
+  /* ------------------------- Retos semanales -------------------------
+
+     La sección se pliega. Cerrada deja solo una barra: título, cuántos retos
+     van y —si hay un premio ganado— una ficha dorada, porque esconder los
+     retos no puede significar esconder una recompensa que el usuario ya se
+     ganó y todavía no ha recogido.
+
+     POR QUÉ LA ALTURA SE ANIMA EN PÍXELES MEDIDOS
+     `max-height` con un número inventado hace que el cierre empiece tarde y la
+     apertura acabe pronto; el truco de grid `0fr → 1fr` obliga a dejar el
+     cuerpo recortado también cuando está abierto. Aquí se mide la altura real,
+     se interpola, y al terminar de abrir se devuelve a `auto` con el recorte
+     quitado: así el carrusel recupera su sangrado hasta el borde de la
+     pantalla y la sombra de las tarjetas no queda cortada.
+
+     Y mientras se mueve, el recorte no se nota porque el cuerpo ocupa el ancho
+     completo del teléfono (margen negativo), que es justo donde el carrusel ya
+     se cortaba antes.
+
+     EL DESPLAZAMIENTO HORIZONTAL SOBREVIVE
+     Abrir y cerrar no vuelve a pintar la pantalla: se guarda la preferencia
+     con Store.set —que no redibuja— y se mueve el nodo que ya existe. Las
+     tarjetas son las mismas de siempre, con su scroll donde el usuario lo
+     dejó.
+     ------------------------------------------------------------------ */
+
+  /* Tiene pareja: la transición de .acc__body en css/screens.css. Es el plazo
+     tras el que la altura vuelve a `auto`; si se cambia aquí hay que cambiarla
+     allí, o el cuerpo se soltaría antes de terminar de crecer. */
+  var RETOS_MS = 260;
+  var CHEVRON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" ' +
+    'stroke="currentColor" stroke-width="3.2" stroke-linecap="round" ' +
+    'stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+    '<path d="M6 9l6 6 6-6"/></svg>';
+
+  /** ¿El usuario pidió menos movimiento? Se consulta en cada toque y no una
+      vez al cargar: la preferencia del sistema se puede cambiar con la app
+      abierta. */
+  function quieto() {
+    try { return !!(w.matchMedia && w.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+    catch (e) { return false; }
+  }
+
+  /** El estado de reposo del cuerpo, sin animación de por medio.
+
+      `visibility: hidden` y no solo `height: 0`: un bloque recortado sigue
+      siendo alcanzable con el tabulador y sigue existiendo para el lector de
+      pantalla. Sin esto, cerrar los retos los escondía de los ojos y los
+      dejaba en el camino del teclado —cinco tarjetas invisibles entre la
+      misión del día y la primera parada de la Ruta. */
+  function reposo(cuerpo, abierto) {
+    if (abierto) {
+      cuerpo.style.visibility = '';
+      cuerpo.style.overflow = '';
+      cuerpo.style.height = 'auto';
+    } else {
+      cuerpo.style.visibility = 'hidden';
+      cuerpo.style.overflow = 'hidden';
+      cuerpo.style.height = '0px';
+    }
+  }
+
+  /** Lleva el cuerpo del acordeón de su altura actual a la que toca. */
+  function animarPliegue(cuerpo, abre) {
+    if (cuerpo.__plegando) { clearTimeout(cuerpo.__plegando); cuerpo.__plegando = null; }
+
+    // Al abrir se hace visible ya: lo que se anima es la altura, no la
+    // aparición. Al cerrar se esconde al final, o el contenido desaparecería
+    // de golpe mientras la caja todavía se está encogiendo.
+    if (abre) cuerpo.style.visibility = '';
+
+    if (quieto()) { reposo(cuerpo, abre); return; }
+
+    // El punto de partida tiene que ser un número: desde `auto` no hay nada
+    // que interpolar y el cambio saldría de golpe. Se mide antes de recortar.
+    var desde = cuerpo.getBoundingClientRect().height;
+    cuerpo.style.overflow = 'hidden';
+    cuerpo.style.height = desde + 'px';
+    void cuerpo.offsetHeight;                 // fuerza el reflujo: sin esto los dos valores se funden en uno
+    cuerpo.style.height = (abre ? cuerpo.scrollHeight : 0) + 'px';
+
+    // Un temporizador y no `transitionend`: el evento no llega si la
+    // transición no llega a correr —altura idéntica, pestaña en segundo
+    // plano—, y el cuerpo se quedaría clavado en píxeles para siempre.
+    cuerpo.__plegando = setTimeout(function () {
+      cuerpo.__plegando = null;
+      reposo(cuerpo, abre);
+    }, RETOS_MS + 60);
+  }
 
   function weeklyStrip() {
     var list = w.Engine.weeklyList();
-    var strip = el('div', { class: 'hscroll', style: { marginTop: '4px' } });
+    var strip = el('div', { class: 'hscroll' });
     list.forEach(function (item) {
       var done = item.complete && !item.claimed;
       var chip = el('button', {
@@ -143,10 +235,54 @@
       if (done) chip.classList.add('glow-pulse');
       strip.appendChild(chip);
     });
-    return el('div', { class: 'col', style: { gap: '6px' } }, [
-      el('h2', { class: 'tiny', style: { marginTop: '8px' }, text: 'Retos de la semana' }),
-      strip
+
+    var hechos = list.filter(function (x) { return x.complete; }).length;
+    var premios = list.filter(function (x) { return x.complete && !x.claimed; }).length;
+    var abierto = w.Store.state.settings.retosAbiertos !== false;
+
+    var cuerpo = el('div', { class: 'acc__body', id: 'retos-cuerpo' }, [strip]);
+    // Abierto no lleva estilo en línea ninguno: manda la hoja de estilos y la
+    // altura queda en `auto`, que es lo que deja crecer al carrusel si un
+    // título ocupa dos líneas.
+    if (!abierto) reposo(cuerpo, false);
+
+    var head = el('button', {
+      class: 'acc__head', type: 'button',
+      'aria-expanded': abierto ? 'true' : 'false',
+      'aria-controls': 'retos-cuerpo'
+    }, [
+      el('span', { class: 'acc__meta' }, [
+        el('h2', { class: 'acc__t', text: 'Retos de la semana' }),
+        el('span', { class: 'acc__s', text: hechos + ' de ' + list.length + ' completados' })
+      ]),
+      // El número y el gorro dorado caben siempre; las palabras se esconden por
+      // CSS en pantallas estrechas para que el título nunca parta en dos líneas
+      // y la barra cerrada mida siempre lo mismo. La etiqueta accesible lleva
+      // la frase entera pase lo que pase.
+      premios
+        ? el('span', {
+            class: 'chip chip--gold acc__premio',
+            'aria-label': premios + (premios === 1 ? ' reto por reclamar' : ' retos por reclamar')
+          }, [
+            el('span', { text: '🎁 ' + premios }),
+            el('span', { class: 'acc__premio-txt', text: ' por reclamar' })
+          ])
+        : null,
+      el('span', { class: 'acc__arrow', html: CHEVRON })
     ]);
+
+    var sec = el('section', { class: 'acc' + (abierto ? ' is-open' : '') }, [head, cuerpo]);
+
+    head.addEventListener('click', function () {
+      w.Sound.tap();
+      var abre = !sec.classList.contains('is-open');
+      w.Store.set(function (s) { s.settings.retosAbiertos = abre; }, 'ui');
+      sec.classList.toggle('is-open', abre);
+      head.setAttribute('aria-expanded', abre ? 'true' : 'false');
+      animarPliegue(cuerpo, abre);
+    });
+
+    return sec;
   }
 
   /* ------------------------- Encabezado de nivel ------------------------- */
@@ -187,10 +323,28 @@
 
   /* ------------------------- Nodos ------------------------- */
 
-  function connector(i) {
+  /* El tramo entre dos paradas.
+
+     Antes eran dos puntos del color de una línea divisoria: sobre el telón de
+     la Ruta no se veían, y el recorrido —que es de lo que va la pantalla—
+     quedaba sin dibujar. Ahora el tramo dice por dónde va el usuario: dorado
+     por donde ya pasó, del color del nivel en el tramo que lleva a la parada
+     de hoy, y apagado en lo que todavía está cerrado.
+
+     La caja mide exactamente lo que medía: el color va en una variable y la
+     estela es una capa absoluta. El mapa no se mueve ni un píxel. */
+  function connector(i, desde, hasta) {
     var dx = WAVE[i % WAVE.length];
     var dx2 = WAVE[(i + 1) % WAVE.length];
-    return el('div', { class: 'path-dots', style: { '--dx': ((dx + dx2) / 2) + 'px' } }, [
+
+    var color = null;
+    if (desde.state === 'done' && hasta.state === 'done') color = 'var(--gold)';
+    else if (desde.state === 'done') color = w.Engine.levelInfo(hasta.node.level).color;
+
+    var st = { '--dx': ((dx + dx2) / 2) + 'px' };
+    if (color) st['--trail'] = color;
+
+    return el('div', { class: 'path-dots', style: st }, [
       el('i'), el('i')
     ]);
   }
@@ -236,6 +390,11 @@
       class: 'path-node-wrap',
       style: { '--dx': WAVE[i % WAVE.length] + 'px', animationDelay: Math.min(i * 0.02, 0.5) + 's' }
     }, [
+      // El aura va la primera del todo para que se pinte DEBAJO del nodo: dos
+      // elementos posicionados sin z-index se ordenan por orden de documento.
+      // Es luz de ambiente, no un adorno del botón: no se anima ni recibe
+      // clics, solo marca dónde está la parada de hoy.
+      st === 'active' ? el('span', { class: 'node__aura', 'aria-hidden': 'true' }) : null,
       st === 'active' ? el('div', { class: 'start-bubble', text: isBoss ? 'Reto real' : 'Empezar' }) : null,
       btn,
       el('div', { class: 'node__label', text: st === 'locked' ? '' : n.data.title })

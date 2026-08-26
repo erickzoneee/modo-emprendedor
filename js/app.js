@@ -135,6 +135,13 @@
   function onRoute(name) {
     var chrome = !NO_CHROME[name];
     showChrome(chrome);
+    /* Qué pantalla se está viendo, escrito en el marco del teléfono.
+       Va aquí y no en el contenido porque el telón de la Ruta tiene que
+       quedarse quieto mientras el mapa se desplaza por encima, y el marco es
+       lo único de la app que no se mueve nunca. Solo la Ruta lo usa hoy; para
+       el resto de pantallas es un atributo que nadie lee. */
+    var marco = d.getElementById('phone');
+    if (marco) marco.setAttribute('data-screen', name);
     if (chrome) {
       renderTopbar();
       renderTabbar(TABS.some(function (t) { return t.key === name; }) ? name : null);
