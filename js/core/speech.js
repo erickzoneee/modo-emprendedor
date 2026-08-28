@@ -29,6 +29,12 @@
   var listeners = [];
   var TROZO = 180;                 // caracteres por locución
 
+  /* Cada speak() abre una tanda. Los manejadores de una locución vieja pueden
+     llegar después de haberla cancelado —cancel() dispara onerror en todo lo
+     que había encolado— y sin este contador acabarían decidiendo por la tanda
+     nueva: reencolando texto ya descartado o apagando una lectura en curso. */
+  var tanda = 0;
+
   /* Orden de preferencia: español latino primero, que es el de la app. */
   var PREFERIDOS = ['es-mx', 'es-us', 'es-419', 'es-co', 'es-ar', 'es-cl', 'es-pe', 'es-es'];
 
@@ -46,28 +52,78 @@
 
   function esEspanol(v) { return /^es(-|_|$)/i.test(v.lang || ''); }
 
+  /* ---------------------- ¿Cuál suena a persona? ----------------------
+
+     Aquí se elegía la voz LOCAL, y esa era la causa de que la app sonara a
+     robot en todas partes. Las voces locales son las viejas del sistema —la
+     de escritorio de SAPI5 en Windows, el motor básico de Android— y son
+     exactamente las mecánicas. Las que suenan a persona son las de red:
+     Google, las "Natural"/"Neural" de Microsoft, las mejoradas de Apple.
+
+     La API no dice qué motor hay detrás de cada voz, pero el nombre sí: esos
+     motores se anuncian en él. Así que se puntúa por nombre, y lo local pasa
+     de ser el criterio a ser un desempate.
+
+     Sin conexión no se pierde nada: si la voz de red falla al hablar,
+     siguiente() cae sola a la mejor local y sigue leyendo (ver más abajo).
+     ------------------------------------------------------------------ */
+
+  var NATURALES = [
+    { re: /natural|neural|wavenet/i,          pts: 60 },
+    { re: /premium|enhanced|mejorada/i,       pts: 45 },
+    { re: /\bgoogle\b/i,                      pts: 40 },
+    { re: /siri/i,                            pts: 30 },
+    { re: /online/i,                          pts: 22 }
+  ];
+  var MECANICAS = [
+    { re: /espeak|pico|festival|compact/i,    pts: -60 },
+    { re: /eloquence/i,                       pts: -50 },
+    // "Microsoft Sabina Desktop" es la SAPI5 de toda la vida; la misma Sabina
+    // sin "Desktop" es la moderna, y suena bastante mejor.
+    { re: /desktop/i,                         pts: -35 }
+  ];
+
+  function puntuar(v) {
+    var nombre = (v.name || '') + ' ' + (v.voiceURI || '');
+    var pts = 0, i;
+    for (i = 0; i < NATURALES.length; i++) if (NATURALES[i].re.test(nombre)) pts += NATURALES[i].pts;
+    for (i = 0; i < MECANICAS.length; i++) if (MECANICAS[i].re.test(nombre)) pts += MECANICAS[i].pts;
+
+    // El acento importa, pero menos que sonar a persona: un español de España
+    // natural se entiende mejor que un mexicano robótico.
+    var idx = PREFERIDOS.indexOf((v.lang || '').toLowerCase().replace('_', '-'));
+    if (idx >= 0) pts += (PREFERIDOS.length - idx) * 3;
+
+    // Desempates, no criterios.
+    if (v.localService) pts += 4;
+    if (v['default']) pts += 2;
+    return pts;
+  }
+
+  /** ¿Esta voz es de las que suenan a persona? Lo usa el perfil para decirlo. */
+  function natural(v) { return !!v && puntuar(v) >= 40; }
+
+  /** Las voces en español, de la que mejor suena a la que peor. */
+  function voicesES() {
+    return voces.filter(esEspanol).map(function (v, i) { return { v: v, i: i, p: puntuar(v) }; })
+      // El índice rompe los empates para que el orden no baile entre repintados.
+      .sort(function (a, b) { return b.p - a.p || a.i - b.i; })
+      .map(function (x) { return x.v; });
+  }
+
+  /** La mejor voz que funciona sin conexión. Es la red de seguridad. */
+  function mejorLocal() {
+    return voicesES().filter(function (v) { return v.localService; })[0] || null;
+  }
+
   function elegirVoz() {
     var guardada = ajustes().voice;
     if (guardada) {
       var exacta = voces.filter(function (v) { return v.voiceURI === guardada || v.name === guardada; })[0];
       if (exacta) { vozElegida = exacta; return; }
     }
-    var es = voces.filter(esEspanol);
-    if (!es.length) { vozElegida = null; return; }
-
-    for (var i = 0; i < PREFERIDOS.length; i++) {
-      var m = es.filter(function (v) { return (v.lang || '').toLowerCase().replace('_', '-') === PREFERIDOS[i]; });
-      if (m.length) {
-        // Entre varias del mismo idioma, la local suena antes y sin conexión.
-        var local = m.filter(function (v) { return v.localService; })[0];
-        vozElegida = local || m[0];
-        return;
-      }
-    }
-    vozElegida = es.filter(function (v) { return v.localService; })[0] || es[0];
+    vozElegida = voicesES()[0] || null;
   }
-
-  function voicesES() { return voces.filter(esEspanol); }
 
   if (supported()) {
     cargarVoces();
@@ -92,7 +148,9 @@
     w.Store.set(function (st) {
       for (var k in patch) if (Object.prototype.hasOwnProperty.call(patch, k)) st.settings[k] = patch[k];
     }, 'speech');
-    if (patch.voice !== undefined) elegirVoz();
+    // Elegir voz a mano cancela el respaldo: si antes se cayó a la local por
+    // falta de red, esta elección tiene que poder volver a intentarlo.
+    if (patch.voice !== undefined) { sinRed = false; elegirVoz(); }
     return ajustes();
   }
 
@@ -105,6 +163,19 @@
       .replace(/\*(.+?)\*/g, '$1')
       .replace(/^[·•\-–]\s*/gm, '')
       .replace(/[·•]/g, ', ')
+      /* Los símbolos hay que decirlos como los dice una persona. Esta app está
+         llena de precios y porcentajes, y sin esto sonaba a máquina leyendo
+         una hoja de cálculo:
+           "$1,200"  se leía "uno coma doscientos"   → "1200 pesos"
+           "20%"     se leía "veinte" a secas        → "20 por ciento"
+           "7/10"    se leía "siete diez"            → "7 de 10"
+         La coma se quita porque en es-MX es el separador de miles, y el motor
+         la interpreta como decimal. */
+      .replace(/\$\s?(\d[\d.,]*)/g, function (todo, n) {
+        return n.replace(/,/g, '') + ' pesos';
+      })
+      .replace(/(\d)\s?%/g, '$1 por ciento')
+      .replace(/(\d)\s?\/\s?(\d)/g, '$1 de $2')
       // Los emojis se leen como "cara sonriente": estorban más que aportan.
       // En \u para que el archivo no dependa de cómo se guarde la codificación.
       .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, ' ')
@@ -119,7 +190,11 @@
   function trocear(txt) {
     var limpio = limpiar(txt);
     if (!limpio) return [];
-    var frases = limpio.match(/[^.!?¿¡\n]+[.!?]*[\n]*/g) || [limpio];
+    /* La apertura de interrogación y de exclamación NO son separadores: son
+       la entonación. Estaban en la clase negada, así que "¿Cuánto cuesta?"
+       llegaba al motor como "Cuánto cuesta?" y la pregunta salía plana. Es
+       media explicación de por qué esto sonaba a robot leyendo español. */
+    var frases = limpio.match(/[^.!?\n]+[.!?]*[\n]*/g) || [limpio];
     var out = [], buf = '';
     frases.forEach(function (f) {
       f = f.trim();
@@ -160,24 +235,82 @@
   }
 
   function stop() {
+    tanda++;
     cola = [];
     hablando = false;
     if (supported()) { try { synth.cancel(); } catch (e) {} }
     notify();
   }
 
+  /* ---------------------- Respirar entre frases ----------------------
+
+     Nadie encadena frases sin tomar aire. La API sí: en cuanto termina una
+     locución arranca la siguiente con cero milisegundos de silencio, y una
+     lectura larga sale como una parrafada sin puntos. El hueco se pone a
+     mano, en proporción a lo que acaba de decir, y se acorta cuando el
+     usuario ha subido la velocidad: si lee rápido, también respira rápido.
+     ------------------------------------------------------------------ */
+  function pausaTras(txt, rate) {
+    var fin = String(txt).slice(-1);
+    var ms = 90;
+    if (fin === '.' || fin === '!' || fin === '?' || fin === '…') ms = 280;
+    else if (fin === ',' || fin === ';' || fin === ':') ms = 130;
+    return Math.round(ms / Math.max(0.5, rate || 1));
+  }
+
+  var sinRed = false;   // ¿ya se cayó una voz de red por falta de conexión?
+
+  /** La voz que habla ahora. Puede cambiar a media lectura si la de red se
+      cae, así que se pregunta trozo a trozo y no una sola vez. */
+  function vozAhora() {
+    if (sinRed) return mejorLocal() || vozElegida;
+    return vozElegida;
+  }
+
   function siguiente() {
     if (!cola.length) { hablando = false; notify(); return; }
+
+    var miTanda = tanda;
     var texto = cola.shift();
     var u = new w.SpeechSynthesisUtterance(texto);
-    if (vozElegida) { u.voice = vozElegida; u.lang = vozElegida.lang; }
+    var voz = vozAhora();
+    if (voz) { u.voice = voz; u.lang = voz.lang; }
     else u.lang = 'es-MX';
     var a = ajustes();
-    u.rate = Math.max(0.5, Math.min(2, a.speechRate || 1));
+    var rate = Math.max(0.5, Math.min(2, a.speechRate || 1));
+    u.rate = rate;
     u.pitch = 1;
     u.volume = 1;
-    u.onend = function () { siguiente(); };
-    u.onerror = function () { siguiente(); };
+
+    u.onend = function () {
+      if (miTanda !== tanda) return;      // esta locución ya no manda
+      setTimeout(function () {
+        if (miTanda !== tanda) return;
+        siguiente();
+      }, pausaTras(texto, rate));
+    };
+
+    u.onerror = function (e) {
+      if (miTanda !== tanda) return;
+      // cancel() dispara un error en todo lo encolado: eso no es un fallo.
+      var motivo = (e && e.error) || '';
+      if (motivo === 'canceled' || motivo === 'interrupted') return;
+
+      /* Una voz de red no habla sin conexión: falla al instante, y antes eso
+         se saltaba el trozo en silencio hasta quedarse mudo. Se cae UNA vez a
+         la mejor voz local, se devuelve el trozo a la cola y se recuerda para
+         el resto de la lectura. El usuario oye una voz peor, no ninguna. */
+      var local = mejorLocal();
+      if (!sinRed && voz && !voz.localService && local && local !== voz) {
+        sinRed = true;
+        cola.unshift(texto);
+      }
+      setTimeout(function () {
+        if (miTanda !== tanda) return;
+        siguiente();
+      }, 60);
+    };
+
     try { synth.speak(u); }
     catch (e) { hablando = false; notify(); }
   }
@@ -244,8 +377,14 @@
       if (w.Sound) w.Sound.tap();
       if (hablando && b.dataset.mine === '1') { stop(); return; }
       var txt = typeof getText === 'function' ? getText() : getText;
-      b.dataset.mine = '1';
-      speak(txt);
+      /* La marca se pone DESPUÉS de hablar, no antes. speak() empieza
+         cancelando lo que hubiera, y ese stop() avisa con hablando=false, que
+         es justo lo que el oyente de aquí abajo usa para borrar la marca.
+         Puesta antes, se borraba sola en el mismo clic: el botón no llegaba a
+         encenderse nunca y no había manera de ver que estaba leyendo ni de
+         cortarlo con un segundo toque. */
+      if (speak(txt)) b.dataset.mine = '1';
+      pintar();
     });
 
     var off = onChange(function () {
@@ -261,12 +400,19 @@
   d.addEventListener('visibilitychange', function () { if (d.hidden) stop(); });
   w.addEventListener('pagehide', stop);
 
+  /* Al volver la conexión se vuelve a intentar la voz buena. Sin esto, quien
+     leyó un rato en el metro se quedaba con la voz mecánica hasta recargar. */
+  w.addEventListener('online', function () { sinRed = false; });
+
   w.Speech = {
     supported: supported,
     speak: speak, toggle: toggle, stop: stop, isSpeaking: isSpeaking,
     autoSpeak: autoSpeak, canAuto: canAuto,
     button: button, onChange: onChange,
+    // La voz ELEGIDA, no la que suena en este instante: si la de red se cayó,
+    // el ajuste que el usuario ve marcado tiene que seguir siendo el suyo.
     voices: voicesES, currentVoice: function () { return vozElegida; },
+    natural: natural,
     settings: ajustes, set: set,
     util: { limpiar: limpiar, trocear: trocear }
   };

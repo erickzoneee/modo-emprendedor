@@ -357,7 +357,8 @@
         el('div', { class: 'grow', style: { minWidth: '0' } }, [
           el('div', { class: 'small', style: { fontWeight: '900' }, text: 'Lectura en voz alta' }),
           el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0' },
-            text: voz ? 'Voz: ' + voz.name + ' (' + voz.lang + ')'
+            text: voz ? 'Voz: ' + voz.name + ' (' + voz.lang + ')' +
+                        (w.Speech.natural(voz) ? ' · suena natural' : '')
                       : 'No encontré ninguna voz en español instalada en este dispositivo.' })
         ])
       ]));
@@ -414,7 +415,8 @@
       ]));
 
       card.appendChild(el('div', { class: 'tiny', style: { marginTop: '10px', textTransform: 'none', letterSpacing: '0' },
-        text: 'La voz la pone tu propio dispositivo: no cuesta nada, no se envía nada a internet y funciona sin conexión.' }));
+        text: 'La voz la pone tu propio dispositivo, no la app: no cuesta nada y nadie escucha lo que lees. ' +
+              'Las que suenan más naturales necesitan conexión; si te quedas sin ella, la lectura sigue sola con la mejor voz que funcione sin internet.' }));
     }
 
     paint();
@@ -433,11 +435,13 @@
       el('span', { class: 'opt__key', text: '✨' }),
       el('span', { class: 'opt__body' }, [
         el('span', { text: 'Automática' }),
-        el('span', { class: 'opt__hint', text: 'La mejor voz en español que encuentre' })
+        el('span', { class: 'opt__hint', text: 'La que suene más natural de las que tengas' })
       ])
     ]));
 
+    // Ya vienen ordenadas de la que mejor suena a la que peor (js/core/speech.js).
     voces.forEach(function (v) {
+      var nat = w.Speech.natural(v);
       list.appendChild(el('button', {
         class: 'opt' + (actual && actual.voiceURI === v.voiceURI ? ' is-selected' : ''), type: 'button',
         onclick: function () {
@@ -447,17 +451,20 @@
           onChange();
         }
       }, [
-        el('span', { class: 'opt__key', text: v.localService ? '📶' : '☁️' }),
+        el('span', { class: 'opt__key', text: nat ? '🗣️' : (v.localService ? '📶' : '☁️') }),
         el('span', { class: 'opt__body' }, [
           el('span', { text: v.name }),
-          el('span', { class: 'opt__hint', text: v.lang + (v.localService ? ' · funciona sin conexión' : ' · necesita internet') })
+          el('span', { class: 'opt__hint',
+            text: v.lang + ' · ' + (nat ? 'suena natural' : 'voz básica del sistema') +
+                  (v.localService ? ' · sin conexión' : ' · necesita internet') })
         ])
       ]));
     });
 
     UI.sheet([
       el('h2', { class: 'h3', text: 'Voz de lectura' }),
-      el('div', { class: 'small', text: 'Las voces las instala tu sistema, no la app. Si no ves ninguna en español, agrégala desde los ajustes de tu teléfono.' }),
+      el('div', { class: 'small', text: 'Ordenadas de la que suena más a persona a la que suena más a máquina. ' +
+        'Las voces las instala tu sistema, no la app: si no ves ninguna en español, agrégala desde los ajustes de tu teléfono.' }),
       list
     ]);
   }
