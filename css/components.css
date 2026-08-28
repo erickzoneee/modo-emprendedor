@@ -631,6 +631,156 @@
   flex: none;
 }
 
+/* ------------------------- «Tu idea es tuya» -------------------------
+
+   La promesa que se hace justo antes de pedirle la idea al usuario
+   (js/core/promesa.js). Se ve una vez en la vida, así que tiene que
+   transmitir en tres segundos: Chispa protegiendo, tres frases cortas y un
+   botón. Nada de párrafos ni de letra pequeña.
+
+   Vive dentro de un .modal normal: aquí solo va lo que ese modal no trae.
+   ------------------------------------------------------------------------ */
+
+/* El gap del modal es de 16px y aquí sobra: son seis bloques seguidos y con
+   ese aire la ventana no cabía de una vez en un teléfono. */
+.promesa { gap: var(--s3); }
+
+.promesa__escena {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 4px 0 2px;
+}
+
+/* El halo que la envuelve. Es el único recurso "protector" del conjunto: dos
+   anillos que se abren despacio, sin brillos ni destellos, porque lo que se
+   quiere transmitir es calma y no fiesta. */
+.promesa__aura {
+  position: absolute;
+  width: 146px; height: 146px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 46%,
+              rgba(255,154,60,.30) 0%,
+              rgba(255,154,60,.14) 42%,
+              rgba(255,154,60,0) 70%);
+  animation: promesaAura 4.4s var(--ease-in-out) infinite;
+  pointer-events: none;
+}
+.promesa__aura::before,
+.promesa__aura::after {
+  content: '';
+  position: absolute; inset: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--brand);
+  opacity: .18;
+  animation: promesaAnillo 4.4s var(--ease-out) infinite;
+}
+.promesa__aura::after { animation-delay: 1.4s; }
+
+@keyframes promesaAura {
+  0%,100% { transform: scale(1);    opacity: .9 }
+  50%     { transform: scale(1.06); opacity: 1 }
+}
+@keyframes promesaAnillo {
+  0%   { transform: scale(.86);  opacity: .26 }
+  70%  { transform: scale(1.14); opacity: 0 }
+  100% { transform: scale(1.14); opacity: 0 }
+}
+
+/* Chispa va por encima del halo, no dentro de él. */
+.promesa__chispa { position: relative; z-index: 1; }
+
+/* El escudo se inyecta DENTRO del svg de Chispa, en el mismo viewBox, y
+   colgando de .m-hold-r. Así cae exactamente en su mano y saluda con el brazo
+   al entrar; pegado por fuera con position:absolute se quedaba flotando
+   mientras el brazo se movía sin nada. */
+.promesa__escudo { animation: promesaLatido 3.4s var(--ease-in-out) infinite; }
+@keyframes promesaLatido {
+  0%,100% { transform: translateY(0) }
+  50%     { transform: translateY(-2.2px) }
+}
+
+.promesa__titulo { margin: 0; }
+
+.promesa__texto {
+  margin: 0;
+  font-size: var(--fs-md);
+  line-height: 1.65;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+/* Las tres promesas. Una tarjeta y no tres, para que se lean como un bloque
+   entero y no como una lista de condiciones. */
+.promesa__lista {
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--brand-soft);
+  border: 2px solid rgba(255,107,26,.22);
+  border-radius: var(--r-lg);
+  padding: var(--s3) var(--s4);
+  text-align: left;
+}
+.promesa__fila {
+  display: flex; align-items: center; gap: 12px;
+  padding: 7px 0;
+}
+.promesa__fila + .promesa__fila { border-top: 2px solid rgba(255,107,26,.14); }
+.promesa__fila__ico { font-size: 21px; flex: none; line-height: 1; }
+.promesa__fila__t {
+  font-size: var(--fs-sm); font-weight: 900; color: var(--ink);
+  line-height: 1.35;
+}
+.promesa__fila__p {
+  display: block;
+  font-size: var(--fs-xs); font-weight: 700; color: var(--ink-2);
+  line-height: 1.45; margin-top: 1px;
+}
+
+.promesa__cierre {
+  margin: 2px 0 0;
+  font-size: var(--fs-sm);
+  font-weight: 900;
+  color: var(--brand-dark);
+  line-height: 1.5;
+}
+
+/* En oscuro, --brand-soft es un marrón muy bajo: el borde y el texto de cierre
+   necesitan subir de tono o el bloque desaparece contra la tarjeta. */
+html[data-theme="dark"] .promesa__lista { border-color: rgba(255,154,60,.30); }
+html[data-theme="dark"] .promesa__fila + .promesa__fila { border-top-color: rgba(255,154,60,.18); }
+html[data-theme="dark"] .promesa__cierre { color: var(--brand-2); }
+
+/* En un teléfono corto —un 360x640 sigue siendo de lo más común en Android— el
+   contenido pasaba del tope del modal y el botón quedaba por debajo del
+   pliegue: había que desplazarse para poder continuar, que es exactamente la
+   sensación de trámite que esta ventana viene a evitar.
+
+   Se cede en la escena y en los huecos, no en el mensaje: las tres promesas y
+   la frase de cierre se leen enteras igual. */
+@media (max-height: 720px) {
+  .promesa { gap: var(--s2); padding: var(--s4); }
+  .promesa__escena { padding: 0; }
+  .promesa__escena .mascot { --m-size: 72px; }
+  .promesa__aura { width: 112px; height: 112px; }
+  .promesa__aura::before, .promesa__aura::after { inset: 12px; }
+  .promesa__texto { font-size: var(--fs-sm); line-height: 1.55; }
+  .promesa__lista { padding: var(--s2) var(--s3); }
+  .promesa__fila { padding: 5px 0; }
+  .promesa__fila__ico { font-size: 19px; }
+}
+
+/* Y en las pantallas de verdad pequeñas —un 320x568 todavía se ve— se encoge
+   lo decorativo hasta donde haga falta. Chispa sigue ahí, que es lo que hace
+   que esto se sienta un gesto y no un aviso, pero sin su halo y a media talla. */
+@media (max-height: 620px) {
+  .promesa { gap: var(--s1); padding: var(--s3); }
+  .promesa__escena .mascot { --m-size: 58px; }
+  .promesa__aura { width: 88px; height: 88px; }
+  .promesa__aura::before, .promesa__aura::after { display: none; }
+  .promesa__fila { padding: 3px 0; }
+  .promesa__cierre { font-size: var(--fs-xs); }
+}
+
 /* ------------------------- Insignias ------------------------- */
 
 .badge {

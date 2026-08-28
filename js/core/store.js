@@ -119,6 +119,13 @@
         // es una preferencia de la persona: debe sobrevivir a registrar otra
         // idea. merge() lo inyecta solo en los guardados que ya existían.
         personalizacion: true,
+        // ¿Ya vio la promesa "Tu idea es tuya"? (js/core/promesa.js)
+        // Se enseña una sola vez, justo antes de la primera pregunta del
+        // registro. Vive aquí y no en el perfil del negocio a propósito: es de
+        // la persona, así que sobrevive a registrar otra idea y no se repite.
+        // A quien ya venía usando la app merge() le da este valor base, así
+        // que la verá una vez si algún día vuelve a registrar una idea.
+        promesaVista: false,
         // ¿Los retos de la semana se ven desplegados en la Ruta?
         // Empieza en true a propósito: quien entra por primera vez —y quien ya
         // venía usando la app, porque merge() da el valor base a las claves que

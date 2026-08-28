@@ -42,7 +42,12 @@
       el('p', { class: 'p', style: { maxWidth: '330px' },
         html: 'No es un curso. Es una <b>misión al día</b> para pasar de una idea a un negocio real.' }),
       el('div', { class: 'col', style: { width: '100%', maxWidth: '330px', gap: '10px', marginTop: '8px' } }, [
-        UI.btn('Registrar mi idea', { variant: 'brand', size: 'lg', shiny: true, onClick: function () { go(0); } }),
+        // Antes de la primera pregunta, la promesa: lo que va a escribir en el
+        // paso siguiente es su idea, y merece saber qué pasa con ella antes de
+        // soltarla. Se enseña una sola vez en la vida; a partir de entonces
+        // antesDeRegistrar() llama a go(0) directamente y no se nota.
+        UI.btn('Registrar mi idea', { variant: 'brand', size: 'lg', shiny: true,
+          onClick: function () { empezarRegistro(function () { go(0); }); } }),
         UI.btn('Restaurar un respaldo', { variant: 'ghost', onClick: restore })
       ]),
       el('div', { class: 'tiny', style: { marginTop: '-4px' },
@@ -77,6 +82,14 @@
   }
 
   /* --------------------------- NAVEGACIÓN --------------------------- */
+
+  /** Arranca el registro pasando antes por la promesa "Tu idea es tuya".
+      Si promesa.js no hubiera cargado, el registro empieza igual: la ventana
+      es un acompañamiento, no un requisito para poder emprender. */
+  function empezarRegistro(despues) {
+    if (w.Promesa) w.Promesa.antesDeRegistrar(despues);
+    else despues();
+  }
 
   function go(i) {
     UI.Router.go('onboarding', { step: i }, i === 0 ? null : 'fwd');
@@ -722,8 +735,12 @@
       budget: '', time: null, experience: '', place: '', extra: {}
     };
     followUps = null;
-    w.App.showChrome(false);
-    UI.Router.go('onboarding', { step: 0 }, 'fwd');
+    // La promesa va antes de esconder la barra y de cambiar de pantalla: así
+    // se ve sobre el sitio del que viene el usuario y no sobre un hueco.
+    empezarRegistro(function () {
+      w.App.showChrome(false);
+      UI.Router.go('onboarding', { step: 0 }, 'fwd');
+    });
   }
 
   UI.Router.register('onboarding', render);
