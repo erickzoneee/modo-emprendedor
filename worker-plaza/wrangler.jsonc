@@ -1,0 +1,64 @@
+{
+  // ==========================================================================
+  // PLAZA · configuración del Worker
+  //
+  // Va aparte del Worker de Chispa (worker/) a propósito: aquel responde a
+  // cualquiera y no guarda nada; este pide sesión y guarda todo.
+  //
+  // ANTES DE DESPLEGAR hay tres cosas que no están aquí y no pueden estarlo:
+  //
+  //   npx wrangler d1 create emprendo-plaza      -> pega el id abajo
+  //   npx wrangler secret put PIMIENTA           -> 32+ caracteres al azar
+  //   npx wrangler d1 migrations apply emprendo-plaza --remote
+  //
+  // La PIMIENTA es lo que hace que la huella de un correo no se pueda
+  // adivinar probando correos comunes. Si se pierde, nadie puede volver a
+  // entrar con su correo de siempre: cambiarla equivale a borrar todas las
+  // cuentas. Guárdala donde guardes lo importante.
+  // ==========================================================================
+
+  "name": "plaza",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "emprendo-plaza",
+      // Lo imprime `wrangler d1 create`. Sin esto el Worker responde 503 y
+      // la app enseña la Plaza vacía, que es la degradación correcta.
+      "database_id": "PENDIENTE"
+    }
+  ],
+
+  // El envío de correo por binding, sin ninguna clave que guardar. Requiere
+  // el plan Workers Paid y el dominio dado de alta:
+  //   npx wrangler email sending enable emprendo.life
+  //
+  // Si se prefiere el camino gratis con un servicio externo, se comenta este
+  // bloque y se ponen CORREO_API_URL y CORREO_API_KEY como secretos.
+  "send_email": [
+    { "name": "EMAIL" }
+  ],
+
+  // Ráfagas por IP. Más apretado que el de Chispa: aquí cada petición toca
+  // la base, y quien pruebe tokens a lo bruto entra por aquí.
+  "ratelimits": [
+    { "name": "LIMITE_IP", "namespace_id": "2001", "simple": { "limit": 30, "period": 60 } }
+  ],
+
+  "vars": {
+    // Lista blanca exacta. NO se pone localhost: en el Worker de Chispa da
+    // igual porque solo hay IA, pero aquí viaja la sesión dentro del cuerpo,
+    // y cualquier página servida en ese puerto podría llamar a esta API.
+    // Para desarrollo se usa `wrangler dev`, que trae su propio origen.
+    "ORIGENES": "https://app.emprendo.life,https://erickzoneee.github.io",
+    "APP_URL": "https://app.emprendo.life",
+    "CORREO_DESDE": "hola@emprendo.life"
+  },
+
+  // Se deja encendida: es lo único que va a contar qué pasó cuando algo
+  // falle. La regla que la hace segura está en el código y no aquí — no se
+  // registra nunca el cuerpo de una petición, porque ahí viaja la sesión.
+  "observability": { "enabled": true }
+}

@@ -1,0 +1,199 @@
+# Worker de la Plaza
+
+El sitio donde viven las vitrinas de otras personas. Es lo único de Emprendo
+que guarda datos de alguien fuera de su propio teléfono.
+
+Va **aparte** del Worker de Chispa (`worker/`) a propósito: aquel responde a
+cualquiera y no guarda nada; este pide sesión y guarda todo. Si la Plaza se
+cae, la IA sigue funcionando.
+
+---
+
+## Antes de nada: el aviso del plan de pago
+
+El envío de correo de Cloudflare **requiere el plan Workers Paid**. Activarlo
+tiene una consecuencia que no es evidente y que afecta al *otro* Worker:
+
+| | Plan gratuito (hoy) | Workers Paid |
+|---|---|---|
+| Al agotar los 10.000 neurons del día | **Deja de responder** | **Sigue respondiendo y cobra** |
+| Precio del exceso | — | 0,011 USD / 1.000 neurons |
+
+`worker/README.md` dice hoy que «es imposible que esto te genere un cobro».
+Eso deja de ser cierto al activar el plan.
+
+**Por eso el cortacircuitos de la Fase 2 pasa a ser obligatorio**, y hay que
+desplegarlo *antes* de cambiar de plan, no después.
+
+---
+
+## Los comandos, en orden
+
+Desde esta carpeta. En Windows con PowerShell hay dos tropiezos que ya
+conocemos de `worker/README.md`:
+
+- Usa **`npx.cmd`**, no `npx`. Con `npx` a secas, PowerShell coge el
+  envoltorio `npx.ps1` y lo bloquea la política de ejecución.
+- Usa **`;`** y no `&&` para encadenar.
+
+### 1. Crear la base
+
+```
+cd worker-plaza; npx.cmd wrangler d1 create emprendo-plaza
+```
+
+Imprime un `database_id`. **Pégalo en `wrangler.jsonc`**, donde ahora pone
+`"PENDIENTE"`. Con ese valor, `wrangler deploy` aborta por UUID inválido: no
+llega a desplegarse nada. El caso al que hay que estar atento es el otro —
+base creada pero **migraciones sin aplicar**—, porque entonces sí despliega y
+cada operación falla con `no such table`. Se ve en los registros del Worker.
+
+### 2. Crear las tablas
+
+```
+npx.cmd wrangler d1 migrations apply emprendo-plaza --remote
+```
+
+Sin `--remote` las crea solo en la copia local de tu máquina. Para ver qué
+va a hacer antes de hacerlo:
+
+```
+npx.cmd wrangler d1 migrations list emprendo-plaza --remote
+```
+
+### 3. Desplegar
+
+```
+npx.cmd wrangler deploy
+```
+
+La primera vez imprime la URL, algo como `https://plaza.TU-CUENTA.workers.dev`.
+
+### 4. La pimienta
+
+Es lo que hace que la huella de un correo no se pueda adivinar probando
+correos comunes. Genera una y guárdala **también fuera de Cloudflare**:
+
+```
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+```
+npx.cmd wrangler secret put PIMIENTA
+```
+
+Pega el valor cuando lo pida. **Si se pierde, nadie puede volver a entrar con
+su correo de siempre**: cambiar la pimienta equivale a borrar todas las
+cuentas, porque las huellas guardadas dejan de coincidir con nada.
+
+### 5. El correo *(necesita Workers Paid)*
+
+```
+npx.cmd wrangler email sending enable emprendo.life
+npx.cmd wrangler email sending dns get emprendo.life
+```
+
+El primero añade SPF y DKIM solo. El segundo te deja comprobarlos. Suele
+propagar en cinco o quince minutos.
+
+### 6. El dominio del Worker
+
+En el panel: **Workers & Pages › plaza › Settings › Domains & Routes › Add ›
+Custom domain** → `plaza.emprendo.life`.
+
+Con eso, `ORIGENES` y `APP_URL` de `wrangler.jsonc` ya apuntan a donde deben.
+
+---
+
+## Probarlo sin desplegar nada
+
+```
+node tools/check-plaza-worker.js
+```
+
+Monta una base SQLite de verdad en memoria, le aplica la migración real y
+ejecuta el Worker real contra ella. **58 comprobaciones**, y las seis reglas
+se comprueban ejecutando el código, no leyéndolo: que el mensaje de un «veo
+valor» no llega antes de aceptar, que borrarse no deja rastro en ninguna de
+las diez tablas, que un contacto escrito a mano se cae, que `op:"constructor"`
+no se cuela.
+
+Merece la pena correrlo antes de cada despliegue.
+
+---
+
+## Comprobar que responde
+
+```
+Invoke-RestMethod -Uri https://plaza.emprendo.life -Method Post -ContentType "application/json" -Headers @{Origin="https://app.emprendo.life"} -Body '{"op":"entrar","correo":"tu@correo.com"}'
+```
+
+Debe devolver siempre lo mismo, exista la cuenta o no:
+
+```json
+{ "ok": true, "mensaje": "Si ese correo es correcto, te llegará un enlace." }
+```
+
+Que responda igual en los dos casos **es la función, no un descuido**: si
+dijera «esa cuenta no existe», cualquiera podría usar esto para averiguar
+quién está en la Plaza.
+
+Si responde `403 Origen no permitido`, la cabecera `Origin` no coincide con
+`ORIGENES`. Eso es la protección haciendo su trabajo.
+
+---
+
+## Las seis reglas del código
+
+Están escritas en la cabecera de `src/index.js` y conviene no aflojarlas sin
+pensarlo dos veces:
+
+1. **El correo no se guarda.** Entra, se convierte en huella y se olvida.
+2. **Una sola puerta.** Un `POST` con `op` dentro del cuerpo. La sesión viaja
+   en el JSON porque el CORS solo admite la cabecera `content-type`.
+3. **La lista blanca se reaplica aquí.** La del teléfono protege al usuario de
+   sí mismo; esta protege a los demás de un cliente modificado.
+4. **Nada de texto libre antes de la aceptación mutua.** Quien recibe un «veo
+   valor» ve la intención y el motivo, no el mensaje.
+5. **El cuerpo no se registra en ningún log.** La sesión viaja ahí dentro.
+6. **Borrar borra.** No hay estado «borrada»: la cascada se lo lleva todo, y
+   D1 aplica las claves foráneas por defecto, así que la cascada es de verdad.
+
+---
+
+## Lo que todavía no tiene
+
+Escrito aquí para que no se descubra tarde:
+
+- **No hay panel de denuncias.** Hasta que lo haya, se leen a mano:
+
+  ```
+  npx.cmd wrangler d1 execute emprendo-plaza --remote --command "SELECT d.at, d.motivo, d.nota, d.sobre_id, v.negocio, v.producto FROM denuncia d LEFT JOIN vitrina v ON v.cuenta_id = d.sobre_id WHERE d.estado = 'abierta' ORDER BY d.at DESC"
+  ```
+
+  Y para ocultar un puesto:
+
+  ```
+  npx.cmd wrangler d1 execute emprendo-plaza --remote --command "UPDATE vitrina SET estado = 'oculta' WHERE cuenta_id = 'EL-ID'"
+  ```
+
+  Ocultar es distinto de retirar: el dueño no puede sacarlo de ahí volviendo a
+  guardar su vitrina. Para suspender la cuenta entera, `UPDATE cuenta SET
+  estado = 'suspendida'` — deja de poder entrar en la petición siguiente.
+- **No se limpian solos** los enlaces y las sesiones caducados. Hace falta un
+  cron cuando haya volumen; con veinte usuarios no.
+- **No hay copia de seguridad automática** de la base.
+- **Un bloqueo no es para siempre:** quien sea bloqueado puede registrarse con
+  otro correo. Lo que sí funciona es que antes de la aceptación mutua no viaja
+  ni un carácter de texto libre.
+- **No se pueden cerrar las sesiones a distancia.** Si alguien pierde el
+  teléfono, la sesión de ese aparato vale 30 días y la única salida es
+  borrarse la cuenta. Con pocos usuarios es un riesgo teórico; cuando haya
+  más, hace falta una operación `cerrar-sesiones`.
+- **`edad_ok` se guarda y no se lee.** Lo declara el cliente al entrar y hoy
+  no bloquea nada. O se aplica de verdad o se quita la columna: dejarlo a
+  medias da la sensación de una barrera que no existe.
+- **`vecinos` devuelve 60 vitrinas por orden de publicación.** Con pocos
+  usuarios el catálogo cabe entero. Pasando de 60, quien guarde su vitrina
+  ocupa la Plaza de todos y hace falta paginación — es el fin del producto,
+  no un fallo de seguridad, pero conviene anotarlo.
