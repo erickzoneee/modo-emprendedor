@@ -67,24 +67,37 @@ npx.cmd wrangler d1 migrations list emprendo-plaza --remote
 npx.cmd wrangler deploy
 ```
 
-La primera vez imprime la URL, algo como `https://plaza.TU-CUENTA.workers.dev`.
+**Esto funciona con el plan gratuito.** El binding `send_email` se acepta al
+desplegar; el plan de pago se exige en el momento de *mandar* un correo, no
+antes. Así que el Worker puede estar vivo y probado mucho antes de pagar
+nada — lo único que no funciona hasta entonces es que el enlace llegue.
+
+Y no se rompe por eso: si el envío falla, `entrar` responde exactamente lo
+mismo que siempre. Esa respuesta única es lo que impide usar el servidor para
+averiguar qué correos tienen cuenta, así que no podía depender de que el
+correo saliera bien.
 
 ### 4. La pimienta
 
-Es lo que hace que la huella de un correo no se pueda adivinar probando
-correos comunes. Genera una y guárdala **también fuera de Cloudflare**:
+Es la sal con la que se deriva la huella de cada correo, y lo que hace que no
+se pueda reconstruir el padrón probando una lista de correos filtrados de
+otro sitio. Sin ella puesta, el Worker **se niega a arrancar**: responde 503
+en vez de seguir funcionando con una huella reversible.
 
 ```
-node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
-```
-
-```
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 npx.cmd wrangler secret put PIMIENTA
 ```
 
-Pega el valor cuando lo pida. **Si se pierde, nadie puede volver a entrar con
-su correo de siempre**: cambiar la pimienta equivale a borrar todas las
-cuentas, porque las huellas guardadas dejan de coincidir con nada.
+**Si se pierde, nadie puede volver a entrar con su correo de siempre**:
+cambiar la pimienta equivale a borrar todas las cuentas, porque las huellas
+guardadas dejan de coincidir con nada. Guárdala en el gestor de contraseñas,
+no solo en Cloudflare.
+
+Un detalle de la plataforma que costó un despliegue descubrir: **Workers no
+admite PBKDF2 por encima de 100.000 iteraciones**. Node sí, así que la prueba
+local pasaba y producción devolvía `Pbkdf2 failed` tirando `entrar` y
+`confirmar` enteros. `tools/check-plaza-worker.js` ahora lo comprueba.
 
 ### 5. El correo *(necesita Workers Paid)*
 

@@ -25,9 +25,8 @@
     {
       "binding": "DB",
       "database_name": "emprendo-plaza",
-      // Lo imprime `wrangler d1 create`. Sin esto el Worker responde 503 y
-      // la app enseña la Plaza vacía, que es la degradación correcta.
-      "database_id": "PENDIENTE"
+      // Lo imprime `wrangler d1 create`. Creada el 30-ago-2026, región WNAM.
+      "database_id": "8551cc37-de4d-4713-ae29-75a92c9ebbc9"
     }
   ],
 

@@ -195,11 +195,20 @@ function correoCanonico(correo) {
     PBKDF2 y no un sha256 a secas. El espacio de correos es enumerable: quien
     robe la base y la pimienta —que viven en la misma cuenta de Cloudflare—
     reconstruye el padrón entero probando una lista de correos filtrados de
-    otro sitio. Con 150.000 iteraciones eso deja de ser barato.
+    otro sitio. Con las iteraciones puestas, eso deja de ser barato.
 
-    Se paga una vez por inicio de sesión, no por petición, así que no se nota.
-    Y hay que elegirlo AHORA: cambiar la derivación después equivale a borrar
-    todas las cuentas, porque las huellas guardadas dejan de coincidir. */
+    100.000 y ni una más: es el TECHO DURO de Workers. Con 150.000 el runtime
+    devuelve «Pbkdf2 failed: iteration counts above 100000 are not supported»
+    y toda la operación se cae. No es una elección de equilibrio, es el
+    máximo que la plataforma permite. Para una contraseña sería poco; para
+    frenar la enumeración masiva de correos es lo que hay.
+
+    Se paga una vez por inicio de sesión, no por petición: medido en
+    producción, 2 ms de CPU. Y hay que elegirlo AHORA — cambiar la derivación
+    después equivale a borrar todas las cuentas, porque las huellas guardadas
+    dejan de coincidir con nada. */
+const ITERACIONES = 100000;
+
 async function huellaCorreo(correo, env) {
   const material = await crypto.subtle.importKey(
     'raw', new TextEncoder().encode(correoCanonico(correo)), 'PBKDF2', false, ['deriveBits']
@@ -209,7 +218,7 @@ async function huellaCorreo(correo, env) {
       name: 'PBKDF2',
       hash: 'SHA-256',
       salt: new TextEncoder().encode(env.PIMIENTA),
-      iterations: 150000
+      iterations: ITERACIONES
     },
     material, 256
   );

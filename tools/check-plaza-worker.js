@@ -165,6 +165,24 @@ async function correr() {
   const mod = await import('file://' + path.join(raiz, 'worker-plaza/src/index.js').replace(/\\/g, '/'));
   const worker = mod.default;
 
+  /* ------------------------------- los topes de la plataforma --
+
+     Node no tiene los límites del runtime de Workers, así que hay cosas que
+     pasan aquí y revientan allí. Esta comprobación nació de una: PBKDF2 con
+     150.000 iteraciones funcionaba en estas pruebas y en producción devolvía
+     «iteration counts above 100000 are not supported», tirando `entrar` y
+     `confirmar` enteros — o sea, nadie podía entrar. */
+  {
+    const fuente = fs.readFileSync(path.join(raiz, 'worker-plaza/src/index.js'), 'utf8');
+    const m = fuente.match(/const ITERACIONES\s*=\s*(\d+)/);
+    comprueba('las iteraciones de PBKDF2 están declaradas', !!m);
+    if (m) {
+      comprueba('PBKDF2 no pasa del techo de Workers (100.000)', Number(m[1]) <= 100000,
+        'pide ' + m[1] + ', y el runtime lo rechaza por encima de 100000');
+      comprueba('PBKDF2 no baja de 50.000', Number(m[1]) >= 50000, 'pide ' + m[1]);
+    }
+  }
+
   /* ---------------------------------------------- puerta y origen -- */
   {
     const db = baseNueva();
