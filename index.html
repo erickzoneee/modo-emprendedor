@@ -72,6 +72,10 @@
 <link rel="stylesheet" href="css/screens.css">
 <link rel="stylesheet" href="css/animations.css">
 <link rel="stylesheet" href="css/iconos.css">
+<!-- La Plaza trae su propio lugar y su propia familia de color (--pz-*). Va
+     antes que temas.css a propósito: los toldos de los puestos ajenos no
+     deben poder ganarle al cortafuegos que apaga --neg-* dentro de ellos. -->
+<link rel="stylesheet" href="css/plaza.css">
 <!-- Va el último a propósito: sus reglas tienen la misma especificidad que las
      que sobrescribe, así que quien decide es el orden de la cascada. -->
 <link rel="stylesheet" href="css/temas.css">
@@ -178,6 +182,9 @@
 <!-- Lee del perfil y no escribe en él: escribir subiría venture.rev y
      tiraría la caché de desafíos personalizados. -->
 <script src="js/core/comparte.js"></script>
+<!-- La vitrina de la Plaza. Lee de Venture y del expediente, igual que
+     comparte.js, y como él tampoco escribe en el perfil. -->
+<script src="js/core/plaza.js"></script>
 
 <!-- ============ Pantallas ============ -->
 <script src="js/screens/onboarding.js"></script>
@@ -190,6 +197,7 @@
 <script src="js/screens/venture.js"></script>
 <script src="js/screens/personaliza.js"></script>
 <script src="js/screens/comparte.js"></script>
+<script src="js/screens/plaza.js"></script>
 <script src="js/screens/profile.js"></script>
 <script src="js/screens/league.js"></script>
 <script src="js/screens/shop.js"></script>

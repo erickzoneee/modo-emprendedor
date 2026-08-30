@@ -107,6 +107,13 @@
       // Retos semanales
       weekly: { week: null, progress: {}, claimed: [] },
 
+      // La vitrina de la Plaza: qué aprobó enseñar y qué corrigió a mano.
+      // Todo lo que hay aquí es suyo, por eso puede viajar en el respaldo.
+      // El día que la Plaza tenga vecinos, lo que sea de OTRAS personas no
+      // puede vivir aquí: el respaldo se comparte por WhatsApp.
+      // Lo mantiene js/core/plaza.js.
+      plaza: { v: 1, vitrina: null, editada: {}, aprobadaAt: 0, rev: null },
+
       settings: {
         sound: true, haptics: true, theme: 'light', reduceMotion: false,
         // Lectura en voz alta (js/core/speech.js)
@@ -132,7 +139,16 @@
         // no existen en su guardado— tiene que ver la función al menos una vez
         // antes de poder decidir esconderla. A partir del primer toque manda
         // su elección, y sobrevive a cambiar de pantalla y a cerrar la app.
-        retosAbiertos: true
+        retosAbiertos: true,
+        // ¿Ya vio la promesa de la Plaza? (js/core/plaza-promesa.js)
+        // Es una segunda promesa y no un aviso repetido: la primera dice que
+        // nada sale de aquí hasta que él lo decida, y la Plaza es justo el
+        // momento de decidirlo. Se enseña una sola vez, antes de abrir el
+        // puesto por primera vez. Empieza en false también para quien ya venía
+        // usando la app —merge() da el valor base a las claves que no están en
+        // su guardado— porque es precisamente esa persona la que si no
+        // recibiría la Plaza dentro de una actualización sin una sola palabra.
+        plazaVista: false
       },
 
       // Respaldo: el progreso vive solo en este dispositivo, así que hay que

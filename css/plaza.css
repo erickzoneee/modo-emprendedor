@@ -1,0 +1,366 @@
+/* ==========================================================================
+   PLAZA — el lugar y los puestos
+
+   La sensación que se busca es entrar a un sitio y recorrerlo: un suelo que
+   curva hacia un horizonte cálido, bruma al fondo y los puestos apoyados
+   encima. No hay perspective, ni preserve-3d, ni una sola librería: la
+   profundidad se hace con escala, luz y el mismo canto duro que ya tienen
+   los botones y los nodos de la Ruta. Es la misma física del resto de la app.
+
+   EL PROBLEMA DE LOS COLORES AJENOS
+   En la Plaza conviven varios negocios, y css/temas.css deja que el negocio
+   del usuario sobrescriba una familia entera de tokens (--neg-*). Si un
+   puesto ajeno escribiera data-negocio, cualquier componente .neg-* que
+   cayera dentro se pintaría con el color de otra persona dentro de su app.
+
+   Por eso la Plaza tiene familia propia, --pz-*, que sale del SECTOR (que sí
+   es un dato publicable) y no del tema que esa persona eligió para su app
+   (que es una preferencia suya y no le dice nada a nadie).
+
+   Y el color ajeno tiene un presupuesto: solo pinta el toldo. El cuerpo, el
+   texto, el botón y la luz de los caminos siguen siendo de Emprendo. Así la
+   pantalla nunca deja de ser de la casa.
+   ========================================================================== */
+
+/* ------------------------- El lugar ------------------------- */
+
+/* position: relative es obligatorio: el suelo y la bruma se anclan aquí. Sin
+   esto se anclarían a .viewport, que es el contenedor de scroll, y el
+   horizonte se desplazaría con el contenido en vez de quedarse quieto. */
+.plaza {
+  position: relative;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  --pz-cielo-1: #FFF4E8;
+  --pz-cielo-2: #FFEAD8;
+  --pz-cielo-3: #FDF3EA;
+  --pz-suelo-1: #FFE6CE;
+  --pz-suelo-2: #FFDCC0;
+  --pz-suelo-3: #FBD3B6;
+  --pz-bruma:   #FFF6EC;
+  background: linear-gradient(180deg,
+    var(--pz-cielo-1) 0%, var(--pz-cielo-2) 34%, var(--pz-cielo-3) 62%, var(--bg) 100%);
+}
+
+/* De noche la plaza no cierra: se enciende. Los mismos tres planos, con la
+   calidez en las luces en vez de en el cielo. */
+html[data-theme="dark"] .plaza {
+  --pz-cielo-1: #1B2233;
+  --pz-cielo-2: #161D2C;
+  --pz-cielo-3: #121A28;
+  --pz-suelo-1: #241E24;
+  --pz-suelo-2: #1E1A22;
+  --pz-suelo-3: #171620;
+  --pz-bruma:   #1E2536;
+}
+
+/* El suelo. La elipse es lo que curva el horizonte; el ancho negativo la saca
+   por los lados para que la curva se lea como lejanía y no como una pastilla
+   dibujada en el centro. */
+.plaza__suelo {
+  position: absolute;
+  left: -24%; right: -24%; top: 150px; bottom: -90px;
+  border-radius: 50% 50% 0 0 / 46% 46% 0 0;
+  background:
+    radial-gradient(120% 78% at 50% 0%, rgba(255, 255, 255, .86), transparent 58%),
+    linear-gradient(180deg, var(--pz-suelo-1) 0%, var(--pz-suelo-2) 44%, var(--pz-suelo-3) 100%);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, .72);
+  /* El borde de la elipse, sin esto, es una curva blanca dura cruzando la
+     pantalla: se lee como una línea dibujada, no como un horizonte. La
+     máscara la disuelve en los primeros 70 píxeles, que es donde la bruma
+     tendría que estar haciendo su trabajo y no llega. */
+  -webkit-mask: linear-gradient(180deg, transparent 0, #000 70px);
+  mask: linear-gradient(180deg, transparent 0, #000 70px);
+  pointer-events: none;
+}
+html[data-theme="dark"] .plaza__suelo {
+  background:
+    radial-gradient(120% 78% at 50% 0%, rgba(255, 168, 90, .13), transparent 58%),
+    linear-gradient(180deg, var(--pz-suelo-1) 0%, var(--pz-suelo-2) 44%, var(--pz-suelo-3) 100%);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, .06);
+}
+
+.plaza__bruma {
+  position: absolute;
+  left: 0; right: 0; top: 118px; height: 118px;
+  background: linear-gradient(180deg, var(--pz-bruma) 8%,
+              rgba(255, 246, 236, .55) 52%, transparent 100%);
+  pointer-events: none;
+}
+html[data-theme="dark"] .plaza__bruma {
+  background: linear-gradient(180deg, var(--pz-bruma) 8%,
+              rgba(30, 37, 54, .55) 52%, transparent 100%);
+}
+
+.plaza__sol {
+  position: absolute;
+  left: 50%; top: 56px;
+  transform: translateX(-50%);
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 201, 140, .62), rgba(255, 201, 140, 0) 66%);
+  pointer-events: none;
+}
+
+/* El contenido va por encima de los tres planos y recupera el padding que
+   .plaza le quitó al .screen. */
+.plaza__cont {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s5) var(--s5) calc(var(--s8) + 20px);
+}
+
+/* ------------------------- El puesto ------------------------- */
+
+.pz-hueco { position: relative; display: flex; flex-direction: column; align-items: center; }
+
+.puesto {
+  position: relative;
+  width: 100%;
+  border-radius: var(--r-xl);
+  background: linear-gradient(150deg, var(--card), var(--card-2));
+  border: 2px solid var(--line-2);
+  overflow: hidden;
+  text-align: left;
+  box-shadow: 0 6px 0 var(--pz-canto), 0 22px 34px -20px rgba(16, 32, 58, .30);
+  transition: transform .28s var(--ease-out), box-shadow .28s var(--ease-out);
+}
+.puesto:active {
+  transform: translateY(6px);
+  box-shadow: 0 0 0 var(--pz-canto), 0 10px 20px -16px rgba(16, 32, 58, .30);
+}
+
+/* El toldo. El festón —la fila de semicírculos mordidos del borde inferior—
+   es la misma técnica de máscara que usa .node__ring: sin imágenes y sin SVG,
+   así que hereda el color de la variable y no hay nada que redibujar. */
+.puesto__toldo {
+  position: relative;
+  height: 52px;
+  display: flex;
+  align-items: flex-start;
+  padding: 11px var(--s4) 0;
+  background: linear-gradient(150deg, var(--pz-toldo), var(--pz-toldo-2));
+  -webkit-mask:
+    radial-gradient(9px 11px at 50% 0, transparent 99%, #000 100%) 0 100% / 22px 12px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 11px) no-repeat;
+  mask:
+    radial-gradient(9px 11px at 50% 0, transparent 99%, #000 100%) 0 100% / 22px 12px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 11px) no-repeat;
+}
+/* El mismo brillo especular que llevan .node y .pbar__fill. */
+.puesto__toldo::after {
+  content: '';
+  position: absolute;
+  inset: 5px 14px auto;
+  height: 34%;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .34), transparent);
+  pointer-events: none;
+}
+
+/* Lo único que va en blanco sobre el color ajeno. Los seis valores de abajo
+   son los --neg-acento de css/temas.css, que ya están medidos a >= 4.5:1
+   contra blanco: por eso esta línea se puede leer siempre. El nombre y las
+   frases van en el cuerpo, nunca sobre el toldo, y con eso desaparece de
+   golpe todo el riesgo de contraste de una paleta ajena. */
+.puesto__sector {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: #fff;
+  opacity: .94;
+}
+
+.puesto__cuerpo { padding: 12px var(--s4) var(--s4); }
+.puesto__nombre { font-size: var(--fs-lg); font-weight: 900; letter-spacing: -.2px; color: var(--ink); }
+.puesto__linea  { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-2); line-height: 1.45; margin-top: 3px; }
+
+/* El puesto propio. El anillo naranja es de marca, no del sector: lo que
+   distingue tu puesto es que es tuyo, no de qué es tu negocio. */
+.puesto--tuyo {
+  box-shadow: 0 6px 0 var(--pz-canto), 0 0 0 3px rgba(255, 107, 26, .20),
+              0 22px 34px -20px rgba(16, 32, 58, .30);
+}
+/* Sin este hueco, la etiqueta se sienta encima del rótulo del sector en las
+   pantallas estrechas. */
+.puesto--tuyo .puesto__toldo { padding-right: 96px; }
+
+.puesto__mio {
+  position: absolute;
+  top: 11px; right: 12px;
+  z-index: 3;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, .92);
+  color: var(--brand-dark);
+  padding: 4px 9px;
+  border-radius: var(--r-full);
+}
+
+.pz-aura { border-radius: var(--r-xl); animation: glowPulse 2.6s var(--ease-in-out) infinite; }
+
+/* ------------------------- Los toldos ------------------------- */
+
+/* Lista cerrada y derivada del sector, que ya es un campo publicable. Los hex
+   son los --neg-acento de css/temas.css: no se inventa una paleta nueva y no
+   hace falta volver a medir el contraste.
+
+   Selector de atributo pelado, como en temas.css, para que las variables
+   hereden solo dentro de su puesto y no manchen la pantalla. */
+[data-toldo]              { --pz-toldo: #14807A; --pz-toldo-2: #1FA59C; --pz-canto: #0C635E; }
+[data-toldo="comida"]     { --pz-toldo: #B5451B; --pz-toldo-2: #E0703C; --pz-canto: #8A3312; }
+[data-toldo="hechoamano"] { --pz-toldo: #94651F; --pz-toldo-2: #C08B33; --pz-canto: #6B4915; }
+[data-toldo="servicios"]  { --pz-toldo: #1E7A5A; --pz-toldo-2: #2FA67B; --pz-canto: #145C42; }
+[data-toldo="digital"]    { --pz-toldo: #585CD1; --pz-toldo-2: #7A7DE8; --pz-canto: #383BA5; }
+[data-toldo="reventa"]    { --pz-toldo: #1F6FA8; --pz-toldo-2: #3E9AD4; --pz-canto: #15547F; }
+
+/* El cortafuegos. Si algún día alguien reutiliza un componente .neg-* dentro
+   de un puesto que no es el suyo, se pinta neutro: ni con SU color (sería
+   mentira, no es su negocio) ni con el del otro (sería dejar entrar un estilo
+   ajeno a su app). Vale la pena aunque hoy no haya puestos ajenos: el día que
+   los haya, esta regla ya estará puesta. */
+.puesto:not(.puesto--tuyo) {
+  --neg-acento:        #14807A;
+  --neg-acento-2:      #1FA59C;
+  --neg-acento-dark:   #0C635E;
+  --neg-acento-soft:   #E6F5F3;
+  --neg-acento-fuerte: #0B5C57;
+  --neg-acento-rgb:    31, 165, 156;
+}
+
+/* El interruptor de apariencia apaga TU toldo, igual que apaga el héroe del
+   expediente: significa "la app no se pinta con mi negocio". No apaga los
+   toldos ajenos, porque ahí el color no es adorno sino lo que te deja
+   distinguir un puesto de otro. */
+html[data-personaliza="off"] .puesto--tuyo {
+  --pz-toldo: #14807A; --pz-toldo-2: #1FA59C; --pz-canto: #0C635E;
+}
+
+/* ------------------------- El camino ------------------------- */
+
+/* Existe siempre, apagado. Encenderlo ES la recomendación: no hay un adorno
+   que se ilumine además de la tarjeta, la luz es el mensaje. */
+.camino {
+  position: relative;
+  width: 5px;
+  height: 56px;
+  margin: 0 auto;
+  border-radius: 99px;
+  background: repeating-linear-gradient(180deg,
+    rgba(190, 160, 130, .42) 0 7px, transparent 7px 14px);
+}
+.camino--largo { height: 44px; }
+
+html[data-theme="dark"] .camino {
+  background: repeating-linear-gradient(180deg,
+    rgba(255, 255, 255, .16) 0 7px, transparent 7px 14px);
+}
+
+.camino--on {
+  background: linear-gradient(180deg,
+    rgba(255, 107, 26, .14), rgba(255, 107, 26, .42), rgba(255, 107, 26, .14));
+  box-shadow: 0 0 12px rgba(255, 107, 26, .34);
+}
+
+/* El farol que viaja. Sube cuando eres tú quien puede acercarse y baja cuando
+   alguien ya se acercó a ti: dos direcciones, dos significados. */
+.camino--on::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 0;
+  margin-left: -5px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #FFF0D8, var(--brand));
+  box-shadow: 0 0 12px 3px rgba(255, 107, 26, .55);
+  --pz-viaje: 46px;
+  animation: caminoViaja 2.4s var(--ease-in-out) infinite;
+}
+.camino--baja::after {
+  --pz-viaje: -46px;
+  top: auto; bottom: 0;
+  animation-delay: .6s;
+}
+
+@keyframes caminoViaja {
+  0%   { transform: translateY(0); opacity: 0 }
+  14%  { opacity: 1 }
+  86%  { opacity: 1 }
+  100% { transform: translateY(var(--pz-viaje)); opacity: 0 }
+}
+
+/* Quien pidió menos movimiento sigue viendo que el camino está encendido —eso
+   es información, no adorno—, pero el farol deja de viajar. La regla global de
+   css/tokens.css ya lo congelaría; esta lo esconde del todo para que no quede
+   una bolita parada a medio camino. */
+@media (prefers-reduced-motion: reduce) {
+  .camino--on::after { display: none; }
+  .pz-aura { animation: none; }
+}
+
+/* ------------------------- Revisar la vitrina ------------------------- */
+
+.vit-fila {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  width: 100%;
+  padding: 13px 0;
+  border-bottom: 2px solid var(--line-2);
+  text-align: left;
+  background: none;
+}
+.vit-fila:last-child { border-bottom: 0; }
+.vit-fila__et {
+  display: block;
+  font-size: 10px; font-weight: 900;
+  letter-spacing: .7px; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.vit-fila__val {
+  font-size: var(--fs-md); font-weight: 800;
+  color: var(--ink); line-height: 1.45; margin-top: 2px;
+}
+.vit-fila__val.is-falta { color: var(--ink-3); font-weight: 700; font-style: italic; }
+.vit-fila__lapiz {
+  flex: none;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--line-2);
+  font-size: 13px;
+  transition: transform .12s var(--spring);
+}
+.vit-fila:active .vit-fila__lapiz { transform: scale(.88); }
+
+/* Lo que se queda dentro. Borde discontinuo a propósito: se lee como "esto no
+   está publicado" sin necesidad de escribirlo dos veces. */
+.pz-fuera {
+  background: var(--card);
+  border: 2px dashed var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--s4);
+}
+.pz-fuera__f {
+  display: flex; gap: 9px; align-items: center;
+  padding: 5px 0;
+  font-size: var(--fs-sm); font-weight: 800; color: var(--ink-3);
+}
+.pz-fuera__f > span:first-child { color: var(--green-dark); font-size: 15px; }
+
+/* ------------------------- La promesa de la Plaza -------------------------
+
+   No hay estilos aquí a propósito: la segunda promesa reutiliza el molde de
+   .promesa entero (css/components.css:646). Es la misma escena, el mismo aire
+   y las mismas tres filas, y tiene que serlo — quien ya vio "Tu idea es tuya"
+   debe reconocer al instante que esto es lo mismo, un escalón más arriba.
+   Lo único que no se hereda es el escudo, que se inyecta en promesa.js y
+   allí se queda.                                                            */
