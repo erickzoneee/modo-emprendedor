@@ -348,31 +348,60 @@
 
     var cont = el('div', { class: 'plaza__cont' });
 
-    cont.appendChild(el('div', { class: 'col', style: { alignItems: 'center', gap: '4px', textAlign: 'center' } }, [
-      el('h1', { class: 'h2', text: 'Todavía no hay nadie más aquí.' }),
-      el('div', { class: 'small', style: { maxWidth: '250px' },
-        text: 'No te voy a inventar vecinos falsos.' })
-    ]));
+    /* Las recomendaciones, si las hay. Se calculan aquí y no antes porque
+       dependen de la vitrina aprobada, que puede haber cambiado. */
+    var recs = [];
+    if (v && w.PlazaMotor) {
+      try {
+        recs = w.PlazaMotor.recomendar(v, P2.vecinos(), { max: 3, excluir: P2.enviados() });
+      } catch (e) { recs = []; }
+    }
+    var hayGente = P2.hayVecinos();
 
-    cont.appendChild(el('div', { class: 'grow' }));
+    cont.appendChild(cabecera(recs, hayGente));
 
-    /* El camino que sale de la plaza. Apagado, porque no lleva a nadie
-       todavía: lo único que hace es llevar tu puesto a donde ya estás. */
-    cont.appendChild(el('div', { class: 'camino camino--largo', style: { marginBottom: '-2px' } }));
+    if (recs.length) {
+      recs.forEach(function (r, i) {
+        if (i > 0) cont.appendChild(el('div', { class: 'camino camino--on' }));
+        cont.appendChild(tarjeta(r, v));
+      });
+      /* El camino que baja hasta tu puesto: la luz viene hacia ti. */
+      cont.appendChild(el('div', { class: 'camino camino--on camino--baja' }));
+    } else {
+      cont.appendChild(el('div', { class: 'grow' }));
+      /* El camino que sale de la plaza. Apagado, porque no lleva a nadie
+         todavía: lo único que hace es llevar tu puesto a donde ya estás. */
+      cont.appendChild(el('div', { class: 'camino camino--largo', style: { marginBottom: '-2px' } }));
+      cont.appendChild(el('div', {
+        class: 'mascot mascot--md',
+        style: { margin: '0 auto -14px', position: 'relative', zIndex: '3' },
+        html: w.Mascot.svg('neutral', { etiqueta: 'Chispa en tu puesto' })
+      }));
+    }
 
-    cont.appendChild(el('div', {
-      class: 'mascot mascot--md',
-      style: { margin: '0 auto -14px', position: 'relative', zIndex: '3' },
-      html: w.Mascot.svg('neutral', { etiqueta: 'Chispa en tu puesto' })
-    }));
+    if (v) cont.appendChild(puesto(v, { mio: true, aura: !recs.length }));
 
-    if (v) cont.appendChild(puesto(v, { mio: true, aura: true }));
+    /* Los que ya saludó. Van en su propia sección, debajo de tu puesto, y no
+       mezclados con las recomendaciones: los huecos de arriba son para gente
+       nueva. Pero tienen que estar en algún sitio — al excluirlos sin más, la
+       tarjeta desaparecía al enviar y no quedaba ni rastro de lo que hizo. */
+    var esperando = enEspera();
+    if (esperando.length) {
+      cont.appendChild(el('h2', { class: 'sep', style: { marginTop: '6px' },
+        text: UI.count(esperando.length, 'saludo enviado', 'saludos enviados') }));
+      esperando.forEach(function (e) { cont.appendChild(tarjeta(e, v)); });
+      cont.appendChild(el('div', { class: 'tiny t-center',
+        style: { textTransform: 'none', letterSpacing: '0' },
+        text: 'Esto tarda. Nunca es por tu idea.' }));
+    }
 
     /* .tiny va en mayúsculas por defecto y aquí no debe: es una frase que
        acompaña, no un rótulo. Mismo apaño que usan las demás pantallas. */
-    cont.appendChild(el('div', { class: 'tiny t-center',
-      style: { marginTop: '2px', textTransform: 'none', letterSpacing: '0' },
-      text: 'Cuando alguien llegue, lo verás aquí.' }));
+    if (!hayGente) {
+      cont.appendChild(el('div', { class: 'tiny t-center',
+        style: { marginTop: '2px', textTransform: 'none', letterSpacing: '0' },
+        text: 'Cuando alguien llegue, lo verás aquí.' }));
+    }
 
     /* Lo que se enseña no está al día: o avanzó en la app, o corrigió una
        línea y no la volvió a aprobar. La copy vale para los dos casos a
@@ -388,15 +417,216 @@
       ]));
     }
 
-    cont.appendChild(UI.btn('Invitar a alguien que conoces', {
-      variant: 'brand', size: 'sm', onClick: invitar
-    }));
+    if (!hayGente) {
+      cont.appendChild(UI.btn('Invitar a alguien que conoces', {
+        variant: 'brand', size: 'sm', onClick: invitar
+      }));
+    }
     cont.appendChild(UI.btn('Revisar mi vitrina', {
       variant: 'flat', onClick: function () { UI.Router.go('plaza-vitrina'); }
     }));
 
     root.appendChild(cont);
     return root;
+  }
+
+  /** Los emprendimientos a los que ya les dijo que ve valor, con la forma que
+      espera tarjeta(). Se buscan entre los vecinos de ahora: si alguno cerró
+      su puesto, simplemente deja de aparecer, que es lo correcto. */
+  function enEspera() {
+    var P2 = P();
+    var enviados = P2.enviados();
+    var out = [];
+    P2.vecinos().forEach(function (v) {
+      if (!enviados[v.id]) return;
+      out.push({ vitrina: v, motivo: null, porque: '', icono: '🕯️' });
+    });
+    return out;
+  }
+
+  /* ------------------------- La cabecera -------------------------
+
+     Cuatro estados, y cada uno dice la verdad de su momento. El tercero —hay
+     gente pero hoy no encontré razón— es el que le da carácter a todo lo
+     demás: si la Plaza es capaz de decir "hoy no", el día que diga "mira
+     este" se le puede creer. */
+
+  function cabecera(recs, hayGente) {
+    if (!hayGente) {
+      return el('div', { class: 'col', style: { alignItems: 'center', gap: '4px', textAlign: 'center' } }, [
+        el('h1', { class: 'h2', text: 'Todavía no hay nadie más aquí.' }),
+        el('div', { class: 'small', style: { maxWidth: '250px' },
+          text: 'No te voy a inventar vecinos falsos.' })
+      ]);
+    }
+
+    if (!recs.length) {
+      var todosSaludados = P().vecinos().length > 0 &&
+        P().vecinos().every(function (x) { return P().yaEnviado(x.id); });
+      return UI.chispaDice('explicando', todosSaludados
+        ? 'Ya saludaste a todos los que hay. Cuando llegue alguien nuevo, lo verás.'
+        : 'Hoy no encontré una razón de verdad. Prefiero no inventarte una.');
+    }
+
+    return UI.chispaDice('sugiriendo', recs.length === 1
+      ? 'Encontré una razón. No es al azar.'
+      : 'Encontré ' + UI.num(recs.length) + ' razones. Ninguna es al azar.');
+  }
+
+  /* ------------------------- La tarjeta -------------------------
+
+     Cinco cosas y ni una más: toldo, nombre, qué hace, por qué te lo enseño
+     y un botón. El porqué va DENTRO de la tarjeta y no debajo, porque es
+     parte de la recomendación, no un pie de página. */
+
+  function tarjeta(rec, mia) {
+    var P2 = P();
+    var v = rec.vitrina;
+    var enviado = P2.enviados()[v.id];
+
+    var cuerpo = [
+      el('div', { class: 'puesto__nombre', text: P2.titulo(v) || 'Un emprendimiento' })
+    ];
+    var linea = P2.resumen(v);
+    if (linea) cuerpo.push(el('div', { class: 'puesto__linea', text: linea }));
+
+    /* En la lista de espera no hay porqué que enseñar: el motivo ya cumplió
+       su función el día que lo saludó, y repetirlo ahí abajo compite con las
+       recomendaciones de arriba, que son las que sí piden una decisión. */
+    if (rec.porque) {
+      cuerpo.push(el('div', { class: 'puesto__porque' }, [
+        el('span', { class: 'puesto__porque__ico', text: rec.icono }),
+        el('span', { text: rec.porque })
+      ]));
+    }
+
+    var pie;
+    if (enviado) {
+      /* Ya dijo que ve valor. No hay chat: hasta que el otro acepte, esto es
+         una espera, y así se llama. Se puede deshacer, y hoy deshacerlo es
+         gratis porque todavía no salió de aquí. */
+      var it = w.PlazaMotor.intencion(enviado.intencion);
+      pie = el('button', { class: 'puesto__espera', type: 'button',
+        onclick: function () { deshacerValor(rec.vitrina); } }, [
+        el('span', { text: '🕯️' }),
+        el('span', { class: 'grow', style: { minWidth: '0', textAlign: 'left' } }, [
+          el('span', { style: { display: 'block', fontWeight: '900' }, text: 'Le dijiste que ves valor' }),
+          el('span', { style: { display: 'block', opacity: '.8' },
+            text: it ? it.label : 'Esperando respuesta' })
+        ]),
+        el('span', { style: { flex: 'none', color: 'var(--ink-3)' }, text: '›' })
+      ]);
+    } else {
+      pie = UI.btn('Veo valor', {
+        variant: 'brand', size: 'sm',
+        onClick: function () { elegirIntencion(rec, mia); }
+      });
+    }
+
+    var caja = el('article', {
+      class: 'puesto' + (enviado ? ' puesto--enviado' : ''),
+      data: { toldo: v.sector || 'otro' }
+    }, [
+      el('header', { class: 'puesto__toldo' }, [
+        el('span', { class: 'puesto__sector', text: P2.rotulo(v) })
+      ]),
+      el('div', { class: 'puesto__cuerpo' }, cuerpo),
+      el('div', { class: 'puesto__pie' }, [pie])
+    ]);
+
+    return el('div', { class: 'pz-hueco' }, [caja]);
+  }
+
+  function deshacerValor(v) {
+    UI.confirm({
+      title: '¿Lo retiro?',
+      text: 'Dejo de decirle que ves valor en lo suyo. Puedes volver a hacerlo cuando quieras.',
+      ok: 'Sí, retíralo', cancel: 'Déjalo así', mood: 'think'
+    }).then(function (si) {
+      if (!si) return;
+      P().retirarValor(v.id);
+      UI.toast('Retirado', 'blue', '🕯️');
+      UI.Router.refresh();
+    });
+  }
+
+  /* ------------------------- "Veo valor" -------------------------
+
+     Dos pasos y no uno. Primero para qué —eso es lo que el otro va a leer
+     antes de decidir si quiere hablar— y después el mensaje. Juntarlos en una
+     sola pantalla convertía la decisión en un formulario. */
+
+  function elegirIntencion(rec, mia) {
+    var lista = el('div', { class: 'col', style: { gap: '8px' } });
+
+    w.PlazaMotor.INTENCIONES.forEach(function (it) {
+      lista.appendChild(el('button', {
+        class: 'card card--tight pz-intencion', type: 'button',
+        onclick: function () {
+          w.Sound.tap();
+          UI.closeSheet();
+          redactar(rec, mia, it);
+        }
+      }, [
+        el('span', { class: 'pz-intencion__ico', text: it.icon }),
+        el('span', { class: 'grow', style: { minWidth: '0', fontWeight: '900' }, text: it.label }),
+        el('span', { style: { flex: 'none', color: 'var(--ink-3)' }, text: '›' })
+      ]));
+    });
+
+    UI.sheet([
+      el('h2', { class: 'h3', text: 'Ves valor en ' + (P().titulo(rec.vitrina) || 'esto') }),
+      el('div', { class: 'small', text: 'Dime qué te gustaría hacer. Lo va a leer antes de decidir si quiere hablar.' }),
+      lista,
+      UI.btn('Mejor no', { variant: 'flat', onClick: UI.closeSheet })
+    ]);
+  }
+
+  function redactar(rec, mia, it) {
+    var borrador = w.PlazaMotor.primerMensaje(it.id, rec.motivo, mia);
+
+    /* Siete filas y no cinco: el borrador son tres frases, y a cinco filas
+       aparecía una barra de desplazamiento dentro del cuadro. Lo que va a
+       mandar con su nombre tiene que poder leerlo entero de un vistazo. */
+    var input = el('textarea', { class: 'textarea', rows: '7', maxlength: '600' });
+    input.value = borrador;
+
+    var aviso = el('div', { class: 'tiny',
+      style: { color: 'var(--red)', display: 'none', textTransform: 'none', letterSpacing: '0' },
+      text: 'Todavía no compartas tu contacto. Eso se hace cuando los dos quieran hablar.' });
+
+    UI.sheet([
+      el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+        el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg('explicando') }),
+        el('div', { class: 'speech' }, [
+          el('div', { class: 'small', text: 'Te lo escribí yo. Cámbialo hasta que suene a ti.' })
+        ])
+      ]),
+      el('div', { class: 'row', style: { gap: '8px' } }, [
+        el('span', { class: 'chip chip--brand', text: it.icon + ' ' + it.label })
+      ]),
+      input,
+      aviso,
+      UI.btn('Enviar', { variant: 'brand', size: 'lg', onClick: function () {
+        var texto = (input.value || '').trim();
+        if (!texto) { UI.toast('Escribe algo primero', 'red', '✍️'); return; }
+        if (P().tieneContacto(texto)) {
+          aviso.style.display = '';
+          w.Sound.wrong();
+          UI.toast('Todavía no pongas tu contacto', 'red', '🔒');
+          return;
+        }
+        P().veoValor(rec.vitrina.id, it.id, texto);
+        UI.closeSheet();
+        w.Sound.coin();
+        w.FX.celebrate();
+        /* Nada de "ya lo sabe": no hay avisos, así que lo sabrá cuando abra
+           la app, y eso puede tardar días. */
+        UI.toast('Listo. Lo verá cuando abra la app', 'gold', '🕯️');
+        UI.Router.refresh();
+      } }),
+      UI.btn('Ahora no', { variant: 'flat', onClick: UI.closeSheet })
+    ]);
   }
 
   /* La única conexión real que la app puede producir hoy: pasarle el enlace a

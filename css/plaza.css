@@ -207,6 +207,58 @@ html[data-theme="dark"] .plaza__bruma {
 
 .pz-aura { border-radius: var(--r-xl); animation: glowPulse 2.6s var(--ease-in-out) infinite; }
 
+/* --- El porqué ---
+
+   Va DENTRO de la tarjeta y no debajo: es parte de la recomendación, no un
+   pie de página. En naranja de marca y no en el color del toldo, porque
+   quien lo dice es Emprendo, no el negocio de enfrente. */
+.puesto__porque {
+  margin-top: 11px;
+  padding: 9px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  background: var(--brand-soft);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  line-height: 1.4;
+  color: var(--brand-dark);
+}
+/* 15px dejaba el icono dibujado en una mancha de color ilegible: los del
+   alfabeto visual escalan con el tamaño de letra. */
+.puesto__porque__ico { flex: none; font-size: 19px; line-height: 1; margin-top: -1px; }
+
+.puesto__pie { padding: 0 var(--s4) var(--s4); }
+
+/* Ya le dijo que ve valor. Deja de ser una tarjeta con la que actuar y pasa a
+   ser una espera, así que baja de intensidad en vez de desaparecer: quitarla
+   haría parecer que no pasó nada. */
+.puesto--enviado { opacity: .82; }
+.puesto__espera {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--line-2);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  transition: transform .12s var(--spring);
+}
+.puesto__espera:active { transform: scale(.97); }
+
+/* --- Las intenciones --- */
+.pz-intencion {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  text-align: left;
+  width: 100%;
+}
+.pz-intencion__ico { flex: none; font-size: 22px; }
+
 /* ------------------------- Los toldos ------------------------- */
 
 /* Lista cerrada y derivada del sector, que ya es un campo publicable. Los hex

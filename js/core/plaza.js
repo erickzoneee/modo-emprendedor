@@ -420,15 +420,103 @@
   }
 
   /* ==================================================================
-     ¿HAY PLAZA?
+     LOS VECINOS
 
-     Hoy no. No hay servidor donde vivan las vitrinas, así que el puesto
-     existe pero todavía no lo ve nadie, y la app tiene que decirlo así en
-     todas partes. El día que lo haya, esto pasa a preguntar por la nube y
-     ninguna pantalla se entera.
+     Hoy no hay. No existe el sitio donde vivan las vitrinas de otras
+     personas, así que esto devuelve una lista vacía, la Plaza se pinta
+     vacía y lo dice con todas las letras.
+
+     El día que haya servidor, `vecinos()` pregunta a la nube y ninguna
+     pantalla se entera del cambio. Por eso existe esta función hoy, con esta
+     forma: para que el sitio por donde entrarán los vecinos esté decidido y
+     no haya que rehacer la pantalla.
+
+     `inyectar()` es la única puerta para meter vitrinas a mano, y solo la
+     usa lab/plaza.html. La app nunca la llama: si lo hiciera, la Plaza
+     tendría vecinos falsos.
      ================================================================== */
 
-  function hayVecinos() { return false; }
+  var inyectadas = null;
+
+  function vecinos() {
+    if (inyectadas) return inyectadas;
+    return [];
+  }
+
+  function hayVecinos() { return vecinos().length > 0; }
+
+  function inyectar(lista) {
+    inyectadas = (lista && lista.length) ? lista : null;
+  }
+
+  /* ==================================================================
+     LO QUE NO ES SUYO
+
+     A quién le dijo "veo valor" y qué le escribió. Vive en su propia clave
+     de localStorage y NO en Store, porque Store.exportJSON() vuelca el
+     estado entero y ese archivo el usuario lo manda por WhatsApp. Su
+     vitrina sí va en el respaldo —es suya—; los identificadores y los
+     mensajes hacia otras personas, no.
+
+     Se lee y se escribe con tolerancia a fallos, igual que Store: en modo
+     privado o desde file:// el almacenamiento puede lanzar, y perder esto no
+     puede tumbar la pantalla.
+     ================================================================== */
+
+  var CLAVE_LOCAL = (w.BRAND && w.BRAND.claves && w.BRAND.claves.plaza) || 'modo-emprendedor:plaza';
+  var localCache = null;
+
+  function localVacio() { return { v: 1, enviados: {} }; }
+
+  function local() {
+    if (localCache) return localCache;
+    try {
+      var crudo = w.localStorage.getItem(CLAVE_LOCAL);
+      var p = crudo ? JSON.parse(crudo) : null;
+      localCache = (p && typeof p === 'object' && !Array.isArray(p) && p.enviados) ? p : localVacio();
+    } catch (e) {
+      localCache = localVacio();
+    }
+    return localCache;
+  }
+
+  function guardarLocal() {
+    try { w.localStorage.setItem(CLAVE_LOCAL, JSON.stringify(local())); } catch (e) { /* sin sitio */ }
+  }
+
+  /** A quién ya le dijo que ve valor: { idVitrina: { intencion, at } }. */
+  function enviados() { return local().enviados; }
+
+  function yaEnviado(id) { return !!local().enviados[id]; }
+
+  /**
+   * Guarda que vio valor en un emprendimiento, con qué intención y qué le
+   * escribió. Hoy solo se guarda aquí: no hay a dónde mandarlo todavía, y la
+   * pantalla lo dice así.
+   */
+  function veoValor(id, intencion, mensaje) {
+    if (!id || !intencion) return false;
+    var l = local();
+    l.enviados[id] = { intencion: intencion, mensaje: String(mensaje || ''), at: Date.now() };
+    guardarLocal();
+    return true;
+  }
+
+  /** Deshacer. Mientras no haya servidor, retirarlo es gratis y sin rastro. */
+  function retirarValor(id) {
+    var l = local();
+    if (!l.enviados[id]) return false;
+    delete l.enviados[id];
+    guardarLocal();
+    return true;
+  }
+
+  /** Borra todo lo de la Plaza que no es suyo. Lo llamará el borrado de
+      cuenta del tramo del servidor; hoy lo usa lab/plaza.html para reiniciar. */
+  function olvidarTodo() {
+    localCache = localVacio();
+    try { w.localStorage.removeItem(CLAVE_LOCAL); } catch (e) { /* da igual */ }
+  }
 
   /* ==================================================================
      LA LÍNEA DE UNA SOLA FRASE
@@ -464,10 +552,18 @@
     abierta: abierta,
     hayNovedad: hayNovedad,
     hayVecinos: hayVecinos,
+    vecinos: vecinos,
+    enviados: enviados,
+    yaEnviado: yaEnviado,
     // escritura
     aprobar: aprobar,
     editar: editar,
     retirar: retirar,
+    veoValor: veoValor,
+    retirarValor: retirarValor,
+    olvidarTodo: olvidarTodo,
+    // solo para lab/plaza.html: la app nunca mete vecinos a mano
+    __inyectar: inyectar,
     // presentación
     titulo: titulo,
     resumen: resumen,

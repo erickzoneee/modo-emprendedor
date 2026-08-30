@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plaza · vista previa</title>
+
+<!--
+  VISTA PREVIA DE LA PLAZA
+
+  Esto NO es la app. Es la pantalla de verdad —el mismo js/screens/plaza.js,
+  el mismo css/plaza.css, el mismo motor— con nueve vecinos inventados
+  metidos a mano por Plaza.__inyectar().
+
+  Existe porque la Plaza de la app está vacía y lo va a seguir estando hasta
+  que haya servidor, y no se puede decidir por sensación mirando una pantalla
+  vacía. Aquí se ve cómo queda cuando llegue gente.
+
+  Los vecinos viven en lab/plaza-ejemplos.js y no en js/data/ a propósito: la
+  app no los carga nunca. Si algún día alguien los mueve, la Plaza tendría
+  vecinos falsos, y esa es la línea que este proyecto no cruza.
+-->
+
+<link rel="stylesheet" href="../css/fonts.css">
+<link rel="stylesheet" href="../css/tokens.css">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/components.css">
+<link rel="stylesheet" href="../css/screens.css">
+<link rel="stylesheet" href="../css/animations.css">
+<link rel="stylesheet" href="../css/iconos.css">
+<link rel="stylesheet" href="../css/plaza.css">
+<link rel="stylesheet" href="../css/temas.css">
+
+<style>
+  body { background: var(--bg-2); padding: 26px 16px 60px; }
+
+  .lab-cab { max-width: 760px; margin: 0 auto 22px; text-align: center; }
+  .lab-cab h1 { font-size: var(--fs-2xl); font-weight: 900; letter-spacing: -.5px; margin-bottom: 8px; }
+  .lab-cab p { color: var(--ink-2); font-size: var(--fs-md); font-weight: 700; line-height: 1.55; }
+  .lab-aviso {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-bottom: 14px; padding: 7px 15px;
+    background: var(--gold-soft); color: var(--gold-dark);
+    border-radius: var(--r-full);
+    font-size: var(--fs-sm); font-weight: 900;
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+
+  .lab-mandos {
+    max-width: 760px; margin: 0 auto 22px;
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+  }
+  .lab-mandos .btn { flex: none; }
+
+  .lab-marco { display: flex; justify-content: center; }
+  /* El transform convierte al teléfono en el ancla de las capas
+     `position: fixed` que lleva dentro: sin él, las hojas y los avisos se
+     pintan sobre la página entera. */
+  .phone { width: 380px; height: 760px; box-shadow: var(--sh-pop); transform: translateZ(0); }
+  .phone .toast-layer { width: min(340px, calc(100% - 24px)); }
+
+  .lab-pie {
+    max-width: 760px; margin: 26px auto 0;
+    font-size: var(--fs-sm); color: var(--ink-3); font-weight: 700;
+    text-align: center; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="lab-cab">
+  <span class="lab-aviso">⚗️ Vista previa · vecinos inventados</span>
+  <h1>La Plaza, cuando haya gente</h1>
+  <p>Esta es la pantalla real de la app con nueve emprendimientos de mentira dentro.
+     Sirve para decidir cómo se siente antes de que exista el servidor.</p>
+</div>
+
+<div class="lab-mandos" id="mandos"></div>
+
+<div class="lab-marco">
+  <div class="phone" id="phone">
+    <header class="topbar" id="topbar"></header>
+    <main class="viewport" id="view"></main>
+    <nav class="tabbar" id="tabbar" hidden></nav>
+
+    <!-- Las capas globales van DENTRO del marco, al revés que en index.html.
+         En la app el teléfono ocupa la pantalla entera, así que da igual;
+         aquí, si se quedan fuera, las hojas y los avisos aparecen flotando
+         sobre la página en vez de sobre el teléfono, y no se puede juzgar
+         cómo se siente. .phone lleva un `transform` en el CSS de arriba para
+         que las capas `position: fixed` se anclen a él. -->
+    <canvas id="fx-canvas" class="fx-canvas" aria-hidden="true"></canvas>
+    <div id="toast-layer" class="toast-layer" aria-live="polite"></div>
+    <div id="modal-layer" class="modal-layer" hidden></div>
+    <div id="sheet-layer" class="sheet-layer" hidden></div>
+  </div>
+</div>
+
+<div class="lab-pie">
+  Los nueve negocios viven en <code>lab/plaza-ejemplos.js</code>. La app no los carga nunca.
+</div>
+
+<!-- La app de verdad, en el mismo orden que index.html -->
+<script src="../js/data/brand.js"></script>
+<script src="../js/core/mascot.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/audio.js"></script>
+<script src="../js/core/fx.js"></script>
+<script src="../js/core/ui.js"></script>
+<script src="../js/data/iconos.js"></script>
+<script src="../js/core/iconos.js"></script>
+<script src="../js/core/plaza.js"></script>
+<script src="../js/core/plaza-motor.js"></script>
+<script src="../js/screens/plaza.js"></script>
+
+<!-- Los vecinos de mentira -->
+<script src="plaza-ejemplos.js"></script>
+
+<script>
+(function (w, d) {
+  'use strict';
+  var UI = w.UI, el = UI.el;
+  var E = w.PLAZA_EJEMPLOS;
+
+  /* La vista previa no debe pisarle el progreso a nadie que abra esto en el
+     mismo navegador donde usa la app. Store guarda bajo su propia clave, así
+     que aquí se trabaja solo en memoria: se carga el estado por defecto y
+     se le apaga el guardado. */
+  w.Store.init();
+  w.Store.save = function () { /* la vista previa no persiste nada */ };
+
+  /* Un puesto ya aprobado, para no tener que pasar por la vitrina. */
+  w.Store.state.plaza = {
+    v: 1, vitrina: E.yo, editada: {}, aprobadaAt: Date.now(), rev: 1
+  };
+
+  w.FX.init();
+
+  function pintar() {
+    UI.Router.go('plaza', {}, 'none');
+  }
+
+  function mando(texto, variante, fn) {
+    return UI.btn(texto, { variant: variante, block: false, size: 'sm', onClick: fn });
+  }
+
+  var mandos = d.getElementById('mandos');
+
+  mandos.appendChild(mando('Con vecinos', 'brand', function () {
+    w.Plaza.__inyectar(JSON.parse(JSON.stringify(E.lista)));
+    pintar();
+  }));
+
+  mandos.appendChild(mando('Plaza vacía', 'ghost', function () {
+    w.Plaza.__inyectar(null);
+    pintar();
+  }));
+
+  mandos.appendChild(mando('Sin ninguna razón', 'ghost', function () {
+    /* Un solo vecino que no encaja con nada: es el estado que hace creíbles a
+       todos los demás. Si la Plaza sabe decir "hoy no", el día que diga
+       "mira este" se le puede creer. */
+    w.Plaza.__inyectar([{
+      id: 'ej-lejano', negocio: 'Herrería Industrial',
+      producto: 'estructuras metálicas para naves industriales',
+      idea: 'estructuras metálicas a medida',
+      cliente: 'constructoras y plantas industriales',
+      problema: 'Las estructuras estándar no sirven para una nave grande',
+      valor: 'Aguantan más y se instalan en menos días',
+      sector: 'otro', etapa: 'growing'
+    }]);
+    pintar();
+  }));
+
+  mandos.appendChild(mando('Cambiar mi etapa', 'ghost', function () {
+    var etapas = ['idea', 'starting', 'operating', 'growing'];
+    var v = w.Store.state.plaza.vitrina;
+    var i = etapas.indexOf(v.etapa);
+    v.etapa = etapas[(i + 1) % etapas.length];
+    delete v.__f;                       // la firma se recalcula con la etapa nueva
+    UI.toast('Ahora estás en: ' + w.Plaza.etapaCorta(v), 'blue', '🧭');
+    pintar();
+  }));
+
+  mandos.appendChild(mando('Olvidar lo que envié', 'flat', function () {
+    w.Plaza.olvidarTodo();
+    UI.toast('Borrado', 'green', '🗑️');
+    pintar();
+  }));
+
+  w.Plaza.__inyectar(JSON.parse(JSON.stringify(E.lista)));
+  pintar();
+})(window, document);
+</script>
+</body>
+</html>

@@ -65,7 +65,17 @@
   var CLAVES = {
     estado: 'modo-emprendedor:v1',
     ia: 'modo-emprendedor:ai',
-    worker: 'modo-emprendedor:worker'
+    worker: 'modo-emprendedor:worker',
+    /* Lo de la Plaza que NO es suyo: a quién le dijo "veo valor", qué
+       vitrinas ajenas ha visto, qué conversaciones tiene abiertas.
+
+       Vive fuera del estado a propósito, y es importante. `Store.exportJSON()`
+       vuelca el estado entero, y ese archivo el usuario lo manda por WhatsApp
+       para no perder su progreso. Con estos datos dentro, cada respaldo
+       llevaría los identificadores y los mensajes de otras personas metidos
+       en un archivo que viaja por ahí. Lo suyo —su vitrina— sí va en el
+       respaldo, porque es suyo. Esto no. */
+    plaza: 'modo-emprendedor:plaza'
   };
 
   /* Prefijo de las cachés de la PWA. El service worker borra las que empiezan
