@@ -51,28 +51,18 @@
     /* ---------------- Personalizar ---------------- */
     root.appendChild(personalizarCard());
 
-    /* ---------------- Lo que falta ---------------- */
-    if (comp.esenciales.length) {
-      var pend = el('div', { class: 'card', style: { background: 'var(--gold-soft)', borderColor: 'var(--gold)', textAlign: 'left' } }, [
-        el('div', { class: 'small', style: { fontWeight: '900', color: 'var(--gold-dark)' },
-          text: '⚠️ Te falta información por completar' }),
-        el('div', { class: 'tiny', style: { marginTop: '6px', textTransform: 'none', letterSpacing: '0' },
-          text: 'Cada dato que falta hace que los desafíos y las recomendaciones sean menos precisos.' })
-      ]);
-      var lista = el('div', { class: 'col', style: { gap: '8px', marginTop: '12px' } });
-      comp.esenciales.forEach(function (f) {
-        lista.appendChild(UI.btn(f.label, {
-          variant: 'ghost', size: 'sm',
-          onClick: function () { editField(f.key); }
-        }));
-      });
-      pend.appendChild(lista);
-      root.appendChild(pend);
-    }
+    /* ---------------- Lo que Chispa todavía no sabe ----------------
+
+       Antes esto era un aviso en amarillo con una lista de campos vacíos. Un
+       perfil incompleto no es un error del usuario: es una conversación que
+       aún no ha pasado. Ahora son las preguntas pendientes, cada una con la
+       forma más cómoda de contestarla, y ninguna obliga. */
+    root.appendChild(chispaQuiereCard());
 
     /* ---------------- Datos de la idea ---------------- */
-    root.appendChild(el('h2', { class: 'sep', text: 'Los datos de tu idea' }));
+    root.appendChild(el('h2', { class: 'sep', text: 'Lo que sé de tu negocio' }));
     root.appendChild(datosCard(v));
+    root.appendChild(privacidadCard());
 
     /* ---------------- Plan generado ---------------- */
     root.appendChild(el('h2', { class: 'sep', text: 'Tu plan de negocio' }));
@@ -159,6 +149,94 @@
     ]);
   }
 
+  /* ==================================================================
+     LO QUE CHISPA TODAVÍA NO SABE
+
+     Nunca más de tres a la vez, y siempre en orden de utilidad: primero lo
+     que hace falta para que la ruta apriete, después lo que la afina.
+     ================================================================== */
+
+  function chispaQuiereCard() {
+    var pend = (w.Captura ? w.Captura.pendientes(3) : []);
+    var t = V().terms();
+
+    if (!pend.length) {
+      return el('div', { class: 'card', style: { textAlign: 'left', background: 'var(--green-soft)', borderColor: 'var(--green)' } }, [
+        el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+          el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg('happy') }),
+          el('div', { class: 'grow' }, [
+            el('div', { class: 'small', style: { fontWeight: '900', color: 'var(--green-dark)' },
+              text: 'Ya me contaste todo lo que necesitaba' }),
+            el('div', { class: 'tiny', style: { marginTop: '6px', textTransform: 'none', letterSpacing: '0' },
+              text: 'Si algo cambia en ' + t.negocio + ', tócalo abajo y lo actualizo.' })
+          ])
+        ])
+      ]);
+    }
+
+    var card = el('div', { class: 'card card--accent', style: { textAlign: 'left' } }, [
+      el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+        el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg('think') }),
+        el('div', { class: 'grow' }, [
+          el('div', { class: 'small', style: { fontWeight: '900', color: 'var(--brand-dark)' },
+            text: 'Me gustaría conocerte un poco mejor' }),
+          el('div', { class: 'tiny', style: { marginTop: '6px', textTransform: 'none', letterSpacing: '0' },
+            text: 'Cuando quieras y sin prisa. Se contestan hablando o de un toque.' })
+        ])
+      ])
+    ]);
+
+    var lista = el('div', { class: 'col', style: { gap: '8px', marginTop: '14px' } });
+    pend.forEach(function (p) {
+      lista.appendChild(el('button', {
+        class: 'opt', type: 'button', style: { alignItems: 'flex-start' },
+        onclick: function () { w.Sound.tap(); abrirPregunta(p.id); }
+      }, [
+        el('span', { class: 'opt__emoji', text: p.ico || '❓' }),
+        el('span', { class: 'opt__body' }, [
+          el('span', { text: p.q }),
+          p.para ? el('span', { class: 'opt__hint', text: p.para }) : null
+        ])
+      ]));
+    });
+    card.appendChild(lista);
+    return card;
+  }
+
+  /* Abre una pregunta del catálogo en su modo, con la opción de que Chispa
+     olvide lo que ya sabía. Es el único camino por el que se corrige el perfil
+     desde esta pantalla: así corregir se contesta igual que se contestó. */
+  function abrirPregunta(id) {
+    if (!w.Captura || !w.Captura.preg(id)) return false;
+    w.Captura.hoja(id, {
+      conOlvidar: true,
+      onListo: function () {
+        UI.Router.refresh();
+        // Si el negocio ahora parece otro, se PREGUNTA. Nunca se le cambia la
+        // apariencia por debajo a alguien que solo corrigió una errata.
+        if (id === 'idea' || id === 'oferta' || id === 'cliente') revisarApariencia();
+      },
+      onSaltar: function () { UI.Router.refresh(); },
+      onOlvidado: function () { UI.Router.refresh(); }
+    });
+    return true;
+  }
+
+  /* La tranquilidad, en dos frases y en voz de Chispa. Va aquí y no en un
+     aviso legal: quien acaba de dictarle su idea a una app merece saber a
+     dónde va antes de tener que ir a buscarlo. */
+  function privacidadCard() {
+    return el('div', { class: 'card card--tight', style: { textAlign: 'left', background: 'var(--blue-soft)', borderColor: 'var(--blue)' } }, [
+      el('div', { class: 'small', style: { fontWeight: '900', color: 'var(--blue-dark)' },
+        text: '🔒 Esto no sale de aquí' }),
+      el('div', { class: 'tiny', style: { marginTop: '6px', textTransform: 'none', letterSpacing: '0' },
+        text: 'Lo que me cuentas vive en este teléfono. Nada se publica solo: ni en la Plaza, ni en ningún sitio. ' +
+              'Cuando dictas, es tu teléfono el que convierte la voz en texto y el audio no se guarda.' }),
+      el('div', { class: 'tiny', style: { marginTop: '8px', textTransform: 'none', letterSpacing: '0', opacity: '.85' },
+        text: 'Toca cualquier línea de arriba para cambiarla, o para pedirme que la olvide.' })
+    ]);
+  }
+
   function datosCard(v) {
     var c = v.core;
     var stage = (C.STAGES.filter(function (x) { return x.key === c.stage; })[0] || {}).title;
@@ -184,11 +262,19 @@
       { key: 'brandVoice', ico: '🗣️', label: 'Personalidad',   value: voz }
     ];
 
+    /* Cómo lo contó: hablando, tocando una tarjeta, deslizando. No es un dato
+       técnico, es memoria compartida — "esto me lo contaste tú, así". */
+    var como = {};
+    if (w.Captura) {
+      w.Captura.loQueSe().forEach(function (x) { if (x.como) como[x.id] = x.como; });
+    }
+
     var col = el('div', { class: 'col', style: { gap: '8px' } });
     filas.forEach(function (f) {
       // Si una misión afinó el dato, la app usa esa versión: hay que decirlo
       // aquí o el perfil enseñaría una cosa y los desafíos hablarían de otra.
       var ef = (f.key === 'customer' || f.key === 'offer') ? V().effective(f.key) : null;
+      var pid = PREGUNTA_DE[f.key];
 
       col.appendChild(el('button', {
         class: 'doss-item' + (f.value ? ' is-filled' : ''), type: 'button',
@@ -197,12 +283,13 @@
         el('span', { class: 'doss-item__ico', text: f.ico }),
         el('span', { class: 'grow', style: { minWidth: '0' } }, [
           el('span', { class: 'doss-item__t', text: f.label }),
-          el('span', { class: 'doss-item__p', text: f.value || 'Pendiente — toca para completarlo' }),
+          el('span', { class: 'doss-item__p', text: f.value || 'Pendiente — toca para contármelo' }),
           ef && ef.overridden
             ? el('span', { class: 'doss-item__p', style: { color: 'var(--teal)' },
                 text: '↳ La app usa la versión que afinaste: ' + V().util.shorten(ef.value, 70) })
             : null
         ]),
+        (pid && como[pid]) ? el('span', { class: 'sabe__como', text: como[pid] }) : null,
         el('span', { style: { fontSize: '18px', flex: 'none', color: f.value ? 'var(--teal)' : 'var(--ink-3)' },
           text: f.value ? '✎' : '›' })
       ]));
@@ -468,9 +555,23 @@
     place: 'Ciudad, colonia o "en línea".'
   };
 
+  /* Qué pregunta del catálogo escribe cada campo del núcleo. Con esto,
+     corregir un dato se contesta igual que se contestó la primera vez: la
+     idea hablando, el sector con tarjetas, la experiencia con una escala. */
+  var PREGUNTA_DE = {
+    idea: 'idea', offer: 'oferta', customer: 'cliente', sector: 'sector',
+    stage: 'etapa', goalKey: 'objetivo', budget: 'presupuesto', time: 'tiempo',
+    experience: 'experiencia', name: 'nombreNegocio', place: 'lugar',
+    brandVoice: 'marca'
+  };
+
   function editField(key) {
     var v = V().active();
     var c = v.core;
+
+    // El camino nuevo. Si por lo que sea el catálogo no tuviera esa pregunta,
+    // sigue funcionando el formulario de siempre: nadie se queda sin editar.
+    if (PREGUNTA_DE[key] && abrirPregunta(PREGUNTA_DE[key])) return;
 
     if (OPCIONES[key]) return editChoice(key);
 

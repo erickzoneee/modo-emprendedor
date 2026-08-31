@@ -36,7 +36,11 @@
   function recommendedStart() {
     var s = w.Store.state;
     var goal = s.profile.goal;
-    var know = s.profile.knowledge;
+    /* La experiencia ya no se pregunta en el registro: la aprende Chispa
+       después. Mientras no se sepa se asume la más baja, que es la que empieza
+       antes en la ruta. Adelantar a alguien que va perdido cuesta la app;
+       adelantar a quien ya sabe cuesta un toque en el mapa. */
+    var know = s.profile.knowledge || 'none';
     var id = 'n1-01';
     if (goal === 'idea') id = know === 'lots' ? 'n2-01' : 'n1-04';
     else if (goal === 'business') id = know === 'none' ? 'n3-03' : 'n4-01';

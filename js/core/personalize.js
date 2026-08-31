@@ -211,9 +211,15 @@
   function focus() {
     if (!ready()) return null;
     var t = terms();
+    /* Lo que Chispa querría saber ahora mismo, dicho como lo diría ella. Antes
+       era "completa tu perfil", que convierte un negocio en un formulario a
+       medio llenar. Se nombra la pregunta concreta: es lo que hace que apetezca
+       contestarla. */
+    var falta = w.Captura ? w.Captura.siguiente() : null;
+    if (falta) return 'Chispa quiere saber una cosa: ' + falta.q.toLowerCase();
     var pend = V().completeness();
     if (pend.esenciales.length) {
-      return 'Completa tu perfil para que todo se ajuste mejor a ' + t.negocio + '.';
+      return 'Cuéntame lo que falta de ' + t.negocio + ' y afino todo lo demás.';
     }
     var tareas = V().openTasks();
     if (tareas.length) return 'Pendiente de tu plan: ' + tareas[0].text;

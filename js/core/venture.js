@@ -265,7 +265,22 @@
       results: [],           // { id, text, kind, at }
       metrics: {},           // precio, costo, clientes… en números
       generated: {},         // clave -> { text, at, rev, model }
-      intake: { done: false, asked: [], skipped: [] }
+      /* Lo que Chispa ya preguntó y lo que el usuario prefirió no contestar.
+         Lo mantiene js/core/captura.js; aquí solo se declara y se persiste.
+
+           asked        ids de js/data/preguntas.js ya preguntados
+           skipped      [{ id, at }] — «todavía no lo sé», con fecha para no
+                        volver a insistir en una semana
+           respuestas   id -> { v, modo, at }: con qué gesto se contestó. No es
+                        la verdad del dato (esa vive en core/decisions), es la
+                        memoria de cómo lo dijo, para poder devolvérsela.
+           hoyDia/hoyN  el ritmo del día: como mucho tres preguntas sueltas.
+           confirmadoAt cuándo dijo "sí, así es" al resumen
+           dudaAt       cuándo dijo "todavía no lo tengo claro" */
+      intake: {
+        done: false, asked: [], skipped: [], respuestas: {},
+        hoyDia: null, hoyN: 0, ultimaAt: 0, confirmadoAt: 0, dudaAt: 0
+      }
     };
   }
 
@@ -411,6 +426,14 @@
           });
       }
     }
+
+    /* El sector no existía en los guardados más antiguos, y sin él la app se
+       queda genérica: sin unidad de venta ("venta" en vez de "pieza"), sin
+       ejemplos del oficio y sin tema. patchCore() ya lo deduce cuando falta;
+       aquí hacía falta lo mismo, o quien migraba se quedaba en blanco para
+       siempre. Es una propuesta, no una sentencia: la fila del sector se toca
+       y se corrige como cualquier otra. */
+    if (!v.core.sector) v.core.sector = guessSector(v);
 
     // Ya venía usando la app: no se le trata como usuario nuevo, pero sí se le
     // ofrece completar lo que el perfil nuevo necesita.

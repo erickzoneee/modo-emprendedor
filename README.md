@@ -58,6 +58,8 @@ Es un sitio estático puro. Sube la carpeta completa a Netlify, Vercel, GitHub P
 | **Simulador de empresa** | 12 semanas, 22 eventos, modelo de demanda real |
 | **Chispa Engine** | reglas, fórmulas y 77 entradas de conocimiento. Calcula tu precio preguntándote solo lo que falta, y recuerda lo que decidiste |
 | **Perfil del emprendimiento** | tu idea registrada al entrar: personaliza lecciones, desafíos, planes y recomendaciones |
+| **Se contesta hablando o tocando** | 8 formas de responder — nota de voz, tarjetas, botones, escalas, deslizar, completar frases, ejemplos y escribir. Escribir es una opción, no la única |
+| **Captura progresiva** | 21 preguntas que Chispa hace de una en una, al terminar una lección. Nunca dos veces lo mismo, y «todavía no lo sé» no penaliza |
 | **La app se adapta a tu negocio** | color secundario, ejemplos del oficio, orden del panel y Chispa con delantal, herramienta y su espacio de trabajo |
 | **Expediente Mi Negocio** | 12 secciones que se llenan solas y se exportan |
 | **Lectura en voz alta** | escucha las lecciones y las respuestas con la voz del dispositivo |
@@ -110,7 +112,7 @@ Cada sesión dura entre 5 y 10 minutos y siempre tiene la misma forma:
 
 ### Los 9 tipos de ejercicio
 
-`quiz` una respuesta · `multi` varias respuestas · `tf` verdadero o falso · `order` ordenar pasos · `match` emparejar · `fill` completar la frase · `slider` elegir un número con consecuencias · `sim` decisión con impacto animado · `write` escribir y que el mentor lo revise
+`quiz` una respuesta · `multi` varias respuestas · `tf` verdadero o falso · `order` ordenar pasos · `match` emparejar · `fill` completar la frase · `slider` elegir un número con consecuencias · `sim` decisión con impacto animado · `write` escribir —o dictar— y que el mentor lo revise
 
 ---
 
@@ -159,6 +161,65 @@ Ninguna es obligatoria. Si no hay ninguna, Chispa responde igual con los niveles
 Las calculadoras, las rúbricas de las misiones y las prácticas guiadas son deterministas a propósito. Un precio calculado se puede comprobar con una calculadora; uno redactado por un modelo es una opinión con formato de número.
 
 > Puntos de entrada: `Chispa.responder()` en `js/core/chispa.js`, la base en `js/data/kb.js`, y el enrutado de proveedores en `AI.ask()` dentro de `js/core/ai.js`.
+
+---
+
+## Cuéntale a Chispa como quieras
+
+La app necesita conocer el negocio para poder hablar de él. Lo que cambió no es qué
+pregunta, sino **cómo se contesta**.
+
+| Forma | Para qué |
+|---|---|
+| 🎤 **Nota de voz** | La idea, el problema que resuelve, la competencia: lo que cuesta escribir |
+| 🃏 **Tarjetas** | El sector, la etapa, el objetivo: respuestas cerradas, con dibujo y ejemplo |
+| ⚡ **Botones rápidos** | Presupuesto, tiempo, frecuencia: rangos que se tocan sin teclado |
+| 📊 **Escalas** | Experiencia y avance, sin pedir un número |
+| 👉 **Deslizar** | Listas largas —dónde vendes— de una tarjeta en una: *sí · tal vez · no* |
+| 🧩 **Completar la frase** | La propuesta de valor, armada eligiendo piezas |
+| 🖼️ **Ejemplos parecidos** | Reconocer el negocio en un ejemplo cuando no sale describirlo |
+| ✍️ **Escribir** | Siempre disponible, para quien lo prefiera |
+
+Y en todas, salvo la idea: **«Todavía no lo sé»**. No penaliza, no bloquea y no vuelve a
+preguntarse en una semana.
+
+### El registro son cuatro preguntas
+
+Idea, sector, cliente y etapa. Nada más. Lo demás —la oferta, el objetivo, el presupuesto,
+el tiempo, la experiencia— **lo aprende Chispa después**, una pregunta al terminar cada
+lección, con un tope de tres al día. Cada respuesta sale de la cola para siempre.
+
+### «Esto entendí»
+
+Al acabar el registro, Chispa devuelve en dos frases lo que armó, con **lo deducido
+subrayado**, y espera:
+
+> **Sí, así es** · **Quiero corregir algo** · **Todavía no lo tengo claro**
+
+Tocar cualquier trozo subrayado abre justo la pregunta que lo escribió, en el mismo modo
+en el que se contestó. Nada se guarda sin pasar por aquí: lo dictado se enseña escrito
+antes de guardarlo, y lo deducido se enseña marcado antes de darlo por bueno.
+
+### Revisar, corregir u olvidar
+
+En **Mi emprendimiento** está todo lo capturado, con **cómo se contó** cada cosa (voz,
+tarjeta, escala, deslizar). Cualquier línea se toca para cambiarla, y dentro está
+**«Que Chispa lo olvide»**: borra el dato del perfil y deja que se pueda volver a
+preguntar desde cero.
+
+> Puntos de entrada: el catálogo en [`js/data/preguntas.js`](js/data/preguntas.js), el motor
+> en `Captura.bloque()` y `Captura.siguiente()` dentro de [`js/core/captura.js`](js/core/captura.js),
+> y el reconocimiento de voz en [`js/core/dictado.js`](js/core/dictado.js).
+> Se verifica con `node tools/check-captura.js`.
+
+### Lo que la nota de voz no hace
+
+El audio **no se guarda en ningún sitio** y no llega a ningún servidor de Emprendo: quien
+convierte la voz en texto es el reconocimiento del propio navegador, igual que cuando
+dictas un mensaje en el teclado del teléfono. Algunos navegadores hacen esa transcripción
+en sus servidores, y eso está escrito tal cual en [privacidad.html](privacidad.html): la
+app no promete lo que no puede cumplir. Donde no se puede dictar —Firefox de escritorio,
+sin permiso de micrófono— el botón sencillamente no aparece y se escribe.
 
 ---
 
@@ -231,7 +292,8 @@ EMPRENDO/
 ├── docs/                    investigación de proveedores y de Chispa Engine
 ├── lab/                     laboratorio aislado para medir modelos locales
 ├── tools/
-│   └── check-precache.js    cuadra index.html con el precache del sw
+│   ├── check-precache.js    cuadra index.html con el precache del sw
+│   └── check-captura.js     ejecuta el motor de la captura y lo verifica
 └── js/
     ├── core/
     │   ├── store.js         estado + persistencia + rachas
@@ -245,12 +307,15 @@ EMPRENDO/
     │   ├── ai-worker.js     cliente de la IA gratuita de Emprendo
     │   ├── local-ai.js      diagnóstico del equipo y descarga opcional
     │   ├── speech.js        lectura en voz alta con la voz del dispositivo
+    │   ├── dictado.js       la nota de voz: reconocimiento del aparato → texto
+    │   ├── captura.js       las 8 formas de contestar y qué preguntar después
     │   ├── ui.js            DOM, router, modales, toasts
     │   ├── fx.js            confeti, partículas, contadores
     │   ├── audio.js         sonido sintetizado con WebAudio
     │   └── mascot.js        Chispa (SVG animable, 7 estados de ánimo)
     ├── data/
     │   ├── config.js        niveles, jefes, insignias, ligas, tienda
+    │   ├── preguntas.js     lo que Chispa quiere saber y cómo se contesta
     │   ├── lessons-1..8.js  las 50 microlecciones
     │   ├── kb.js            base de conocimiento de Chispa (77 entradas)
     │   ├── venture-templates.js  plantillas de desafío por tema y por oficio
@@ -272,6 +337,18 @@ Antes de publicar, comprueba que el precache siga cuadrando:
 ```bash
 node tools/check-precache.js
 ```
+
+Y que la captura siga cuadrando:
+
+```bash
+node tools/check-captura.js
+```
+
+Ese carga el catálogo y el motor de verdad, y comprueba lo que no da error cuando se
+rompe: que ninguna pregunta guarde en un sitio que no existe, que contestarla la saque de
+la cola para siempre, que saltarla no la traiga de vuelta al día siguiente, que las
+respuestas cerradas no acepten texto inventado y que el «esto entendí» no diga nada que
+no esté en el perfil.
 
 Compara los archivos que carga `index.html` con la lista `PRECACHE` de `sw.js`. Las dos se escriben a mano y el service worker precarga uno por uno con su propio `catch`: una ruta que falte solo deja un aviso en la consola y la app deja de abrir sin conexión sin que nadie se entere.
 

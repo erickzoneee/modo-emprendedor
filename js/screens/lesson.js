@@ -1207,10 +1207,17 @@
         ])
       : null;
 
+    /* Contestar hablando. Es el ejercicio que más gente abandona a media
+       frase, y el único de los nueve que exige teclado. */
+    var mic = (w.Captura && w.Captura.micro) ? w.Captura.micro(ta) : null;
+
     var node = el('div', { class: 'col stagger' }, [
       el('div', { class: 'row', style: { gap: '10px' } }, [UI.chip('Tu turno', 'brand', '✍️')]),
       qHead(step),
-      el('div', { class: 'write-box' }, [ta, counter]),
+      el('div', { class: 'write-box' }, [
+        mic ? el('div', { class: 'campo-con-voz' }, [ta, mic]) : ta,
+        counter
+      ]),
       hints,
       fb
     ]);
@@ -1345,10 +1352,22 @@
       w.Sound.streak();
     }
 
-    // Pregunta de reflexión sobre SU negocio. Si la contesta, se guarda en el
-    // perfil y el mentor la tendrá en cuenta a partir de la siguiente respuesta.
-    var pregunta = w.Personalize.reflection(lesson);
-    if (pregunta) wrap.appendChild(reflectionCard(lesson, pregunta));
+    /* UNA sola pregunta al terminar, nunca dos.
+
+       Si Chispa todavía no sabe algo del negocio —la oferta, el objetivo, cada
+       cuánto le compran— lo pregunta aquí, en el modo que sea más cómodo: este
+       es el momento en que el usuario está contento y con la guardia baja, y
+       es lo que hace que el perfil se llene solo sin un cuestionario.
+
+       Si ya lo sabe todo, o si hoy ya se le preguntaron tres cosas, vuelve la
+       reflexión de siempre sobre la lección recién hecha. */
+    var deChispa = (w.Captura && w.Captura.hayMomento()) ? w.Captura.siguiente() : null;
+    if (deChispa) {
+      wrap.appendChild(capturaCard(deChispa));
+    } else {
+      var pregunta = w.Personalize.reflection(lesson);
+      if (pregunta) wrap.appendChild(reflectionCard(lesson, pregunta));
+    }
 
     var actions = el('div', { class: 'col', style: { width: '100%', gap: '10px', marginTop: '10px' } });
     if (lesson.mission) {
@@ -1364,12 +1383,69 @@
     body.appendChild(wrap);
   }
 
+  /* La pregunta del día de Chispa, dentro de la celebración. Cabe en la misma
+     tarjeta que la reflexión y se contesta con el modo que le toque a cada
+     pregunta: tocando, hablando o deslizando. */
+  function capturaCard(p) {
+    var box = el('div', { class: 'card card--accent', style: { width: '100%', textAlign: 'left' } });
+
+    box.appendChild(el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+      el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg('think') }),
+      el('div', { style: { minWidth: '0' } }, [
+        el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', color: 'var(--brand-dark)', fontWeight: '900' },
+          text: 'Ya que estamos aquí…' }),
+        el('div', { class: 'h4', style: { marginTop: '4px' }, text: p.q })
+      ])
+    ]));
+
+    function cerrar(titulo, detalle) {
+      UI.clear(box);
+      box.appendChild(el('div', { class: 'small', style: { fontWeight: '900' }, text: titulo }));
+      if (detalle) box.appendChild(el('div', { class: 'small', style: { marginTop: '6px' }, text: detalle }));
+    }
+
+    /* Dentro de la celebración no caben cinco tarjetas grandes: empujaban el
+       botón de continuar fuera de la pantalla y la lección parecía trabada.
+       Las mismas opciones, en fila y del ancho de su texto, caben en tres
+       líneas. La pregunta es la misma; solo cambia el tamaño del gesto. */
+    var modo = (p.modo === 'tarjetas' && w.Captura.opciones(p).length) ? 'rapidas' : null;
+
+    box.appendChild(el('div', { style: { marginTop: '12px' } }, [
+      w.Captura.bloque(p, {
+        sinCabecera: true,
+        compacto: true,
+        modo: modo,
+        onListo: function (valor, modo) {
+          w.Captura.responder(p, valor, modo);
+          w.Sound.coin();
+          cerrar('✅ Anotado en tu emprendimiento', w.Captura.textoDe(p, valor));
+        },
+        onSaltar: function () {
+          w.Captura.saltar(p);
+          cerrar('🤝 Sin problema', 'Lo vemos más adelante. No te lo vuelvo a preguntar por ahora.');
+        }
+      })
+    ]));
+
+    box.appendChild(el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', marginTop: '12px', opacity: '.8' },
+      text: 'Es la única pregunta de hoy. ' + (p.para || '') }));
+
+    // Se apunta al pintarla, no al contestarla: enseñar tres preguntas y que
+    // se salten las tres cuenta igual de cansado que contestarlas.
+    w.Captura.apuntar();
+    return box;
+  }
+
   function reflectionCard(lesson, pregunta) {
-    var ta = el('textarea', { class: 'textarea', rows: '3', maxlength: '300', placeholder: 'Escríbelo en una frase…' });
+    var ta = el('textarea', { class: 'textarea', rows: '3', maxlength: '300', placeholder: 'Escríbelo o cuéntamelo hablando…' });
+    // El micrófono solo aparece donde de verdad se puede dictar; si no, el
+    // campo se queda como estaba y nadie ve un botón que no hace nada.
+    var mic = (w.Captura && w.Captura.micro) ? w.Captura.micro(ta) : null;
+    var campo = mic ? el('div', { class: 'campo-con-voz' }, [ta, mic]) : ta;
     var box = el('div', { class: 'card', style: { width: '100%', textAlign: 'left' } }, [
       el('div', { class: 'tiny', style: { color: 'var(--brand)' }, text: 'Para pensar sobre tu negocio' }),
       el('div', { class: 'small', style: { fontWeight: '900', marginTop: '6px' }, text: pregunta }),
-      ta
+      campo
     ]);
     box.appendChild(UI.btn('Guardar en mi emprendimiento', {
       variant: 'ghost', size: 'sm',

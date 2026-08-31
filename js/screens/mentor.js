@@ -147,9 +147,14 @@
     // lista de temas: cada una lleva a un cálculo o a una plantilla concreta.
     paintQuick(w.Chispa ? sugerenciasChispa() : KB.QUICK.slice(0, 6));
 
+    /* Preguntarle algo a Chispa hablando. Va antes del botón de enviar porque
+       el pulgar llega ahí sin soltar el teléfono, y solo se dibuja donde el
+       dictado funciona de verdad. */
+    var mic = (w.Captura && w.Captura.micro) ? w.Captura.micro(input) : null;
+
     return el('div', { class: 'chat-dock' }, [
       quickRow,
-      el('div', { class: 'chat-input-row' }, [input, sendBtn])
+      el('div', { class: 'chat-input-row' }, mic ? [input, mic, sendBtn] : [input, sendBtn])
     ]);
   }
 

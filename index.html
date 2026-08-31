@@ -69,6 +69,10 @@
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/components.css">
+<!-- La ropa de todas las formas de contestar: la nota de voz, las escalas, las
+     tarjetas que se deslizan. Va detrás de components.css porque se apoya en
+     sus botones y delante de screens.css, que puede querer ajustarla. -->
+<link rel="stylesheet" href="css/captura.css">
 <link rel="stylesheet" href="css/screens.css">
 <link rel="stylesheet" href="css/animations.css">
 <link rel="stylesheet" href="css/iconos.css">
@@ -133,6 +137,9 @@
 <script src="js/core/fx.js"></script>
 <script src="js/core/ui.js"></script>
 <script src="js/core/speech.js"></script>
+<!-- speech.js LEE en voz alta; dictado.js ESCUCHA. Los dos usan la Web Speech
+     API del propio dispositivo y ninguno necesita servidor ni clave. -->
+<script src="js/core/dictado.js"></script>
 <!-- La promesa "Tu idea es tuya": un modal, no una pantalla, así que vive en el
      núcleo. Solo necesita UI, Store y Mascot, y los tres están ya cargados. -->
 <script src="js/core/promesa.js"></script>
@@ -143,6 +150,9 @@
      cargarse sin él. -->
 <script src="js/data/iconos.js"></script>
 <script src="js/data/config.js"></script>
+<!-- El catálogo de lo que Chispa quiere saber. Va detrás de config.js porque
+     varias preguntas toman sus opciones de sus listas blancas. -->
+<script src="js/data/preguntas.js"></script>
 <script src="js/data/lessons-1.js"></script>
 <script src="js/data/lessons-2.js"></script>
 <script src="js/data/lessons-3.js"></script>
@@ -168,6 +178,10 @@
      que ambos consultan. personalize.js lee las plantillas al cargarse. -->
 <script src="js/core/iconos.js"></script>
 <script src="js/core/venture.js"></script>
+<!-- Cómo se contesta: pinta las preguntas, elige cuál toca y escribe en el
+     perfil. Detrás de venture.js, que es donde guarda; delante de las
+     pantallas, que son las que lo usan. -->
+<script src="js/core/captura.js"></script>
 <script src="js/core/ai-worker.js"></script>
 <script src="js/core/local-ai.js"></script>
 <script src="js/core/ai.js"></script>

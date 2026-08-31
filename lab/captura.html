@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maqueta · Cómo contarle a Chispa</title>
+
+<link rel="stylesheet" href="../css/fonts.css">
+<link rel="stylesheet" href="../css/tokens.css">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/components.css">
+<link rel="stylesheet" href="../css/screens.css">
+<link rel="stylesheet" href="../css/animations.css">
+<link rel="stylesheet" href="../css/captura.css">
+
+<style>
+/* ==========================================================================
+   MAQUETA — solo lo que envuelve a las pantallas. Todo lo de dentro usa las
+   clases reales del repo: components.css, base.css y css/captura.css.
+   ========================================================================== */
+html, body { height: auto; overflow: auto; }
+body { background: var(--bg-2); padding: 0 0 60px; }
+.mq-head { max-width: 900px; margin: 0 auto; padding: 42px 24px 10px; }
+.mq-head h1 { font-size: 34px; font-weight: 900; letter-spacing: -.6px; }
+.mq-head p  { color: var(--ink-2); font-weight: 700; margin-top: 10px; max-width: 640px; line-height: 1.55; }
+.mq-grid { display: flex; flex-wrap: wrap; gap: 34px; justify-content: center; padding: 26px 18px; }
+.mq-item { width: 372px; }
+.mq-tag { font-size: 11px; font-weight: 900; letter-spacing: .8px; text-transform: uppercase;
+          color: var(--brand); margin-bottom: 4px; }
+.mq-name { font-size: 19px; font-weight: 900; color: var(--ink); }
+.mq-why  { font-size: 13px; font-weight: 700; color: var(--ink-3); margin: 4px 0 14px; line-height: 1.5; }
+.mq-phone { width: 372px; min-height: 740px; background: var(--card); border-radius: 30px;
+            box-shadow: var(--sh-3); overflow: hidden; display: flex; flex-direction: column; }
+.mq-view { flex: 1; display: flex; }
+.mq-view > * { flex: 1; }
+.mq-view .screen { min-height: 740px; }
+.mq-note { max-width: 900px; margin: 30px auto 0; padding: 0 24px; }
+.mq-note .card { text-align: left; }
+</style>
+</head>
+<body>
+
+<div class="mq-head">
+  <h1>Cuéntale a Chispa como quieras</h1>
+  <p>Ocho formas de contestar en vez de una. El usuario habla, toca, elige o desliza;
+     Chispa interpreta, ordena y <b>siempre confirma antes de guardar</b>. Todo lo que ves
+     abajo usa el CSS real de la app: los mismos botones, los mismos colores, la misma Chispa.</p>
+</div>
+
+<div class="mq-grid" id="grid"></div>
+
+<div class="mq-note">
+  <div class="card">
+    <h2 class="h3">Lo que no se ve en una captura de pantalla</h2>
+    <p class="small" style="margin-top:10px">
+      <b>Nunca se pregunta dos veces.</b> Cada respuesta se guarda en el perfil del emprendimiento,
+      y la siguiente pregunta se elige entre las que todavía no tienen respuesta.
+      <br><br>
+      <b>«Todavía no lo sé» siempre está.</b> No penaliza, no bloquea y no se vuelve a preguntar
+      en varios días. Chispa lo anota como pendiente, no como fallo.
+      <br><br>
+      <b>Una pregunta por momento.</b> Nunca dos seguidas, nunca en mitad de un ejercicio,
+      nunca si el usuario acaba de fallar algo.
+      <br><br>
+      <b>Nada se publica.</b> Lo que se dicta se convierte en texto y el audio no se guarda.
+    </p>
+  </div>
+</div>
+
+<script src="../js/core/mascot.js"></script>
+<script>
+/* ==========================================================================
+   La maqueta se pinta con los mismos ladrillos que la app: Mascot.svg() para
+   Chispa y las clases de components.css para todo lo demas.
+   ========================================================================== */
+function chispa(mood) {
+  return '<div class="mascot mascot--sm">' + window.Mascot.svg(mood || 'neutral') + '</div>';
+}
+
+function head(q, para, mood) {
+  return '' +
+    '<div class="row" style="gap:10px;align-items:flex-start">' +
+      chispa(mood) +
+      '<div class="speech"><div class="small">' + para + '</div></div>' +
+    '</div>' +
+    '<div class="cap__q">' + q + '</div>';
+}
+
+function pie(extra) {
+  return '<div class="cap__pie">' + (extra || '') +
+    '<button class="cap__otra">Prefiero escribirlo</button>' +
+    '<button class="cap__otra">Todavia no lo se</button>' +
+  '</div>';
+}
+
+function opt(emoji, t, hint, sel) {
+  return '<button class="opt opt--card' + (sel ? ' is-selected' : '') + '">' +
+    '<span class="opt__emoji">' + emoji + '</span>' +
+    '<span class="opt__body"><span>' + t + '</span><span class="opt__hint">' + hint + '</span></span>' +
+    (sel ? '<span class="opt__mark">&#10003;</span>' : '') + '</button>';
+}
+function ej(emoji, t, cita, sel) {
+  return '<button class="opt' + (sel ? ' is-selected' : '') + '" style="align-items:flex-start">' +
+    '<span class="opt__emoji">' + emoji + '</span>' +
+    '<span class="opt__body"><span>' + t + '</span><span class="opt__hint">' + cita + '</span></span></button>';
+}
+function chip(t, sel) {
+  return '<button class="cap__chip' + (sel ? ' is-selected' : '') + '">' + t + '</button>';
+}
+function paso(cara, n, sel) {
+  return '<button class="escala__paso' + (sel ? ' is-selected' : '') + '">' +
+    '<span class="escala__cara">' + cara + '</span><span class="escala__n">' + n + '</span></button>';
+}
+function sabe(ico, k, v, como) {
+  return '<div class="sabe__fila"><span class="sabe__ico">' + ico + '</span>' +
+    '<div class="grow"><div class="sabe__k">' + k + '</div><div class="sabe__v">' + v + '</div></div>' +
+    '<span class="sabe__como">' + como + '</span>' +
+    '<button class="sabe__x" title="Que Chispa lo olvide">&#128465;</button></div>';
+}
+
+var PANELES = [
+  /* ---------------------------------------------------------------- 1 */
+  { tag: 'Nota de voz &middot; en reposo', name: 'Contesta hablando',
+    why: 'Para lo que cuesta escribir: la historia de la idea, el problema que resuelve, como empezo.',
+    html:
+      '<div class="screen"><div class="cap">' +
+        head('&iquest;C&oacute;mo se te ocurri&oacute; tu idea?',
+             'Cu&eacute;ntamelo en voz alta. Treinta segundos bastan.', 'happy') +
+        '<div class="cap__para">Con esto escribo tus desaf&iacute;os</div>' +
+        '<div class="voz">' +
+          '<div class="voz__halo"><button class="voz__btn">&#127908;</button></div>' +
+          '<div class="voz__estado">Toca y habla. Se detiene solo.</div>' +
+        '</div>' +
+        pie() +
+      '</div></div>' },
+
+  /* ---------------------------------------------------------------- 2 */
+  { tag: 'Nota de voz &middot; escuchando', name: 'Chispa est&aacute; oyendo',
+    why: 'El texto va apareciendo mientras habla. Ver que le entiende es lo que da confianza para seguir.',
+    html:
+      '<div class="screen"><div class="cap">' +
+        head('&iquest;C&oacute;mo se te ocurri&oacute; tu idea?', 'Te escucho. T&oacute;mate tu tiempo.', 'wow') +
+        '<div class="voz">' +
+          '<div class="voz__halo is-on"><button class="voz__btn is-on">&#9209;</button></div>' +
+          '<div class="voz__ondas"><i></i><i></i><i></i><i></i><i></i><i></i></div>' +
+          '<div class="voz__estado">Escuchando&hellip; toca para terminar</div>' +
+          '<div class="voz__texto is-vivo">Pues empec&eacute; imprimiendo cosas en 3D para mis amigos y me empezaron a pedir l&aacute;mparas <em>personaliza&hellip;</em></div>' +
+        '</div>' +
+      '</div></div>' },
+
+  /* ---------------------------------------------------------------- 3 */
+  { tag: 'Nota de voz &middot; confirmaci&oacute;n', name: 'As&iacute; lo entend&iacute;',
+    why: 'Nada se guarda sin que el usuario lo vea escrito. Puede corregir con un toque o repetir la nota.',
+    html:
+      '<div class="screen"><div class="cap">' +
+        head('&iquest;C&oacute;mo se te ocurri&oacute; tu idea?', 'Esto es lo que escuch&eacute;. &iquest;Lo dejo as&iacute;?', 'think') +
+        '<div class="voz">' +
+          '<div class="voz__texto">Empec&eacute; imprimiendo cosas en 3D para mis amigos y me empezaron a pedir l&aacute;mparas personalizadas con nombres y fechas.</div>' +
+        '</div>' +
+        '<div class="col" style="gap:8px">' +
+          '<button class="btn btn--green btn--block btn--lg">S&iacute;, eso dije</button>' +
+          '<div class="row" style="gap:8px">' +
+            '<button class="btn btn--ghost btn--block">Corregir</button>' +
+            '<button class="btn btn--ghost btn--block">Repetir</button>' +
+          '</div>' +
+        '</div>' +
+      '</div></div>' },
+
+  /* ---------------------------------------------------------------- 4 */
+  { tag: 'Tarjetas visuales', name: 'Elige la que se parezca',
+    why: 'Para lo que tiene respuesta cerrada. Grandes, con dibujo y un ejemplo debajo: se contesta sin leer.',
+    html:
+      '<div class="screen"><div class="cap">' +
+        head('&iquest;A qu&eacute; se dedica tu negocio?', 'Con esto te pongo ejemplos de tu oficio.', 'neutral') +
+        '<div class="col" style="gap:10px">' +
+          opt('&#129525;', 'Hecho a mano', 'impresi&oacute;n 3D, resina, carpinter&iacute;a', true) +
+          opt('&#127856;', 'Comida y bebida', 'reposter&iacute;a, comida preparada, caf&eacute;') +
+          opt('&#128736;', 'Servicios', 'limpieza, clases, belleza') +
+          opt('&#128187;', 'Digital', 'dise&ntilde;o, marketing, cursos') +
+          opt('&#128230;', 'Compra y reventa', 'ropa, importaci&oacute;n, tienda en l&iacute;nea') +
+        '</div>' +
+        pie() +
+      '</div></div>' },
+
+  /* ---------------------------------------------------------------- 5 */
+  { tag: 'Respuestas r&aacute;pidas', name: 'Un toque y ya',
+    why: 'Para numeros y rangos. Sin teclado y sin pensar la cifra exacta: la horquilla basta para calcular.',
+    html:
+      '<div class="screen"><div class="cap">' +
+        head('&iquest;Cu&aacute;nto puedes invertir hoy?', 'No hay respuesta mala. Con cero tambi&eacute;n empezamos.', 'neutral') +
+        '<div class="cap__para">Con esto ajusto el tama&ntilde;o de cada misi&oacute;n</div>' +
+        '<div class="cap__chips">' +
+          chip('&#129387; Cero pesos') + chip('&#128181; Menos de $2,000', true) +
+          chip('&#128176; $2,000 a $20,000') + chip('&#127974; M&aacute;s de $20,000') +
+        '</div>' +
+        '<h2 class="sep">Y al d&iacute;a, &iquest;cu&aacute;nto tiempo?</h2>' +
+        '<div class="cap__chips">' +
+          chip('&#9201; 10 min') + chip('&#9200; 20 min', true) + chip('&#128640; 40 min') +
+        '</div>' +
+        pie() +
+      '</div></div>' },
+
+  /* ---------------------------------------------------------------- 6 */
+  { tag: 'Escala visual', name: '&iquest;Qu&eacute; tan avanzado vas?',
+    why: 'Para medir avance sin pedir un numero. Chispa traduce el tramo elegido a una frase y a un siguiente paso.',
+    html:
+      '<div class="screen"><div class="cap">' +
+        head('&iquest;Qu&eacute; tan lista est&aacute; tu oferta?', 'Sin exagerar ni castigarte. Donde est&eacute;s est&aacute; bien.', 'think') +
+        '<div>' +
+          '<div class="escala">' +
+            paso('&#128564;', '1') + paso('&#128578;', '2') + paso('&#128522;', '3', true) +
+            paso('&#128526;', '4') + paso('&#128640;', '5') +
+          '</div>' +
+          '<div class="escala__eje"><span>Ni la he pensado</span><span>Lista para vender</span></div>' +
+          '<div class="escala__dice">La tienes a medias: sabes qu&eacute; vendes, falta ponerle precio. Eso lo vemos en tu pr&oacute;xima misi&oacute;n.</div>' +
+        '</div>' +
+        pie() +
+      '</div></div>' },
+
+  /* ---------------------------------------------------------------- 7 */
+  { tag: 'Deslizar', name: 'S&iacute; aplica &middot; Tal vez &middot; No aplica',
+    why: 'Para listas largas sin agobiar: una tarjeta a la vez, tres botones enormes y un contador que avanza.',
+    html:
+      '<div class="screen"><div class="cap">' +
+        head('&iquest;D&oacute;nde vendes hoy?', 'Te voy pasando sitios. Dime cu&aacute;les usas.', 'neutral') +
+        '<div class="desliza">' +
+          '<div class="desliza__cuenta">2 de 6</div>' +
+          '<div class="desliza__pila">' +
+            '<div class="desliza__card desliza__card--atras2"></div>' +
+            '<div class="desliza__card desliza__card--atras"></div>' +
+            '<div class="desliza__card">' +
+              '<span class="desliza__emoji">&#128172;</span>' +
+              '<span class="desliza__t">Por WhatsApp</span>' +
+              '<span class="small">Le vendes a quien te escribe directo</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="desliza__acciones">' +
+            '<button class="desliza__b desliza__b--no"><span>&#10005;</span>No aplica</button>' +
+            '<button class="desliza__b desliza__b--tal"><span>&#129300;</span>Tal vez</button>' +
+            '<button class="desliza__b desliza__b--si"><span>&#10003;</span>S&iacute; aplica</button>' +
+          '</div>' +
+        '</div>' +
+        pie() +
+      '</div></div>' },
+
+  /* ---------------------------------------------------------------- 8 */
+  { tag: 'Completar la frase', name: 'Sin redactar desde cero',
+    why: 'Lo mas dificil de escribir queda armado eligiendo piezas. Despues se puede editar a mano.',
+    html:
+      '<div class="screen"><div class="cap">' +
+        head('Arma tu frase', 'Toca los huecos. Yo pongo las opciones.', 'happy') +
+        '<div class="completa__frase">Vendo <button class="completa__hueco is-lleno">l&aacute;mparas 3D</button> ' +
+          'para <button class="completa__hueco is-lleno">quien busca un regalo</button> ' +
+          'que quieren <button class="completa__hueco">&nbsp;&nbsp;&nbsp;?&nbsp;&nbsp;&nbsp;</button>.</div>' +
+        '<div class="cap__banco-t">Para el hueco que falta:</div>' +
+        '<div class="cap__chips">' +
+          chip('algo con significado') + chip('un detalle &uacute;nico') +
+          chip('regalar sin equivocarse') + chip('decorar su casa') +
+        '</div>' +
+        pie() +
+      '</div></div>' },
+
+  /* ---------------------------------------------------------------- 9 */
+  { tag: 'Ejemplos parecidos', name: 'Elige uno como el tuyo',
+    why: 'Para quien no sabe como describir su negocio: reconocerlo en un ejemplo es mas facil que redactarlo.',
+    html:
+      '<div class="screen"><div class="cap">' +
+        head('&iquest;Cu&aacute;l se parece m&aacute;s al tuyo?', 'Elige el m&aacute;s cercano. Despu&eacute;s lo afinamos.', 'think') +
+        '<div class="col" style="gap:10px">' +
+          ej('&#128424;', 'Hago piezas por encargo', '&laquo;Imprimo en 3D lo que el cliente me pida.&raquo;', true) +
+          ej('&#127873;', 'Vendo regalos personalizados', '&laquo;Cosas con nombre o fecha para cumplea&ntilde;os.&raquo;') +
+          ej('&#127991;', 'Vendo un producto propio', '&laquo;Tengo mi dise&ntilde;o y lo fabrico en serie.&raquo;') +
+          ej('&#129335;', 'Ninguno se parece', '&laquo;Te lo cuento yo con mis palabras.&raquo;') +
+        '</div>' +
+        pie() +
+      '</div></div>' },
+
+  /* --------------------------------------------------------------- 10 */
+  { tag: 'Esto entend&iacute;', name: 'Nada se guarda sin que lo veas',
+    why: 'El corazon de todo. Chispa devuelve en dos frases lo que armo con las respuestas, y espera el visto bueno.',
+    html:
+      '<div class="screen">' +
+        '<div class="row" style="gap:10px;align-items:flex-start">' + chispa('happy') +
+          '<div class="speech"><div class="small">Ya te conozco un poco. A ver si le atin&eacute;.</div></div></div>' +
+        '<div class="entiendo">' +
+          '<div class="entiendo__tag">Esto entend&iacute; de tu emprendimiento</div>' +
+          '<div class="entiendo__texto">Vendes <b>l&aacute;mparas impresas en 3D</b>, sobre todo para <b>j&oacute;venes y quien busca un regalo original</b>. ' +
+            'Todav&iacute;a <b>est&aacute;s comenzando</b> y ahora quieres <b>conseguir m&aacute;s ventas por TikTok</b>.</div>' +
+        '</div>' +
+        '<div class="entiendo__acciones">' +
+          '<button class="btn btn--green btn--block btn--lg btn--shiny">S&iacute;, as&iacute; es<span class="btn__shine"></span></button>' +
+          '<button class="btn btn--ghost btn--block">Quiero corregir algo</button>' +
+          '<button class="btn btn--flat btn--block">Todav&iacute;a no lo tengo claro</button>' +
+        '</div>' +
+        '<div class="tiny" style="text-transform:none;letter-spacing:0;margin-top:12px">' +
+          'Si eliges la &uacute;ltima no pierdes nada: lo dejo apuntado y lo vemos juntos m&aacute;s adelante.</div>' +
+      '</div>' },
+
+  /* --------------------------------------------------------------- 11 */
+  { tag: 'Captura progresiva', name: 'Una pregunta al terminar la lecci&oacute;n',
+    why: 'Asi se aprende el negocio poco a poco, justo cuando el usuario ya esta contento y con la guardia baja.',
+    html:
+      '<div class="screen screen--center">' +
+        '<div class="mascot mascot--lg is-party">' + window.Mascot.svg('party') + '</div>' +
+        '<h1 class="h2" style="margin-top:10px">&iexcl;Lecci&oacute;n terminada!</h1>' +
+        '<div class="row" style="gap:18px;margin:6px 0 18px">' +
+          '<div class="col" style="gap:0;align-items:center"><div class="h3 c-brand">+25</div><div class="tiny">XP</div></div>' +
+          '<div class="col" style="gap:0;align-items:center"><div class="h3 c-brand">+15</div><div class="tiny">monedas</div></div>' +
+        '</div>' +
+        '<div class="card card--accent" style="text-align:left;width:100%">' +
+          '<div class="row" style="gap:10px;align-items:flex-start">' + chispa('think') +
+            '<div style="min-width:0"><div class="tiny" style="text-transform:none;letter-spacing:0;color:var(--brand-dark);font-weight:900">Ya que estamos aqu&iacute;&hellip;</div>' +
+            '<div class="h4" style="margin-top:4px">&iquest;Cada cu&aacute;nto te compra un cliente?</div></div></div>' +
+          '<div class="cap__chips" style="margin-top:14px">' +
+            chip('Una sola vez') + chip('Cada mes') + chip('Cada temporada') + chip('Todav&iacute;a no lo s&eacute;') +
+          '</div>' +
+          '<div class="tiny" style="text-transform:none;letter-spacing:0;margin-top:12px;opacity:.8">' +
+            'Es la &uacute;nica pregunta de hoy. Con ella s&eacute; si buscarte clientes nuevos o cuidar los que ya tienes.</div>' +
+        '</div>' +
+        '<button class="btn btn--brand btn--block btn--lg" style="margin-top:16px">Continuar</button>' +
+      '</div>' },
+
+  /* --------------------------------------------------------------- 12 */
+  { tag: 'Lo que s&eacute; de tu negocio', name: 'Revisar, corregir u olvidar',
+    why: 'Todo lo capturado en un solo sitio, con el modo en que se dijo y un boton para que Chispa lo olvide.',
+    html:
+      '<div class="screen">' +
+        '<div class="row" style="gap:10px;align-items:flex-start">' + chispa('neutral') +
+          '<div class="speech"><div class="small">Esto es todo lo que s&eacute;. C&aacute;mbialo cuando quieras.</div></div></div>' +
+        '<div class="card" style="text-align:left">' +
+          sabe('&#128161;', 'Tu idea', 'L&aacute;mparas impresas en 3D personalizadas con nombres y fechas', 'voz') +
+          sabe('&#127919;', 'Tus clientes', 'J&oacute;venes y quien busca un regalo original', 'voz') +
+          sabe('&#127991;', 'Sector', 'Hecho a mano / fabricaci&oacute;n', 'tarjeta') +
+          sabe('&#128205;', 'Etapa', 'Comenzando', 'tarjeta') +
+          sabe('&#128172;', 'D&oacute;nde vendes', 'WhatsApp &middot; TikTok', 'deslizar') +
+          sabe('&#128230;', 'Tu oferta', '3 de 5 &mdash; falta ponerle precio', 'escala') +
+        '</div>' +
+        '<div class="card card--tight" style="text-align:left;background:var(--blue-soft);border-color:var(--blue)">' +
+          '<div class="small" style="font-weight:900;color:var(--blue-dark)">Esto no sale de aqu&iacute;</div>' +
+          '<div class="tiny" style="text-transform:none;letter-spacing:0;margin-top:6px">' +
+            'Lo que me cuentas vive en tu tel&eacute;fono. Nada se publica solo, ni en la Plaza ni en ning&uacute;n sitio.</div>' +
+        '</div>' +
+        '<div class="col" style="gap:8px;margin-top:6px">' +
+          '<button class="btn btn--ghost btn--block">Contarle algo m&aacute;s a Chispa</button>' +
+        '</div>' +
+      '</div>' }
+];
+
+var grid = document.getElementById('grid');
+PANELES.forEach(function (p) {
+  var item = document.createElement('div');
+  item.className = 'mq-item';
+  item.innerHTML =
+    '<div class="mq-tag">' + p.tag + '</div>' +
+    '<div class="mq-name">' + p.name + '</div>' +
+    '<div class="mq-why">' + p.why + '</div>' +
+    '<div class="mq-phone"><div class="mq-view">' + p.html + '</div></div>';
+  grid.appendChild(item);
+});
+</script>
+</body>
+</html>

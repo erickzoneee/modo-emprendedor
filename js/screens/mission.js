@@ -105,9 +105,14 @@
       }
       if (saved && saved.answers && saved.answers[f.key]) input.value = saved.answers[f.key];
       inputs[f.key] = input;
+      /* Contestar hablando. Las respuestas de una misión son lo más largo que
+         se escribe en toda la app —y lo que más se abandona a medias— así que
+         es donde más se nota poder dictarlas. En los campos de número no:
+         nadie dicta "cuatrocientos cincuenta". */
+      var mic = (f.type !== 'num' && w.Captura && w.Captura.micro) ? w.Captura.micro(input) : null;
       form.appendChild(el('div', { class: 'field' }, [
         el('label', { class: 'field__label', text: f.label }),
-        input
+        mic ? el('div', { class: 'campo-con-voz' }, [input, mic]) : input
       ]));
     });
     body.appendChild(form);

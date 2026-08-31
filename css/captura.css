@@ -1,0 +1,348 @@
+/* ==========================================================================
+   CÓMO SE CONTESTA — la ropa de todas las formas de responder
+
+   Aquí no vive ninguna pregunta: viven los modos. Una nota de voz, unas
+   tarjetas, una escala, una pila de tarjetas que se descartan. Cada modo se
+   pinta igual esté donde esté —en el registro, en una lección, en una hoja
+   de "Mi emprendimiento"— porque lo que cambia es la pregunta, no la forma
+   de contestarla.
+
+   Regla de tacto: todo lo que se toca mide 44 px o más de alto, y las
+   opciones nunca pasan de seis en pantalla. El teléfono manda.
+   ========================================================================== */
+
+/* ==================================================================
+   EL MARCO DE CUALQUIER PREGUNTA
+   ================================================================== */
+
+.cap { display: flex; flex-direction: column; gap: var(--s4); flex: 1; }
+
+.cap__q {
+  font-size: var(--fs-xl); font-weight: 900; line-height: 1.25; letter-spacing: -.3px;
+}
+
+/* "Para qué me sirve saberlo". Va en la voz de Chispa y en una sola línea:
+   es la diferencia entre un formulario y una conversación. */
+.cap__para {
+  font-size: var(--fs-sm); font-weight: 800; color: var(--brand);
+  background: var(--brand-soft); border-radius: var(--r-full);
+  padding: 6px 13px; align-self: flex-start;
+}
+
+/* Las dos salidas que SIEMPRE están: escribirlo a mano y no saberlo todavía.
+   Empujadas al fondo con margin-top:auto para que no compitan con la
+   respuesta, pero visibles sin desplazarse. */
+.cap__pie { display: flex; flex-direction: column; gap: 4px; margin-top: auto; padding-top: var(--s5); }
+
+.cap__otra {
+  background: none; border: 0; font: inherit; cursor: pointer;
+  font-size: var(--fs-sm); font-weight: 800; color: var(--ink-3);
+  padding: 11px 10px; border-radius: var(--r-sm); min-height: 44px;
+}
+.cap__otra:active { background: var(--line-2); }
+.cap__otra:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+/* Botones de respuesta rápida: la misma familia visual que .opt, pero en
+   fila y del ancho de su texto. */
+.cap__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.cap__chip {
+  border: 2px solid var(--line); background: var(--card); cursor: pointer;
+  font: inherit; font-size: var(--fs-md); font-weight: 800; color: var(--ink);
+  border-radius: var(--r-md); padding: 12px 16px; min-height: 46px;
+  box-shadow: 0 4px 0 var(--line); transition: transform .16s var(--spring);
+}
+.cap__chip:active { transform: translateY(4px); box-shadow: none; }
+.cap__chip:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.cap__chip.is-selected {
+  border-color: var(--brand); background: var(--brand-soft);
+  color: var(--brand-dark); box-shadow: 0 4px 0 var(--brand);
+}
+
+.cap__banco-t {
+  font-size: var(--fs-sm); font-weight: 800; color: var(--ink-3); text-align: left;
+}
+
+/* Modo compacto: la misma pregunta dentro de una tarjeta que ya tiene dueño
+   —la celebración del final de una lección— donde no puede ocupar la pantalla
+   entera ni empujar el botón de continuar fuera de la vista. Cambia el tamaño
+   del gesto, nunca el gesto: se sigue tocando, hablando y deslizando igual. */
+
+.cap--compacto { gap: var(--s3); }
+.cap--compacto .cap__chips { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cap--compacto .cap__chip {
+  font-size: var(--fs-sm); padding: 10px 12px; min-height: 54px;
+  text-align: left; line-height: 1.3;
+}
+.cap--compacto .cap__pie { padding-top: var(--s3); gap: 0; }
+.cap--compacto .voz { padding: var(--s2) 0; gap: var(--s3); }
+.cap--compacto .voz__btn { width: 84px; height: 84px; font-size: 32px; }
+.cap--compacto .voz__texto { min-height: 68px; padding: var(--s3); font-size: var(--fs-sm); }
+.cap--compacto .desliza__pila { height: 150px; }
+.cap--compacto .completa__frase { font-size: var(--fs-md); line-height: 1.9; }
+
+/* En pantallas muy estrechas, dos columnas de texto largo no caben. */
+@media (max-width: 340px) {
+  .cap--compacto .cap__chips { grid-template-columns: 1fr; }
+}
+
+/* ==================================================================
+   NOTA DE VOZ
+   ================================================================== */
+
+.voz { display: flex; flex-direction: column; align-items: center; gap: var(--s4); padding: var(--s4) 0; }
+
+.voz__btn {
+  width: 116px; height: 116px; border-radius: var(--r-full); border: 0; cursor: pointer;
+  background: linear-gradient(150deg, var(--brand), var(--brand-2));
+  box-shadow: 0 7px 0 var(--brand-dark), var(--sh-2);
+  color: #fff; font-size: 44px; display: grid; place-items: center;
+  transition: transform .2s var(--spring);
+}
+/* La silueta se mide contra el botón, no en píxeles: así el modo compacto la
+   encoge con él y no hay dos tamaños que mantener sincronizados. */
+.voz__btn svg { width: 44%; height: 44%; }
+.voz__btn.is-on svg { width: 34%; height: 34%; }
+.voz__btn:active { transform: translateY(5px); box-shadow: 0 2px 0 var(--brand-dark); }
+.voz__btn:focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; }
+.voz__btn.is-on {
+  background: linear-gradient(150deg, var(--red), #FF7A7A);
+  box-shadow: 0 7px 0 var(--red-dark), var(--sh-2);
+}
+
+/* El halo late solo mientras escucha. Es la única señal de que el micrófono
+   está abierto que se ve desde lejos y sin leer. */
+.voz__halo { position: relative; display: grid; place-items: center; }
+.voz__halo::before, .voz__halo::after {
+  content: ''; position: absolute; inset: -14px; border-radius: var(--r-full);
+  border: 3px solid var(--red); opacity: 0; pointer-events: none;
+}
+.voz__halo.is-on::before { animation: vozHalo 1.8s var(--ease-out) infinite; }
+.voz__halo.is-on::after  { animation: vozHalo 1.8s var(--ease-out) .9s infinite; }
+
+@keyframes vozHalo {
+  0%   { transform: scale(.86); opacity: .55; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+.voz__estado { font-size: var(--fs-sm); font-weight: 800; color: var(--ink-3); text-align: center; }
+
+.voz__ondas { display: flex; align-items: flex-end; gap: 4px; height: 30px; }
+.voz__ondas i {
+  width: 5px; border-radius: 3px; background: var(--brand); display: block;
+  animation: vozOnda 1s var(--ease-in-out) infinite;
+}
+.voz__ondas i:nth-child(1) { height: 12px; animation-delay: 0s; }
+.voz__ondas i:nth-child(2) { height: 26px; animation-delay: .12s; }
+.voz__ondas i:nth-child(3) { height: 18px; animation-delay: .24s; }
+.voz__ondas i:nth-child(4) { height: 30px; animation-delay: .36s; }
+.voz__ondas i:nth-child(5) { height: 15px; animation-delay: .48s; }
+.voz__ondas i:nth-child(6) { height: 22px; animation-delay: .6s; }
+
+@keyframes vozOnda { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } }
+
+.voz__texto {
+  width: 100%; background: var(--card); border: 2px solid var(--line);
+  border-radius: var(--r-lg); padding: var(--s4); min-height: 96px;
+  font-size: var(--fs-md); font-weight: 700; line-height: 1.55; color: var(--ink);
+  text-align: left; white-space: pre-wrap;
+}
+/* Mientras habla, el borde es discontinuo: lo que hay dentro todavía no es
+   definitivo y se nota sin tener que decirlo. */
+.voz__texto.is-vivo { border-color: var(--brand); border-style: dashed; color: var(--ink-2); }
+.voz__texto em { font-style: normal; color: var(--ink-3); }
+
+/* ==================================================================
+   ESCALA VISUAL
+   ================================================================== */
+
+.escala { display: flex; gap: 6px; }
+
+.escala__paso {
+  flex: 1; border: 2px solid var(--line); background: var(--card); cursor: pointer;
+  border-radius: var(--r-md); padding: 12px 4px 10px; display: flex; flex-direction: column;
+  align-items: center; gap: 6px; font: inherit; box-shadow: 0 3px 0 var(--line);
+  min-height: 62px; transition: transform .16s var(--spring);
+}
+.escala__paso:active { transform: translateY(3px); box-shadow: none; }
+.escala__paso:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.escala__cara { font-size: 26px; line-height: 1; }
+.escala__n { font-size: var(--fs-xs); font-weight: 900; color: var(--ink-3); }
+.escala__paso.is-selected {
+  border-color: var(--brand); background: var(--brand-soft); box-shadow: 0 3px 0 var(--brand);
+}
+.escala__paso.is-selected .escala__n { color: var(--brand-dark); }
+
+.escala__eje {
+  display: flex; justify-content: space-between; gap: 10px; margin-top: 8px;
+  font-size: var(--fs-xs); font-weight: 800; color: var(--ink-3);
+}
+
+/* Lo que Chispa deduce del tramo elegido. Aparece al tocar: es la prueba de
+   que la escala se convirtió en algo útil y no en un número suelto. */
+.escala__dice {
+  margin-top: 12px; background: var(--brand-soft); border-radius: var(--r-md);
+  padding: 12px 14px; font-size: var(--fs-sm); font-weight: 800;
+  color: var(--brand-dark); text-align: left;
+}
+
+/* ==================================================================
+   DESLIZAR — sí aplica / tal vez / no aplica
+   ================================================================== */
+
+.desliza { display: flex; flex-direction: column; gap: var(--s4); }
+
+.desliza__cuenta {
+  font-size: var(--fs-xs); font-weight: 900; color: var(--ink-3);
+  letter-spacing: .6px; text-transform: uppercase; text-align: center;
+}
+
+.desliza__pila { position: relative; height: 186px; }
+
+.desliza__card {
+  position: absolute; inset: 0; background: var(--card); border: 2px solid var(--line);
+  border-radius: var(--r-lg); box-shadow: var(--sh-2); padding: var(--s5);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; text-align: center;
+}
+/* Las dos de detrás no son adorno: enseñan que quedan más sin obligar a leer
+   el contador. */
+.desliza__card--atras  { transform: scale(.94) translateY(12px); opacity: .55; box-shadow: none; }
+.desliza__card--atras2 { transform: scale(.88) translateY(24px); opacity: .3;  box-shadow: none; }
+
+.desliza__emoji { font-size: 40px; line-height: 1; }
+.desliza__t { font-size: var(--fs-lg); font-weight: 900; }
+
+.desliza__card.is-sale-si  { animation: deslizaSi .34s var(--ease-out) forwards; }
+.desliza__card.is-sale-no  { animation: deslizaNo .34s var(--ease-out) forwards; }
+.desliza__card.is-sale-tal { animation: deslizaTal .34s var(--ease-out) forwards; }
+
+@keyframes deslizaSi  { to { transform: translateX(120%) rotate(12deg);  opacity: 0; } }
+@keyframes deslizaNo  { to { transform: translateX(-120%) rotate(-12deg); opacity: 0; } }
+@keyframes deslizaTal { to { transform: translateY(-70%) scale(.9);       opacity: 0; } }
+
+.desliza__acciones { display: flex; gap: 8px; }
+
+.desliza__b {
+  flex: 1; border: 0; cursor: pointer; font: inherit; font-weight: 900;
+  border-radius: var(--r-md); padding: 13px 8px; font-size: var(--fs-sm); color: #fff;
+  display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 62px;
+}
+.desliza__b span { font-size: 20px; line-height: 1; }
+.desliza__b--si  { background: var(--green); box-shadow: 0 4px 0 var(--green-dark); }
+.desliza__b--tal { background: var(--gold);  box-shadow: 0 4px 0 var(--gold-dark); color: #4A3500; }
+.desliza__b--no  { background: var(--ink-3); box-shadow: 0 4px 0 var(--ink-2); }
+.desliza__b:active { transform: translateY(4px); box-shadow: none; }
+.desliza__b:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+/* ==================================================================
+   COMPLETAR LA FRASE
+   ================================================================== */
+
+.completa__frase {
+  font-size: var(--fs-lg); font-weight: 800; line-height: 2.1; color: var(--ink);
+  background: var(--card); border: 2px solid var(--line); border-radius: var(--r-lg);
+  padding: var(--s4); text-align: left;
+}
+
+.completa__hueco {
+  display: inline-block; border: 0; font: inherit; cursor: pointer;
+  background: var(--gold-soft); color: var(--gold-dark);
+  border-bottom: 3px dashed var(--gold); border-radius: 6px;
+  padding: 2px 10px; margin: 0 2px; font-weight: 900;
+}
+.completa__hueco:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.completa__hueco.is-lleno {
+  background: var(--green-soft); color: var(--green-dark);
+  border-bottom-color: var(--green); border-bottom-style: solid;
+}
+.completa__hueco.is-activo {
+  background: var(--brand-soft); color: var(--brand-dark); border-bottom-color: var(--brand);
+}
+
+/* ==================================================================
+   "ESTO ENTENDÍ"
+   ================================================================== */
+
+.entiendo {
+  background: linear-gradient(150deg, var(--brand), var(--brand-2));
+  border-radius: var(--r-xl); padding: var(--s5); color: #fff;
+  box-shadow: 0 6px 0 var(--brand-dark), var(--sh-2); text-align: left;
+}
+.entiendo__tag {
+  font-size: var(--fs-xs); font-weight: 900; letter-spacing: .8px;
+  text-transform: uppercase; opacity: .9;
+}
+.entiendo__texto { font-size: var(--fs-lg); font-weight: 800; line-height: 1.55; margin-top: 8px; }
+/* Lo subrayado es lo que Chispa dedujo, no lo que el usuario dictó palabra por
+   palabra: verlo marcado es lo que le hace revisarlo en vez de asentir. */
+.entiendo__texto b {
+  background: rgba(255, 255, 255, .24); border-radius: 6px; padding: 1px 5px; font-weight: 900;
+}
+.entiendo__acciones { display: flex; flex-direction: column; gap: 8px; margin-top: var(--s4); }
+
+/* ==================================================================
+   LO QUE SÉ DE TU NEGOCIO
+   ================================================================== */
+
+.sabe__fila {
+  display: flex; align-items: center; gap: 10px; padding: 13px 4px;
+  border-bottom: 2px solid var(--line-2); text-align: left;
+}
+.sabe__fila:last-child { border-bottom: 0; }
+.sabe__ico { font-size: 20px; flex: none; }
+.sabe__k {
+  font-size: var(--fs-xs); font-weight: 900; color: var(--ink-3);
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.sabe__v { font-size: var(--fs-sm); font-weight: 800; color: var(--ink); margin-top: 2px; line-height: 1.4; }
+
+/* Cómo lo dijo: hablando, tocando una tarjeta, deslizando. No es un dato
+   técnico, es memoria compartida — "esto me lo contaste tú". */
+.sabe__como {
+  font-size: 10px; font-weight: 900; color: var(--ink-3); background: var(--line-2);
+  border-radius: var(--r-full); padding: 3px 8px; flex: none; white-space: nowrap;
+}
+
+.sabe__x {
+  border: 0; background: none; cursor: pointer; font-size: 17px; color: var(--ink-3);
+  padding: 8px; border-radius: var(--r-sm); flex: none; min-width: 40px; min-height: 40px;
+}
+.sabe__x:active { background: var(--red-soft); }
+.sabe__x:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+/* ==================================================================
+   MICRÓFONO PEGADO A UN CAMPO QUE YA EXISTÍA
+   ================================================================== */
+
+.campo-con-voz { display: flex; gap: 8px; align-items: flex-start; }
+.campo-con-voz > .input, .campo-con-voz > .textarea { flex: 1; min-width: 0; }
+
+.mic {
+  border: 2px solid var(--line); background: var(--card); cursor: pointer;
+  border-radius: var(--r-full); width: 46px; height: 46px; flex: none;
+  display: grid; place-items: center; font-size: 19px; box-shadow: 0 3px 0 var(--line);
+  transition: transform .16s var(--spring);
+}
+.mic:active { transform: translateY(3px); box-shadow: none; }
+.mic:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.mic.is-on {
+  border-color: var(--red); background: var(--red-soft); box-shadow: 0 3px 0 var(--red);
+  animation: micLate 1.4s var(--ease-in-out) infinite;
+}
+@keyframes micLate { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+/* ==================================================================
+   MOVIMIENTO REDUCIDO
+   Lo mismo que hace animations.css: quien pidió menos movimiento en su
+   sistema no debe recibir un halo latiendo ni barras saltando.
+   ================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .voz__halo.is-on::before, .voz__halo.is-on::after,
+  .voz__ondas i, .mic.is-on { animation: none; }
+  .voz__halo.is-on::before { opacity: .5; }
+  .desliza__card.is-sale-si, .desliza__card.is-sale-no, .desliza__card.is-sale-tal {
+    animation: none; opacity: 0;
+  }
+}

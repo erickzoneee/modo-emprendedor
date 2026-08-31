@@ -27,7 +27,7 @@ try { importScripts('./js/data/brand.js'); } catch (e) {
 
 var MARCA = self.BRAND || {};
 
-var VERSION = (MARCA.cachePrefijos ? MARCA.cachePrefijos[0] : 'modo-emprendedor-') + 'v1.23.0';
+var VERSION = (MARCA.cachePrefijos ? MARCA.cachePrefijos[0] : 'modo-emprendedor-') + 'v1.24.0';
 
 /* Los nombres de caché que son nuestros. Todo lo demás que viva en este origen
    —los pesos del modelo de IA local, por ejemplo, que ocupan cientos de megas—
@@ -88,6 +88,7 @@ var PRECACHE = [
   './css/tokens.css',
   './css/base.css',
   './css/components.css',
+  './css/captura.css',
   './css/screens.css',
   './css/animations.css',
   './css/iconos.css',
@@ -113,8 +114,10 @@ var PRECACHE = [
   './js/core/iconos.js',
   './js/core/mascot.js',
   './js/core/speech.js',
+  './js/core/dictado.js',
   './js/core/promesa.js',
   './js/core/venture.js',
+  './js/core/captura.js',
   './js/core/ai-worker.js',
   // js/local/motor.mjs NO va aquí a propósito: la IA local se descarga solo si
   // el usuario la pide, y la app debe pesar lo mismo para quien no la quiera.
@@ -133,6 +136,7 @@ var PRECACHE = [
   './js/data/brand.js',
   './js/data/iconos.js',
   './js/data/config.js',
+  './js/data/preguntas.js',
   './js/data/lessons-1.js',
   './js/data/lessons-2.js',
   './js/data/lessons-3.js',
