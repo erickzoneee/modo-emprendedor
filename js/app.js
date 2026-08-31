@@ -346,10 +346,28 @@
       UI.Router.go('onboarding', {}, 'none');
     } else {
       showChrome(true);
+
+      /* ¿Venimos del enlace del correo de la Plaza?
+
+         Se pinta la Ruta igual, siempre. revisarEnlace() canjea la sesión
+         contra el servidor y eso tarda: si la pantalla dependiera de que
+         termine, quien toca el enlace vería un rectángulo en blanco durante
+         un segundo largo. Pinta la Ruta, y cuando la sesión esté lista, la
+         Plaza se abre sola por encima.
+
+         Lo que sí se salta es el saludo: dos avisos encimados a alguien que
+         acaba de tocar un enlace es ruido. */
+      var deEnlace = /[#&]plaza=/.test(String(w.location.hash || ''));
+
       UI.Router.go(atajo || 'home', {}, 'none');
-      greet();
-      // Después del saludo, para no encimar dos avisos.
-      setTimeout(maybeRemindBackup, 5200);
+
+      if (deEnlace) {
+        try { w.PlazaScreen.revisarEnlace(); } catch (e) { console.warn('[plaza]', e); }
+      } else {
+        greet();
+        // Después del saludo, para no encimar dos avisos.
+        setTimeout(maybeRemindBackup, 5200);
+      }
     }
 
     enlazarUnaVez();

@@ -27,7 +27,7 @@ try { importScripts('./js/data/brand.js'); } catch (e) {
 
 var MARCA = self.BRAND || {};
 
-var VERSION = (MARCA.cachePrefijos ? MARCA.cachePrefijos[0] : 'modo-emprendedor-') + 'v1.18.0';
+var VERSION = (MARCA.cachePrefijos ? MARCA.cachePrefijos[0] : 'modo-emprendedor-') + 'v1.19.0';
 
 /* Los nombres de caché que son nuestros. Todo lo demás que viva en este origen
    —los pesos del modelo de IA local, por ejemplo, que ocupan cientos de megas—
@@ -127,6 +127,7 @@ var PRECACHE = [
   './js/core/comparte.js',
   './js/core/plaza.js',
   './js/core/plaza-motor.js',
+  './js/core/plaza-nube.js',
 
   './js/data/brand.js',
   './js/data/iconos.js',

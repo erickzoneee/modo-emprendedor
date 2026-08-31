@@ -104,7 +104,16 @@
   var DOMINIOS = {
     sitio: 'https://erickzoneee.github.io/modo-emprendedor',
     app: 'https://erickzoneee.github.io/modo-emprendedor',
-    api: ''
+    api: '',
+
+    /* La Plaza. Esta sí está puesta, porque el Worker ya existe y tiene su
+       dominio propio. No hace falta que nadie pegue nada a mano.
+
+       Ojo: el Worker solo acepta peticiones desde los orígenes de su lista
+       blanca. Si algún día la app se sirve desde otro sitio, hay que añadirlo
+       en `ORIGENES` de worker-plaza/wrangler.jsonc — con su carpeta, si la
+       tiene. Ahí acaba la dirección a la que vuelve el enlace del correo. */
+    plaza: 'https://plaza.emprendo.life'
   };
 
   raiz.BRAND = {

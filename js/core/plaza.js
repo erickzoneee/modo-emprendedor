@@ -438,12 +438,30 @@
 
   var inyectadas = null;
 
+  /* Lo último que trajo el servidor. Vive en memoria y no se persiste: son
+     vitrinas de otras personas, y guardarlas en el teléfono sería quedarse
+     con datos ajenos más tiempo del necesario. Al cerrar la app se van. */
+  var traidos = null;
+  var traidosAt = 0;
+
   function vecinos() {
     if (inyectadas) return inyectadas;
-    return [];
+    return traidos || [];
   }
 
   function hayVecinos() { return vecinos().length > 0; }
+
+  /** ¿Se ha llegado a preguntar alguna vez? Distinto de «no hay nadie»: sin
+      esto, la pantalla no puede separar «la Plaza está vacía» de «todavía no
+      he preguntado», y esas dos cosas se le cuentan al usuario distinto. */
+  function preguntado() { return traidos !== null; }
+
+  function guardarVecinos(lista) {
+    traidos = Array.isArray(lista) ? lista : [];
+    traidosAt = Date.now();
+  }
+
+  function olvidarVecinos() { traidos = null; traidosAt = 0; }
 
   function inyectar(lista) {
     inyectadas = (lista && lista.length) ? lista : null;
@@ -466,7 +484,7 @@
   var CLAVE_LOCAL = (w.BRAND && w.BRAND.claves && w.BRAND.claves.plaza) || 'modo-emprendedor:plaza';
   var localCache = null;
 
-  function localVacio() { return { v: 1, enviados: {} }; }
+  function localVacio() { return { v: 1, enviados: {}, sesion: '', id: '' }; }
 
   function local() {
     if (localCache) return localCache;
@@ -474,6 +492,8 @@
       var crudo = w.localStorage.getItem(CLAVE_LOCAL);
       var p = crudo ? JSON.parse(crudo) : null;
       localCache = (p && typeof p === 'object' && !Array.isArray(p) && p.enviados) ? p : localVacio();
+      if (typeof localCache.sesion !== 'string') localCache.sesion = '';
+      if (typeof localCache.id !== 'string') localCache.id = '';
     } catch (e) {
       localCache = localVacio();
     }
@@ -482,6 +502,43 @@
 
   function guardarLocal() {
     try { w.localStorage.setItem(CLAVE_LOCAL, JSON.stringify(local())); } catch (e) { /* sin sitio */ }
+  }
+
+  /* ------------------------------ LA SESIÓN ------------------------------
+
+     Vive aquí, en la clave propia de la Plaza, y NO en Store. Es la razón
+     por la que esta clave existe: `Store.exportJSON()` vuelca el estado
+     entero y ese archivo el usuario lo manda por WhatsApp para no perder su
+     progreso. Una sesión ahí dentro es la llave de su cuenta viajando por un
+     chat de grupo.
+
+     `id` es su identificador en la Plaza. Se guarda para poder reconocerse a
+     sí mismo en una conversación —quién escribió cada mensaje— sin tener que
+     preguntarlo cada vez. */
+
+  function sesion() { return local().sesion || ''; }
+
+  function idNube() { return local().id || ''; }
+
+  function conectado() { return !!sesion(); }
+
+  function entrarNube(token, id) {
+    var l = local();
+    l.sesion = String(token || '');
+    l.id = String(id || '');
+    guardarLocal();
+  }
+
+  /** Cierra la sesión y suelta TODO lo que era de otras personas: a quién
+      saludó y las vitrinas que trajo el servidor. Lo suyo —su vitrina— se
+      queda, porque es suyo y lo aprobó él. */
+  function salirNube() {
+    var l = local();
+    l.sesion = '';
+    l.id = '';
+    l.enviados = {};
+    guardarLocal();
+    olvidarVecinos();
   }
 
   /** A quién ya le dijo que ve valor: { idVitrina: { intencion, at } }. */
@@ -553,8 +610,12 @@
     hayNovedad: hayNovedad,
     hayVecinos: hayVecinos,
     vecinos: vecinos,
+    preguntado: preguntado,
     enviados: enviados,
     yaEnviado: yaEnviado,
+    sesion: sesion,
+    idNube: idNube,
+    conectado: conectado,
     // escritura
     aprobar: aprobar,
     editar: editar,
@@ -562,6 +623,10 @@
     veoValor: veoValor,
     retirarValor: retirarValor,
     olvidarTodo: olvidarTodo,
+    entrar: entrarNube,
+    salir: salirNube,
+    guardarVecinos: guardarVecinos,
+    olvidarVecinos: olvidarVecinos,
     // solo para lab/plaza.html: la app nunca mete vecinos a mano
     __inyectar: inyectar,
     // presentación

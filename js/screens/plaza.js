@@ -34,15 +34,25 @@
   var PROMESA_TITULO = 'Tu puesto lo abres tú 🏪';
   var PROMESA_ENTRADA = 'Puedo armarte una vitrina con lo que ya me contaste. Tú decides si la abro.';
 
-  var PROMESA_FILAS = [
-    ['🔎', 'Sale solo lo que apruebes', 'Lo ves entero antes, y lo puedes cambiar.'],
-    ['🔒', 'No salen tus números',      'Precios, costos y tu plan se quedan aquí.'],
-    /* Esta fila dice la verdad de hoy. El día que haya servidor pasa a ser
-       "Nadie te escribe primero — Solo si los dos quieren hablar", que es la
-       promesa de verdad; escribirla antes sería prometer una garantía que no
-       existe en ninguna parte. */
-    ['🕯️', 'Todavía no te ve nadie',   'Te aviso el día que la Plaza abra.']
-  ];
+  /* La tercera fila cambia sola según exista o no la Plaza, y no es un
+     detalle: es una promesa, y una promesa solo se puede hacer cuando se
+     puede cumplir.
+
+     Sin servidor, lo único cierto es que nadie ve tu puesto. Con servidor,
+     eso deja de serlo — pero entra en vigor otra cosa que sí se cumple, y
+     esta vez porque el código lo impide: hasta que los dos aceptan, la
+     conversación no existe en la base. No es una comprobación que alguien
+     pueda olvidar; es que no hay fila donde escribir. */
+  function filasPromesa() {
+    var hayPlaza = w.PlazaNube && w.PlazaNube.hay();
+    return [
+      ['🔎', 'Sale solo lo que apruebes', 'Lo ves entero antes, y lo puedes cambiar.'],
+      ['🔒', 'No salen tus números',      'Precios, costos y tu plan se quedan aquí.'],
+      hayPlaza
+        ? ['🤝', 'Nadie te escribe primero', 'Solo si los dos quieren hablar.']
+        : ['🕯️', 'Todavía no te ve nadie',   'Te aviso el día que la Plaza abra.']
+    ];
+  }
 
   var PROMESA_CIERRE = 'Guárdalo tranquilo. Puedes cerrarlo cuando quieras.';
 
@@ -58,7 +68,7 @@
 
   function contenidoPromesa(alCerrar) {
     var lista = el('div', { class: 'promesa__lista' });
-    PROMESA_FILAS.forEach(function (f) {
+    filasPromesa().forEach(function (f) {
       lista.appendChild(el('div', { class: 'promesa__fila' }, [
         el('span', { class: 'promesa__fila__ico', text: f[0] }),
         el('span', { class: 'grow', style: { minWidth: '0' } }, [
@@ -109,6 +119,112 @@
       var m = UI.modal(contenidoPromesa(function () { UI.closeModal(); }), { onClose: seguir });
       if (m && m.box) m.box.classList.add('promesa');
       if (w.Sound) w.Sound.select();
+    });
+    return true;
+  }
+
+  /* ==================================================================
+     ENTRAR A LA PLAZA
+
+     Un correo y nada más. No hay contraseña que recordar ni perfil que
+     rellenar: el correo sirve para volver a ser tú en otro teléfono y para
+     poder pedir que se borre lo tuyo. Nada más.
+     ================================================================== */
+
+  function conectar(alEntrar) {
+    var input = el('input', { class: 'input', type: 'email', maxlength: '254',
+      placeholder: 'tucorreo@ejemplo.com', autocomplete: 'email' });
+
+    var aviso = el('div', { class: 'tiny',
+      style: { color: 'var(--red)', display: 'none', textTransform: 'none', letterSpacing: '0' },
+      text: 'Ese correo no parece completo. Míralo otra vez.' });
+
+    UI.sheet([
+      el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+        el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg('explicando') }),
+        el('div', { class: 'speech' }, [
+          el('div', { class: 'small', text: 'Te mando un enlace. Con eso entras, sin contraseñas.' })
+        ])
+      ]),
+      input,
+      aviso,
+      /* La única línea sobre datos que ve dentro de la app. El aviso completo
+         vive en la web, no aquí: esto es una frase de Chispa, no un contrato.
+         Y se puede cumplir literalmente — el correo se guarda como huella, no
+         en claro, así que ni el servidor tiene la lista. */
+      el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0' },
+        text: 'Tu correo solo sirve para que puedas volver a entrar. No lo enseño a nadie.' }),
+      UI.btn('Mándame el enlace', { variant: 'brand', size: 'lg', onClick: function () {
+        var correo = (input.value || '').trim();
+        if (correo.indexOf('@') < 1 || correo.indexOf('.') < 0 || correo.length < 6) {
+          aviso.style.display = '';
+          w.Sound.wrong();
+          return;
+        }
+        UI.closeSheet();
+        UI.toast('Mandando…', 'blue', '📣');
+        w.PlazaNube.entrar(correo, true).then(function (r) {
+          if (r && r.ok) {
+            revisaTuCorreo(correo);
+            if (typeof alEntrar === 'function') alEntrar();
+          } else {
+            UI.toast(w.PlazaNube.excusa(r), 'red', '🕯️');
+          }
+        });
+      } }),
+      UI.btn('Ahora no', { variant: 'flat', onClick: UI.closeSheet })
+    ]);
+  }
+
+  function revisaTuCorreo(correo) {
+    UI.queueModal(function () {
+      UI.modal([
+        el('div', { class: 'col', style: { alignItems: 'center', gap: '10px', textAlign: 'center' } }, [
+          el('div', { class: 'mascot mascot--lg is-happy', html: w.Mascot.svg('happy', { plano: true }) }),
+          el('h2', { class: 'h3', text: 'Te mandé un enlace' }),
+          el('div', { class: 'small', text: 'Míralo en ' + correo + '. Con tocarlo, entras.' }),
+          /* Se dice lo del spam porque el dominio es nuevo y de verdad pasa.
+             Callarlo es dejar a alguien pensando que la app no funciona. */
+          el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0' },
+            text: 'Si no aparece en unos minutos, mira en spam. El correo caduca en 15 minutos.' })
+        ]),
+        UI.btn('Entendido', { variant: 'brand', onClick: UI.closeModal })
+      ]);
+    });
+  }
+
+  /**
+   * Mira si venimos de un enlace del correo. Lo llama js/app.js al arrancar.
+   *
+   * El token viaja en el fragmento (#) y no en la query (?) a propósito: así
+   * no sale del navegador, no entra en el historial del servidor ni en la
+   * cabecera Referer. Se lee, se canjea, y se borra de la barra de
+   * direcciones antes de que a nadie le dé tiempo a copiarla.
+   */
+  function revisarEnlace() {
+    var h = String(w.location.hash || '');
+    var m = h.match(/[#&]plaza=([^&]+)/);
+    if (!m) return false;
+
+    var token = decodeURIComponent(m[1]);
+    try {
+      w.history.replaceState(null, '', w.location.pathname + w.location.search);
+    } catch (e) { w.location.hash = ''; }
+
+    UI.toast('Entrando…', 'blue', '🕯️');
+    w.PlazaNube.confirmar(token, true).then(function (r) {
+      if (r && r.ok) {
+        w.Sound.coin();
+        UI.toast('Ya estás dentro', 'green', '🤝');
+        /* Si ya tenía puesto aprobado, se publica solo: aprobarlo fue su
+           decisión y no hay que volver a pedírsela por haber cambiado de
+           teléfono. */
+        var v = P().vitrina();
+        if (v) w.PlazaNube.publicar(v);
+        UI.Router.go('plaza');
+      } else {
+        UI.toast(w.PlazaNube.excusa(r), 'red', '🕯️');
+      }
     });
     return true;
   }
@@ -218,6 +334,7 @@
           }).then(function (si) {
             if (!si) return;
             P2.retirar();
+            if (P2.conectado()) w.PlazaNube.retirar();
             UI.toast('Puesto cerrado', 'blue', '🕯️');
             UI.Router.refresh();
           });
@@ -312,6 +429,17 @@
     if (!v) { UI.toast('Todavía falta algo', 'red', '✍️'); return; }
     w.Sound.coin();
 
+    /* Si ya está conectado, el puesto sale también hacia la Plaza. Si no, se
+       queda guardado aquí y saldrá el día que entre con su correo: aprobar y
+       publicar son dos cosas distintas, y mezclarlas obligaría a pedirle el
+       correo justo cuando está decidiendo si se fía. */
+    if (P().conectado()) {
+      w.PlazaNube.publicar(v).then(function (r) {
+        if (!r || !r.ok) UI.toast(w.PlazaNube.excusa(r), 'red', '🕯️');
+        else P().olvidarVecinos();
+      });
+    }
+
     if (yaEstaba) {
       UI.toast('Guardado', 'green', '💾');
       UI.Router.refresh();
@@ -337,9 +465,28 @@
      puede creer.
      ================================================================== */
 
+  /* Se pide una vez por visita, no en cada repintado: la pantalla se refresca
+     sola al editar, al enviar y al volver, y sin este freno cada gesto sería
+     una llamada al servidor. */
+  var pidiendo = false;
+
+  function traerVecinos() {
+    if (pidiendo || !P().conectado() || P().preguntado()) return;
+    pidiendo = true;
+    w.PlazaNube.vecinos().then(function (r) {
+      pidiendo = false;
+      if (r && r.ok) {
+        P().guardarVecinos(r.vecinos || []);
+        if (UI.Router.current === 'plaza') UI.Router.refresh();
+      }
+    });
+  }
+
   function pantallaPlaza() {
     var P2 = P();
     var v = P2.vitrina();
+
+    traerVecinos();
 
     var root = el('div', { class: 'screen plaza' });
     root.appendChild(el('div', { class: 'plaza__sol' }));
@@ -395,9 +542,15 @@
         text: 'Esto tarda. Nunca es por tu idea.' }));
     }
 
-    /* .tiny va en mayúsculas por defecto y aquí no debe: es una frase que
+    /* Solo cuando de verdad se ha mirado y no hay nadie. Antes de entrar con
+       el correo no se ha preguntado, y decir «cuando alguien llegue lo verás
+       aquí» ahí contradice al propio Chispa de arriba, que acaba de pedir el
+       correo justo para poder mirar.
+
+       .tiny va en mayúsculas por defecto y aquí no debe: es una frase que
        acompaña, no un rótulo. Mismo apaño que usan las demás pantallas. */
-    if (!hayGente) {
+    var yaMire = !w.PlazaNube.hay() || (P2.conectado() && P2.preguntado());
+    if (!hayGente && yaMire) {
       cont.appendChild(el('div', { class: 'tiny t-center',
         style: { marginTop: '2px', textTransform: 'none', letterSpacing: '0' },
         text: 'Cuando alguien llegue, lo verás aquí.' }));
@@ -417,7 +570,12 @@
       ]));
     }
 
-    if (!hayGente) {
+    if (w.PlazaNube.hay() && !P2.conectado()) {
+      cont.appendChild(UI.btn('Entrar con mi correo', {
+        variant: 'brand', size: 'lg', shiny: true,
+        onClick: function () { conectar(); }
+      }));
+    } else if (!hayGente) {
       cont.appendChild(UI.btn('Invitar a alguien que conoces', {
         variant: 'brand', size: 'sm', onClick: invitar
       }));
@@ -452,6 +610,17 @@
      este" se le puede creer. */
 
   function cabecera(recs, hayGente) {
+    /* Antes de entrar con el correo no se puede decir si hay gente o no: no
+       se ha preguntado. Decir «no hay nadie» ahí sería mentir por omisión. */
+    if (w.PlazaNube.hay() && !P().conectado()) {
+      return UI.chispaDice('sugiriendo',
+        'Tu puesto está listo. Dime tu correo y te enseño quién más está aquí.');
+    }
+
+    if (P().conectado() && !P().preguntado()) {
+      return UI.chispaDice('pensando', 'Estoy mirando quién hay…');
+    }
+
     if (!hayGente) {
       return el('div', { class: 'col', style: { alignItems: 'center', gap: '4px', textAlign: 'center' } }, [
         el('h1', { class: 'h2', text: 'Todavía no hay nadie más aquí.' }),
@@ -699,5 +868,12 @@
     } catch (e) { return false; }
   }
 
-  w.PlazaScreen = { open: abrir, hayAlgo: hayAlgo, promesa: antesDeAbrir };
+  w.PlazaScreen = {
+    open: abrir,
+    hayAlgo: hayAlgo,
+    promesa: antesDeAbrir,
+    conectar: conectar,
+    // lo llama js/app.js al arrancar, por si venimos del enlace del correo
+    revisarEnlace: revisarEnlace
+  };
 })(window, document);
