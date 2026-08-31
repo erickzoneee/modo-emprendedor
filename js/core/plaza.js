@@ -456,12 +456,28 @@
       he preguntado», y esas dos cosas se le cuentan al usuario distinto. */
   function preguntado() { return traidos !== null; }
 
+  /* Quién vio valor en lo tuyo, y las conversaciones abiertas. Igual que los
+     vecinos: en memoria y sin persistir, porque son datos de otras personas
+     y el teléfono no tiene por qué quedárselos entre sesiones. */
+  var recibidosCache = null;
+  var charlasCache = null;
+
+  function recibidos() { return recibidosCache || []; }
+  function guardarRecibidos(l) { recibidosCache = Array.isArray(l) ? l : []; }
+  function preguntadoRecibidos() { return recibidosCache !== null; }
+
+  function charlas() { return charlasCache || []; }
+  function guardarCharlas(l) { charlasCache = Array.isArray(l) ? l : []; }
+
   function guardarVecinos(lista) {
     traidos = Array.isArray(lista) ? lista : [];
     traidosAt = Date.now();
   }
 
-  function olvidarVecinos() { traidos = null; traidosAt = 0; }
+  function olvidarVecinos() {
+    traidos = null; traidosAt = 0;
+    recibidosCache = null; charlasCache = null;
+  }
 
   function inyectar(lista) {
     inyectadas = (lista && lista.length) ? lista : null;
@@ -611,6 +627,9 @@
     hayVecinos: hayVecinos,
     vecinos: vecinos,
     preguntado: preguntado,
+    recibidos: recibidos,
+    preguntadoRecibidos: preguntadoRecibidos,
+    charlas: charlas,
     enviados: enviados,
     yaEnviado: yaEnviado,
     sesion: sesion,
@@ -626,6 +645,8 @@
     entrar: entrarNube,
     salir: salirNube,
     guardarVecinos: guardarVecinos,
+    guardarRecibidos: guardarRecibidos,
+    guardarCharlas: guardarCharlas,
     olvidarVecinos: olvidarVecinos,
     // solo para lab/plaza.html: la app nunca mete vecinos a mano
     __inyectar: inyectar,

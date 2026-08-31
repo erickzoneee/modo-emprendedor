@@ -201,7 +201,20 @@
     { id: 'xp-5000',     icon: '🌟', name: '5000 XP',          desc: 'Acumula 5000 puntos.' },
     { id: 'night',       icon: '🌙', name: 'Nocturno',         desc: 'Estudia después de las 11 pm.' },
     { id: 'early',       icon: '🌅', name: 'Madrugador',       desc: 'Estudia antes de las 7 am.' },
-    { id: 'comeback',    icon: '🔄', name: 'Regresaste',       desc: 'Vuelve tras perder una racha.' }
+    { id: 'comeback',    icon: '🔄', name: 'Regresaste',       desc: 'Vuelve tras perder una racha.' },
+
+    /* El único logro que nace de la Plaza, y es uno solo a propósito.
+
+       Los otros que se pensaron —primera opinión, primer probador, primera
+       colaboración, primer cliente— dependen de lo que pase DENTRO de una
+       conversación que la app no lee y no va a leer. Concederlos porque el
+       usuario toque un botón que diga «ya me dieron su opinión» sería un
+       logro que se puede fabricar solo, y entonces deja de significar nada
+       para quien lo tenga.
+
+       Este no: que dos personas hayan aceptado hablar es un hecho, y el
+       servidor lo sabe porque la conversación existe como fila. */
+    { id: 'plaza-puerta', icon: '🤝', name: 'Primera puerta',  desc: 'Alguien y tú decidieron hablar.' }
   ];
 
   /* ------------------------- Ligas ------------------------- */

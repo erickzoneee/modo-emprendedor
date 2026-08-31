@@ -473,12 +473,21 @@
   function traerVecinos() {
     if (pidiendo || !P().conectado() || P().preguntado()) return;
     pidiendo = true;
-    w.PlazaNube.vecinos().then(function (r) {
+
+    /* Las tres cosas de una vez y no en tres visitas: quien abre la Plaza
+       quiere ver a la vez a quién puede acercarse, quién se acercó a él y
+       con quién ya está hablando. Pedirlas por separado haría que la
+       pantalla se recompusiera tres veces delante de sus ojos. */
+    Promise.all([
+      w.PlazaNube.vecinos(),
+      w.PlazaNube.recibidos(),
+      w.PlazaNube.conversaciones()
+    ]).then(function (rs) {
       pidiendo = false;
-      if (r && r.ok) {
-        P().guardarVecinos(r.vecinos || []);
-        if (UI.Router.current === 'plaza') UI.Router.refresh();
-      }
+      if (rs[0] && rs[0].ok) P().guardarVecinos(rs[0].vecinos || []);
+      if (rs[1] && rs[1].ok) P().guardarRecibidos(rs[1].recibidos || []);
+      if (rs[2] && rs[2].ok) P().guardarCharlas(rs[2].conversaciones || []);
+      if (UI.Router.current === 'plaza') UI.Router.refresh();
     });
   }
 
@@ -504,6 +513,16 @@
       } catch (e) { recs = []; }
     }
     var hayGente = P2.hayVecinos();
+
+    /* Quien se acercó a ti va ARRIBA DEL TODO, antes que las
+       recomendaciones. Es lo único de esta pantalla donde alguien está
+       esperando una respuesta tuya, y enterrarlo debajo de tres tarjetas
+       sería tratarlo como si fuera lo mismo que una sugerencia. */
+    var llegaron = P2.recibidos();
+    if (llegaron.length) cont.appendChild(bloqueRecibidos(llegaron));
+
+    var abiertas = P2.charlas();
+    if (abiertas.length) cont.appendChild(bloqueCharlas(abiertas));
 
     cont.appendChild(cabecera(recs, hayGente));
 
@@ -640,6 +659,247 @@
     return UI.chispaDice('sugiriendo', recs.length === 1
       ? 'Encontré una razón. No es al azar.'
       : 'Encontré ' + UI.num(recs.length) + ' razones. Ninguna es al azar.');
+  }
+
+  /* ------------------------- Quién vio valor en lo tuyo -------------------
+
+     Se enseña su vitrina —la que tenía cuando se acercó, congelada— y para
+     qué te buscó. NO se enseña lo que escribió: eso aparece si aceptas, y es
+     la regla que sostiene la sección entera. */
+
+  function bloqueRecibidos(lista) {
+    var caja = el('div', { class: 'col', style: { gap: '12px' } });
+
+    caja.appendChild(UI.chispaDice('alertando', lista.length === 1
+      ? 'Alguien vio valor en lo tuyo.'
+      : UI.num(lista.length) + ' personas vieron valor en lo tuyo.'));
+
+    lista.forEach(function (r) {
+      var it = w.PlazaMotor.intencion(r.intencion);
+      var cuerpo = [
+        el('div', { class: 'puesto__nombre', text: P().titulo(r) || 'Un emprendimiento' })
+      ];
+      var linea = P().resumen(r);
+      if (linea) cuerpo.push(el('div', { class: 'puesto__linea', text: linea }));
+
+      cuerpo.push(el('div', { class: 'puesto__porque' }, [
+        el('span', { class: 'puesto__porque__ico', text: it ? it.icon : '🤝' }),
+        el('span', { text: it ? it.label : 'Quiere hablar contigo' })
+      ]));
+
+      caja.appendChild(el('div', { class: 'pz-hueco pz-aura' }, [
+        el('article', { class: 'puesto', data: { toldo: r.sector || 'otro' } }, [
+          el('header', { class: 'puesto__toldo' }, [
+            el('span', { class: 'puesto__sector', text: P().rotulo(r) })
+          ]),
+          el('div', { class: 'puesto__cuerpo' }, cuerpo),
+          el('div', { class: 'puesto__pie', style: { display: 'flex', flexDirection: 'column', gap: '8px' } }, [
+            UI.btn('Sí, hablemos', { variant: 'brand', size: 'sm',
+              onClick: function () { contestar(r, true); } }),
+            UI.btn('Ahora no', { variant: 'flat',
+              onClick: function () { contestar(r, false); } })
+          ])
+        ])
+      ]));
+    });
+
+    return caja;
+  }
+
+  function contestar(r, acepto) {
+    if (!acepto) {
+      UI.confirm({
+        title: '¿Le digo que no?',
+        text: 'No se lo voy a decir con esas palabras: simplemente deja de aparecerte. Puede volver a acercarse más adelante.',
+        ok: 'Sí, ahora no', cancel: 'Déjalo ahí', mood: 'think'
+      }).then(function (si) {
+        if (!si) return;
+        w.PlazaNube.responder(r.id, false).then(function (res) {
+          if (!res || !res.ok) { UI.toast(w.PlazaNube.excusa(res), 'red', '🕯️'); return; }
+          P().olvidarVecinos();
+          UI.Router.refresh();
+        });
+      });
+      return;
+    }
+
+    UI.toast('Abriendo…', 'blue', '🤝');
+    w.PlazaNube.responder(r.id, true).then(function (res) {
+      if (!res || !res.ok) { UI.toast(w.PlazaNube.excusa(res), 'red', '🕯️'); return; }
+
+      w.Sound.coin();
+      P().olvidarVecinos();
+
+      /* El logro se concede aquí y no en checkBadges(): el hecho que lo
+         merece —que los dos aceptaron— vive en el servidor, no en el estado
+         local, así que este es el único sitio donde se sabe.
+
+         Con un respiro antes, porque award() abre un modal y viene de cerrar
+         una hoja: encimados, la insignia aterriza encima de la hoja todavía
+         viva. */
+      setTimeout(function () {
+        try { w.Engine.award('plaza-puerta'); } catch (e) { /* no es crítico */ }
+      }, 700);
+
+      abrirCharla(res.conversacion, r);
+    });
+  }
+
+  /* ------------------------- Las conversaciones abiertas ------------------- */
+
+  function bloqueCharlas(lista) {
+    var caja = el('div', { class: 'col', style: { gap: '8px' } });
+    caja.appendChild(el('h2', { class: 'sep', text: UI.count(lista.length, 'conversación', 'conversaciones') }));
+
+    lista.forEach(function (c) {
+      caja.appendChild(el('button', {
+        class: 'card card--tight', type: 'button',
+        style: { display: 'flex', gap: '10px', alignItems: 'center', textAlign: 'left', width: '100%' },
+        onclick: function () { abrirCharla(c.id, { id: c.otro_id, negocio: c.negocio, producto: c.producto, idea: c.idea, sector: c.sector }); }
+      }, [
+        el('span', { style: { fontSize: '22px', flex: 'none' }, text: '💬' }),
+        el('span', { class: 'grow', style: { minWidth: '0' } }, [
+          el('span', { class: 'small', style: { display: 'block', fontWeight: '900' },
+            /* Si el otro retiró su puesto, su vitrina ya no viene. La
+               conversación sigue: lo que desaparece es el negocio, no el hilo. */
+            text: c.negocio || c.producto || 'Alguien de la Plaza' }),
+          el('span', { class: 'tiny', style: { display: 'block', textTransform: 'none', letterSpacing: '0' },
+            text: 'Toca para seguir hablando' })
+        ]),
+        el('span', { style: { flex: 'none', fontSize: '18px' }, text: '›' })
+      ]));
+    });
+
+    return caja;
+  }
+
+  /* ------------------------- La conversación -------------------------
+
+     Se abre como pantalla propia y no como hoja: aquí se escribe, y una hoja
+     con el teclado encima deja tres líneas de sitio. */
+
+  var charlaActual = null;
+
+  function abrirCharla(id, otro) {
+    charlaActual = { id: id, otro: otro || {}, mensajes: [], cargando: true };
+    UI.Router.go('plaza-chat');
+    w.PlazaNube.mensajes(id).then(function (r) {
+      if (!charlaActual || charlaActual.id !== id) return;
+      charlaActual.cargando = false;
+      if (r && r.ok) {
+        charlaActual.mensajes = r.mensajes || [];
+        charlaActual.bloqueada = !!r.bloqueada;
+      } else {
+        charlaActual.fallo = w.PlazaNube.excusa(r);
+      }
+      if (UI.Router.current === 'plaza-chat') UI.Router.refresh();
+    });
+  }
+
+  function pantallaCharla() {
+    var root = el('div', { class: 'screen' });
+    var c = charlaActual;
+
+    if (!c) {
+      root.appendChild(UI.chispaDice('explicando', 'Esa conversación ya no está.'));
+      root.appendChild(UI.btn('Volver a la Plaza', { variant: 'brand',
+        onClick: function () { UI.Router.go('plaza', {}, 'back'); } }));
+      return root;
+    }
+
+    root.appendChild(el('div', { class: 'row', style: { gap: '12px' } }, [
+      UI.backBtn(function () { UI.Router.go('plaza', {}, 'back'); }),
+      el('h1', { class: 'h3', text: c.otro.negocio || c.otro.producto || 'Conversación' })
+    ]));
+
+    if (c.cargando) {
+      root.appendChild(UI.chispaDice('pensando', 'Abriendo la conversación…'));
+      return root;
+    }
+    if (c.fallo) {
+      root.appendChild(UI.chispaDice('acompanando', c.fallo));
+      return root;
+    }
+
+    root.appendChild(UI.chispaDice('explicando',
+      'Ya se pueden escribir. Yo me aparto: esto es entre ustedes.'));
+
+    var yo = P().idNube();
+    var hilo = el('div', { class: 'col', style: { gap: '10px' } });
+
+    c.mensajes.forEach(function (m) {
+      var mio = m.de_id === yo;
+      hilo.appendChild(el('div', {
+        class: 'pz-msg' + (mio ? ' pz-msg--mio' : ''),
+        /* text: y nunca html:. Esto lo escribió otra persona. */
+        text: m.texto
+      }));
+    });
+    root.appendChild(hilo);
+
+    if (c.bloqueada) {
+      root.appendChild(el('div', { class: 'tiny t-center',
+        style: { textTransform: 'none', letterSpacing: '0' },
+        text: 'Esta conversación está cerrada.' }));
+      return root;
+    }
+
+    var caja = el('textarea', { class: 'textarea', rows: '3', maxlength: '1200',
+      placeholder: 'Escribe lo que quieras decirle' });
+    root.appendChild(caja);
+
+    root.appendChild(UI.btn('Enviar', { variant: 'brand', onClick: function () {
+      var t = (caja.value || '').trim();
+      if (!t) return;
+      caja.value = '';
+      w.PlazaNube.mensajes(c.id, t).then(function (r) {
+        if (!r || !r.ok) { UI.toast(w.PlazaNube.excusa(r), 'red', '🕯️'); caja.value = t; return; }
+        c.mensajes = r.mensajes || [];
+        UI.Router.refresh();
+      });
+    } }));
+
+    root.appendChild(UI.btn('Denunciar o bloquear', { variant: 'flat',
+      onClick: function () { denunciarA(c.otro); } }));
+
+    return root;
+  }
+
+  var MOTIVOS_DENUNCIA = [
+    { id: 'suplantacion', label: 'Se hace pasar por otro negocio' },
+    { id: 'ofensivo',     label: 'Me escribió algo ofensivo' },
+    { id: 'spam',         label: 'Solo manda publicidad' },
+    { id: 'estafa',       label: 'Parece una estafa' },
+    { id: 'otro',         label: 'Otra cosa' }
+  ];
+
+  function denunciarA(otro) {
+    var lista = el('div', { class: 'col', style: { gap: '8px' } });
+    MOTIVOS_DENUNCIA.forEach(function (m) {
+      lista.appendChild(el('button', { class: 'card card--tight pz-intencion', type: 'button',
+        onclick: function () {
+          UI.closeSheet();
+          w.PlazaNube.denunciar(otro.id, m.id, '').then(function (r) {
+            if (!r || !r.ok) { UI.toast(w.PlazaNube.excusa(r), 'red', '🕯️'); return; }
+            P().olvidarVecinos();
+            charlaActual = null;
+            /* Se dice lo que pasa de verdad y no «gracias por tu reporte»:
+               el bloqueo es inmediato y lo demás lo mira una persona, que
+               tarda. */
+            UI.toast('Bloqueado. Lo voy a revisar', 'blue', '🔒');
+            UI.Router.go('plaza', {}, 'back');
+          });
+        } }, [
+        el('span', { class: 'grow', style: { minWidth: '0', fontWeight: '900' }, text: m.label })
+      ]));
+    });
+
+    UI.sheet([
+      el('h2', { class: 'h3', text: '¿Qué pasó?' }),
+      el('div', { class: 'small', text: 'Dejo de enseñarte su puesto ahora mismo, y lo reviso.' }),
+      lista,
+      UI.btn('Mejor no', { variant: 'flat', onClick: UI.closeSheet })
+    ]);
   }
 
   /* ------------------------- La tarjeta -------------------------
@@ -862,6 +1122,7 @@
 
   UI.Router.register('plaza', renderPlaza);
   UI.Router.register('plaza-vitrina', renderVitrina);
+  UI.Router.register('plaza-chat', pantallaCharla);
 
   /* ==================================================================
      LA PUERTA

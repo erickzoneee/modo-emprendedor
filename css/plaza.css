@@ -416,3 +416,36 @@ html[data-theme="dark"] .camino {
    debe reconocer al instante que esto es lo mismo, un escalón más arriba.
    Lo único que no se hereda es el escudo, que se inyecta en promesa.js y
    allí se queda.                                                            */
+
+/* ------------------------- La conversación -------------------------
+
+   Dos burbujas y nada más. Sin avatares, sin horas, sin "visto": lo que
+   importa aquí es lo que se dicen, y cada adorno de más es una cosa que
+   mirar en vez de leer.
+
+   El mío va en naranja de marca y el suyo en la tarjeta neutra — nunca en el
+   color de su sector. El toldo dice de qué es su negocio; un mensaje no. */
+.pz-msg {
+  max-width: 84%;
+  align-self: flex-start;
+  padding: 11px 14px;
+  border-radius: var(--r-lg) var(--r-lg) var(--r-lg) var(--r-sm);
+  background: var(--card);
+  border: 2px solid var(--line-2);
+  box-shadow: var(--sh-1);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--ink);
+  /* Lo escribió otra persona: puede venir con un salto de línea o con una
+     palabra kilométrica sin espacios. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pz-msg--mio {
+  align-self: flex-end;
+  border-radius: var(--r-lg) var(--r-lg) var(--r-sm) var(--r-lg);
+  background: var(--brand-soft);
+  border-color: var(--brand-soft);
+  color: var(--brand-dark);
+}
