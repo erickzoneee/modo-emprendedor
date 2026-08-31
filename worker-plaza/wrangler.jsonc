@@ -21,12 +21,32 @@
   "main": "src/index.js",
   "compatibility_date": "2026-08-01",
 
+  // La cuenta, escrita a mano y a propósito.
+  //
+  // Sin esto, wrangler despliega en la cuenta que tenga la sesión abierta, y
+  // eso ya salió mal una vez: la base y el Worker acabaron en una cuenta y el
+  // dominio en otra. Cloudflare exige que el dominio del correo viva en la
+  // MISMA cuenta que el Worker, así que aquello no habría podido mandar ni un
+  // enlace de acceso.
+  //
+  // Esta es la cuenta que tiene emprendo.life y el plan de pago. Con el id
+  // aquí, un despliegue desde la cuenta equivocada falla en vez de acertar
+  // por casualidad.
+  "account_id": "740434c6ad262092cf983617356a3a15",
+
+  // El dominio propio. Además de quedar mejor, quita de la URL el subdominio
+  // de workers.dev, que es el nombre de la cuenta — o sea, el correo del
+  // dueño a la vista de cualquiera que abra las herramientas del navegador.
+  "routes": [
+    { "pattern": "plaza.emprendo.life", "custom_domain": true }
+  ],
+
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "emprendo-plaza",
-      // Lo imprime `wrangler d1 create`. Creada el 30-ago-2026, región WNAM.
-      "database_id": "8551cc37-de4d-4713-ae29-75a92c9ebbc9"
+      // Lo imprime `wrangler d1 create`. Región WNAM, en la cuenta de arriba.
+      "database_id": "4ee8d3b6-21ad-409f-bc74-03e8c16c9283"
     }
   ],
 

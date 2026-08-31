@@ -9,21 +9,35 @@ cae, la IA sigue funcionando.
 
 ---
 
-## Antes de nada: el aviso del plan de pago
+## Estado: desplegado
 
-El envío de correo de Cloudflare **requiere el plan Workers Paid**. Activarlo
-tiene una consecuencia que no es evidente y que afecta al *otro* Worker:
+- **URL:** `https://plaza.emprendo.life`
+- **Cuenta:** `Techmarketdigital25@gmail.com` (`740434c6ad262092cf983617356a3a15`), plan Workers Paid
+- **Base:** `emprendo-plaza`, región WNAM
+- **Correo:** dado de alta en `emprendo.life`, con SPF, DKIM, DMARC y MX de rebote
 
-| | Plan gratuito (hoy) | Workers Paid |
+### Las dos cuentas, y por qué
+
+Emprendo vive repartido en dos cuentas de Cloudflare **a propósito**:
+
+| | Cuenta | Plan |
 |---|---|---|
-| Al agotar los 10.000 neurons del día | **Deja de responder** | **Sigue respondiendo y cobra** |
-| Precio del exceso | — | 0,011 USD / 1.000 neurons |
+| Worker `chispa` (la IA) | `Villedacaballeroerickjosue@gmail.com` | **Gratuito** |
+| Worker `plaza` + base + dominio | `Techmarketdigital25@gmail.com` | **Workers Paid** |
 
-`worker/README.md` dice hoy que «es imposible que esto te genere un cobro».
-Eso deja de ser cierto al activar el plan.
+Que Chispa siga en la cuenta gratuita no es un descuido: es lo que mantiene la
+promesa de `worker/README.md` de que **la IA no puede generar un cobro**. Al
+agotar los 10.000 neurons del día, Workers AI deja de responder en el plan
+gratuito y *cobra el exceso* en el de pago. Con la separación, ese freno sigue
+puesto solo.
 
-**Por eso el cortacircuitos de la Fase 2 pasa a ser obligatorio**, y hay que
-desplegarlo *antes* de cambiar de plan, no después.
+El día que Chispa se mueva a la cuenta de pago, el cortacircuitos de la Fase 2
+deja de ser opcional y hay que desplegarlo **antes**.
+
+`account_id` está fijado en `wrangler.jsonc` justamente por esto: sin él,
+wrangler despliega en la cuenta que tenga la sesión abierta, y eso ya salió mal
+una vez — la base y el Worker acabaron en una cuenta y el dominio en la otra,
+con lo que el correo no habría podido salir nunca.
 
 ---
 
