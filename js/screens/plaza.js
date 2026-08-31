@@ -713,9 +713,15 @@
       ok: 'Sí, retíralo', cancel: 'Déjalo así', mood: 'think'
     }).then(function (si) {
       if (!si) return;
-      P().retirarValor(v.id);
-      UI.toast('Retirado', 'blue', '🕯️');
-      UI.Router.refresh();
+      /* Mismo orden que al enviarlo: si el servidor no lo retira, en el
+         teléfono tampoco se retira. Si no, la tarjeta desaparecería de aquí
+         y el otro seguiría viendo que alguien vio valor en lo suyo. */
+      w.PlazaNube.retirarValor(v.id).then(function (r) {
+        if (!r || !r.ok) { UI.toast(w.PlazaNube.excusa(r), 'red', '🕯️'); return; }
+        P().retirarValor(v.id);
+        UI.toast('Retirado', 'blue', '🕯️');
+        UI.Router.refresh();
+      });
     });
   }
 
@@ -785,14 +791,33 @@
           UI.toast('Todavía no pongas tu contacto', 'red', '🔒');
           return;
         }
-        P().veoValor(rec.vitrina.id, it.id, texto);
-        UI.closeSheet();
-        w.Sound.coin();
-        w.FX.celebrate();
-        /* Nada de "ya lo sabe": no hay avisos, así que lo sabrá cuando abra
-           la app, y eso puede tardar días. */
-        UI.toast('Listo. Lo verá cuando abra la app', 'gold', '🕯️');
-        UI.Router.refresh();
+        /* PRIMERO EL SERVIDOR, Y SOLO SI ACEPTA SE CELEBRA.
+
+           Al revés estaba mal, y lo estuvo: se guardaba en el teléfono, se
+           lanzaba el confeti y se decía «Listo. Lo verá cuando abra la app»
+           mientras al servidor no llegaba nada. La tarjeta pasaba a
+           «esperando» para siempre por algo que nunca se envió, y la persona
+           del otro lado no tenía forma de saber que alguien la había buscado.
+
+           Es exactamente la clase de mentira que esta sección entera existe
+           para no contar, así que el orden importa: si el servidor no dice
+           que sí, aquí no se guarda nada y se dice lo que pasó. */
+        UI.toast('Enviando…', 'blue', '📣');
+
+        w.PlazaNube.veoValor(rec.vitrina.id, it.id, rec.motivo, texto).then(function (r) {
+          if (!r || !r.ok) {
+            UI.toast(w.PlazaNube.excusa(r), 'red', '🕯️');
+            return;
+          }
+          P().veoValor(rec.vitrina.id, it.id, texto);
+          UI.closeSheet();
+          w.Sound.coin();
+          w.FX.celebrate();
+          /* Nada de "ya lo sabe": no hay avisos, así que lo sabrá cuando abra
+             la app, y eso puede tardar días. */
+          UI.toast('Listo. Lo verá cuando abra la app', 'gold', '🕯️');
+          UI.Router.refresh();
+        });
       } }),
       UI.btn('Ahora no', { variant: 'flat', onClick: UI.closeSheet })
     ]);
