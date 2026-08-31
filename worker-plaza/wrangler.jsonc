@@ -67,11 +67,16 @@
   ],
 
   "vars": {
-    // Lista blanca exacta. NO se pone localhost: en el Worker de Chispa da
-    // igual porque solo hay IA, pero aquí viaja la sesión dentro del cuerpo,
-    // y cualquier página servida en ese puerto podría llamar a esta API.
-    // Para desarrollo se usa `wrangler dev`, que trae su propio origen.
-    "ORIGENES": "https://app.emprendo.life,https://erickzoneee.github.io",
+    // Las direcciones COMPLETAS de la app, con carpeta si la tiene. No solo
+    // el origen: la cabecera `Origin` del navegador nunca lleva la ruta, y
+    // sin ella el enlace de acceso sale apuntando a la raíz del dominio. En
+    // GitHub Pages eso es un 404.
+    //
+    // NO se pone localhost: en el Worker de Chispa da igual porque solo hay
+    // IA, pero aquí viaja la sesión dentro del cuerpo, y cualquier página
+    // servida en ese puerto podría llamar a esta API. Para desarrollo se usa
+    // `wrangler dev`, que trae su propio origen.
+    "ORIGENES": "https://app.emprendo.life,https://erickzoneee.github.io/modo-emprendedor",
     "APP_URL": "https://app.emprendo.life",
     "CORREO_DESDE": "hola@emprendo.life"
   },

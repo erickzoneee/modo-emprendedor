@@ -94,6 +94,11 @@ function baseNueva() {
    ================================================================== */
 
 const ORIGEN = 'https://app.emprendo.life';
+/* La app de GitHub Pages vive en una CARPETA, y su cabecera Origin no la
+   lleva. Es la trampa que hizo que el primer enlace de acceso real acabara
+   en un 404. */
+const ORIGEN_CARPETA = 'https://erickzoneee.github.io';
+const BASE_CARPETA   = 'https://erickzoneee.github.io/modo-emprendedor';
 const PIMIENTA = 'x'.repeat(48);
 
 const correosMandados = [];
@@ -102,7 +107,7 @@ function entornoNuevo(db, extra) {
   return Object.assign({
     DB: haceD1(db),
     PIMIENTA,
-    ORIGENES: ORIGEN + ',https://erickzoneee.github.io',
+    ORIGENES: ORIGEN + ',' + BASE_CARPETA,
     APP_URL: ORIGEN,
     CORREO_DESDE: 'hola@emprendo.life',
     EMAIL: {
@@ -273,15 +278,29 @@ async function correr() {
       cuerpo.indexOf('/#plaza=') >= 0 && cuerpo.indexOf('?plaza=') < 0, cuerpo.slice(0, 90));
   }
 
-  /* ---------------------- el enlace vuelve al origen desde el que se pidió -- */
+  /* ---------------------- el enlace vuelve al sitio desde el que se pidió -- */
   {
     const db = baseNueva();
     const env = entornoNuevo(db);
     correosMandados.length = 0;
-    await llama(worker, env, { op: 'entrar', correo: 'g@b.com' }, 'https://erickzoneee.github.io');
-    comprueba('el enlace vuelve al origen que lo pidió',
-      correosMandados[0].text.indexOf('https://erickzoneee.github.io/#plaza=') >= 0,
-      correosMandados[0].text.slice(0, 100));
+    await llama(worker, env, { op: 'entrar', correo: 'g@b.com' }, ORIGEN_CARPETA);
+
+    /* Con la CARPETA incluida. Esta comprobación nació de un fallo real: el
+       Worker usaba la cabecera Origin, que nunca lleva la ruta, así que el
+       primer enlace de acceso de verdad llegó bien al buzón y aterrizó en un
+       404 de GitHub Pages. */
+    comprueba('el enlace vuelve a la app, con su carpeta',
+      correosMandados[0].text.indexOf(BASE_CARPETA + '/#plaza=') >= 0,
+      correosMandados[0].text.slice(0, 110));
+    comprueba('el enlace NO apunta a la raíz del dominio',
+      correosMandados[0].text.indexOf(ORIGEN_CARPETA + '/#plaza=') < 0);
+
+    /* Y el otro origen, que no tiene carpeta, sigue funcionando igual. */
+    correosMandados.length = 0;
+    await llama(worker, env, { op: 'entrar', correo: 'g2@b.com' }, ORIGEN);
+    comprueba('un origen sin carpeta también vuelve bien',
+      correosMandados[0].text.indexOf(ORIGEN + '/#plaza=') >= 0,
+      correosMandados[0].text.slice(0, 110));
   }
 
   /* ------------------------------- entrar responde igual pase lo que pase -- */

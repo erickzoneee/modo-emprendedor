@@ -355,7 +355,7 @@ const OPS = {
        quien usa la app en GitHub Pages recibía un enlace a app.emprendo.life:
        otro origen, otro almacenamiento, otra instalación. El origen ya pasó
        por la lista blanca, así que esto no abre una redirección libre. */
-    const base = origenPermitido(peticion.headers.get('Origin') || '', env);
+    const base = baseDelOrigen(peticion.headers.get('Origin') || '', env);
 
     /* Si el envío falla, `entrar` TIENE que seguir respondiendo lo mismo. Sin
        este try, un correo rebotado devuelve 500 y uno bueno 200: eso es un
@@ -946,10 +946,35 @@ async function mandarEnlace(correo, token, env, origen) {
    contestar en el mismo dominio son dos sitios donde equivocarse.
    ========================================================================== */
 
-function origenPermitido(origen, env) {
+/* ORIGENES lleva las direcciones COMPLETAS de la app, con su carpeta si la
+   tiene, y no solo el origen.
+
+   El motivo salió probando de verdad: la cabecera `Origin` que manda el
+   navegador nunca incluye la ruta. En GitHub Pages la app vive en
+   https://erickzoneee.github.io/modo-emprendedor/ pero su Origin es
+   https://erickzoneee.github.io a secas, así que el enlace de acceso salía
+   apuntando a la raíz del dominio — y ahí no hay nada. El correo llegaba bien
+   y el enlace daba un 404.
+
+   Con la lista escrita entera, la misma tabla sirve para las dos cosas: para
+   decidir si el origen está permitido, y para saber a qué dirección vuelve
+   quien pulse el enlace. */
+function baseDelOrigen(origen, env) {
+  if (!origen) return null;
   const lista = String(env.ORIGENES || '').split(',').map(s => s.trim()).filter(Boolean);
-  if (!lista.length) return null;
-  return lista.includes(origen) ? origen : null;
+  for (let i = 0; i < lista.length; i++) {
+    try {
+      if (new URL(lista[i]).origin === origen) return lista[i].replace(/\/+$/, '');
+    } catch (e) { /* una entrada mal escrita no puede tumbar la comprobación */ }
+  }
+  return null;
+}
+
+/** El valor de Access-Control-Allow-Origin, o null si no está en la lista. */
+function origenPermitido(origen, env) {
+  const base = baseDelOrigen(origen, env);
+  if (!base) return null;
+  try { return new URL(base).origin; } catch (e) { return null; }
 }
 
 function cors(origen) {
