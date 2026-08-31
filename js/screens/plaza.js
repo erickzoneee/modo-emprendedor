@@ -509,7 +509,21 @@
     var recs = [];
     if (v && w.PlazaMotor) {
       try {
-        recs = w.PlazaMotor.recomendar(v, P2.vecinos(), { max: 3, excluir: P2.enviados() });
+        /* Fuera de las recomendaciones: a quien ya saludaste, quien ya te
+           saludó a ti, y con quien ya estás hablando.
+
+           Los dos últimos se me olvidaron y se veía enseguida: la misma
+           persona salía dos veces en la misma pantalla, arriba esperando tu
+           respuesta y más abajo como una sugerencia para acercarte. Quien ya
+           dio el paso no es alguien a quien proponerte dar el paso. */
+        var fuera = {};
+        for (var k in P2.enviados()) {
+          if (Object.prototype.hasOwnProperty.call(P2.enviados(), k)) fuera[k] = 1;
+        }
+        P2.recibidos().forEach(function (x) { fuera[x.id] = 1; });
+        P2.charlas().forEach(function (x) { fuera[x.otro_id] = 1; });
+
+        recs = w.PlazaMotor.recomendar(v, P2.vecinos(), { max: 3, excluir: fuera });
       } catch (e) { recs = []; }
     }
     var hayGente = P2.hayVecinos();
