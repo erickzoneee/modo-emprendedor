@@ -1,0 +1,482 @@
+/* ==========================================================================
+   EL PUESTO DECORADO — cómo se pintan las piezas
+
+   Compañera de css/plaza.css. Aquella dibuja el lugar y el puesto de serie;
+   esta dibuja lo que el usuario le pone encima. Va después a propósito: casi
+   todo lo de aquí sobrescribe algo de allí, y a igual especificidad decide el
+   orden de la cascada.
+
+   DÓNDE VIVEN LAS CLAVES
+   Todas las piezas se eligen con atributos `data-pz-*` puestos en el hueco
+   —el contenedor `.pz-hueco`, no el artículo— y por una razón concreta: el
+   suelo y los adornos son hermanos del puesto, no hijos suyos, y desde el
+   hueco un solo atributo alcanza a los tres.
+
+   El color es el único caso especial: va en el ARTÍCULO, al lado de
+   `data-toldo`. Tiene que ser ahí y no en el hueco porque `[data-toldo]` de
+   css/plaza.css escribe --pz-toldo en el propio artículo, y un valor puesto
+   en un ancestro no le gana a uno puesto en el elemento. Escrito en el mismo
+   sitio, los dos selectores empatan en especificidad y decide el orden de la
+   cascada — que es justo por lo que esta hoja va después de aquella.
+
+   EL INTERRUPTOR DE APARIENCIA SIGUE MANDANDO
+   `html[data-personaliza="off"]` apaga la decoración del puesto PROPIO, igual
+   que ya apagaba su toldo por sector y las capas de la mascota. Es la misma
+   promesa de siempre —"la app no se pinta con mi negocio"— y romperla aquí
+   dejaría media app apagada y media encendida. Los puestos AJENOS conservan
+   su decoración: eso no es la app pintándose con su negocio, es el puesto de
+   otra persona, y distinguir uno de otro es justo para lo que sirve.
+
+   LO QUE NINGUNA PIEZA PUEDE HACER
+     · tapar el rótulo del sector, arriba a la izquierda del toldo
+     · tapar el nombre o la frase del cuerpo
+     · comerse un toque: la capa de adornos es `pointer-events: none` entera
+   ========================================================================== */
+
+/* ==========================================================================
+   COLOR — de qué color es la lona
+
+   Los seis primeros son los mismos hex que ya usaban los toldos por sector en
+   css/plaza.css, que a su vez son los --neg-acento de css/temas.css: no se
+   inventa una paleta nueva y no hace falta volver a medir el contraste del
+   rótulo blanco. Los tres últimos son nuevos y se midieron igual: cereza
+   6,9:1, uva 7,5:1 y bosque 6,4:1 sobre blanco.
+
+   `oficio` no aparece aquí y no es un olvido: es la ausencia de regla lo que
+   deja pasar el color que ya venía del sector.
+   ========================================================================== */
+
+[data-pz-color="mandarina"] { --pz-toldo: #B5451B; --pz-toldo-2: #E0703C; --pz-canto: #8A3312; }
+[data-pz-color="miel"]      { --pz-toldo: #94651F; --pz-toldo-2: #C08B33; --pz-canto: #6B4915; }
+[data-pz-color="menta"]     { --pz-toldo: #1E7A5A; --pz-toldo-2: #2FA67B; --pz-canto: #145C42; }
+[data-pz-color="indigo"]    { --pz-toldo: #585CD1; --pz-toldo-2: #7A7DE8; --pz-canto: #383BA5; }
+[data-pz-color="oceano"]    { --pz-toldo: #1F6FA8; --pz-toldo-2: #3E9AD4; --pz-canto: #15547F; }
+[data-pz-color="teal"]      { --pz-toldo: #14807A; --pz-toldo-2: #1FA59C; --pz-canto: #0C635E; }
+[data-pz-color="cereza"]    { --pz-toldo: #A32C4A; --pz-toldo-2: #CE4C6C; --pz-canto: #7C1E36; }
+[data-pz-color="uva"]       { --pz-toldo: #6A3E9E; --pz-toldo-2: #8E5FC6; --pz-canto: #4E2A78; }
+[data-pz-color="bosque"]    { --pz-toldo: #2F6B2B; --pz-toldo-2: #4C9243; --pz-canto: #23511F; }
+
+/* ==========================================================================
+   TOLDO — el tejido y el borde de abajo
+
+   Cinco de las seis formas usan la misma técnica de máscara que ya usaba el
+   festón: una teja que se repite en horizontal para morder el borde, y un
+   rectángulo que sostiene el resto. La sexta, los picos, usa clip-path
+   porque una teja triangular en máscara sale con el filo dentado en pantallas
+   sin subpíxel, y un pico mellado no se lee como un pico.
+
+   Cada forma escribe SIEMPRE las dos propiedades —máscara y recorte—, aunque
+   una de las dos sea `none`. Sin eso, cambiar de picos a rayas dejaba el
+   recorte de los picos puesto encima del tejido nuevo.
+   ========================================================================== */
+
+/* --- Festón: el de siempre. Se repite aquí para que cambiar a él desde otra
+       forma devuelva de verdad el estado original. --- */
+[data-pz-toldo="feston"] .puesto__toldo {
+  background: linear-gradient(150deg, var(--pz-toldo), var(--pz-toldo-2));
+  clip-path: none;
+  -webkit-mask:
+    radial-gradient(9px 11px at 50% 0, transparent 99%, #000 100%) 0 100% / 22px 12px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 11px) no-repeat;
+  mask:
+    radial-gradient(9px 11px at 50% 0, transparent 99%, #000 100%) 0 100% / 22px 12px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 11px) no-repeat;
+}
+
+/* --- Rayas verticales. El borde sigue siendo el festón: unas rayas con el
+       canto recto se leen como una persiana, no como un toldo. --- */
+[data-pz-toldo="rayas"] .puesto__toldo {
+  background: repeating-linear-gradient(90deg,
+    var(--pz-toldo) 0 19px, var(--pz-toldo-2) 19px 38px);
+  clip-path: none;
+  -webkit-mask:
+    radial-gradient(9px 11px at 50% 0, transparent 99%, #000 100%) 0 100% / 22px 12px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 11px) no-repeat;
+  mask:
+    radial-gradient(9px 11px at 50% 0, transparent 99%, #000 100%) 0 100% / 22px 12px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 11px) no-repeat;
+}
+
+/* --- Ondas: la misma teja del festón, pero al revés. Donde aquel muerde,
+       esta abulta. Un solo signo de diferencia y se lee como otra cosa. --- */
+[data-pz-toldo="ondas"] .puesto__toldo {
+  background: repeating-linear-gradient(118deg,
+    var(--pz-toldo) 0 17px, var(--pz-toldo-2) 17px 34px);
+  clip-path: none;
+  -webkit-mask:
+    radial-gradient(11px 11px at 50% 0, #000 99%, transparent 100%) 0 100% / 22px 12px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 11px) no-repeat;
+  mask:
+    radial-gradient(11px 11px at 50% 0, #000 99%, transparent 100%) 0 100% / 22px 12px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 11px) no-repeat;
+}
+
+/* --- Cuadros de mantel. Las dos rejillas van en blanco translúcido sobre el
+       degradado: así el cuadro es el MISMO color de su toldo aclarado, y no
+       una segunda paleta que habría que medir aparte. --- */
+[data-pz-toldo="cuadros"] .puesto__toldo {
+  background:
+    repeating-linear-gradient(0deg,  rgba(255, 255, 255, .20) 0 11px, transparent 11px 22px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .20) 0 11px, transparent 11px 22px),
+    linear-gradient(150deg, var(--pz-toldo), var(--pz-toldo-2));
+  clip-path: none;
+  -webkit-mask:
+    radial-gradient(9px 11px at 50% 0, transparent 99%, #000 100%) 0 100% / 22px 12px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 11px) no-repeat;
+  mask:
+    radial-gradient(9px 11px at 50% 0, transparent 99%, #000 100%) 0 100% / 22px 12px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 11px) no-repeat;
+}
+
+/* --- Lona lisa con costura. Borde recto: es la única forma "seria" y el
+       canto limpio es justo lo que la hace serlo. --- */
+[data-pz-toldo="lona"] .puesto__toldo {
+  background:
+    linear-gradient(180deg, transparent calc(100% - 9px),
+      rgba(0, 0, 0, .16) calc(100% - 9px), rgba(0, 0, 0, .16) calc(100% - 7px), transparent calc(100% - 7px)),
+    linear-gradient(150deg, var(--pz-toldo), var(--pz-toldo-2));
+  clip-path: none;
+  -webkit-mask: none;
+  mask: none;
+}
+
+/* --- Picos. Ocho dientes en porcentajes: así el mismo recorte vale en un
+       teléfono estrecho y en la vista previa de la pantalla de decorar, sin
+       que se parta un diente por la mitad al final. --- */
+[data-pz-toldo="picos"] .puesto__toldo {
+  background: linear-gradient(150deg, var(--pz-toldo), var(--pz-toldo-2));
+  -webkit-mask: none;
+  mask: none;
+  clip-path: polygon(
+    0 0, 100% 0,
+    100% 76%, 93.75% 100%, 87.5% 76%, 81.25% 100%, 75% 76%, 68.75% 100%,
+    62.5% 76%, 56.25% 100%, 50% 76%, 43.75% 100%, 37.5% 76%, 31.25% 100%,
+    25% 76%, 18.75% 100%, 12.5% 76%, 6.25% 100%, 0 76%
+  );
+}
+
+/* El rótulo del sector va en blanco sobre la lona, y sobre un tejido con
+   franjas claras el blanco pierde. La sombra no cambia el color: le devuelve
+   el borde que el tejido le quitó. Solo donde hace falta. */
+[data-pz-toldo="rayas"] .puesto__sector,
+[data-pz-toldo="ondas"] .puesto__sector,
+[data-pz-toldo="cuadros"] .puesto__sector {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .42);
+}
+
+/* ==========================================================================
+   LETRERO — el marco donde se lee el nombre
+
+   `display: inline-block` para que el marco abrace el nombre y no cruce el
+   puesto de lado a lado. `max-width: 100%` porque un nombre de 44 caracteres
+   —el tope de js/core/plaza.js— no cabe entero en un teléfono estrecho.
+   ========================================================================== */
+
+[data-pz-letrero]:not([data-pz-letrero="ninguno"]) .puesto__nombre {
+  display: inline-block;
+  max-width: 100%;
+  padding: 5px 12px;
+  margin-bottom: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* Tabla de madera con dos clavos. Los clavos son sombras y no elementos: el
+   nombre es un div y no tiene hijos que prestar. */
+[data-pz-letrero="tabla"] .puesto__nombre {
+  background: linear-gradient(180deg, #C08A54, #A96F3C);
+  color: #FFF6EA;
+  border: 2px solid #8A5C31;
+  box-shadow:
+    inset 5px 0 0 -3px rgba(255, 255, 255, .55),
+    inset -5px 0 0 -3px rgba(0, 0, 0, .18);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .35);
+}
+
+/* Pizarra con tiza. El borde punteado por dentro es la marca de gis que deja
+   quien enmarca a mano lo que escribió. */
+[data-pz-letrero="pizarra"] .puesto__nombre {
+  background: #2E3440;
+  color: #F3F6FA;
+  border: 2px solid #1B2029;
+  box-shadow: inset 0 0 0 2px rgba(243, 246, 250, .22);
+  letter-spacing: .2px;
+}
+
+/* Placa esmaltada. Toma el color del toldo a propósito: es la única pieza que
+   lo hace, y por eso el puesto se lee como una sola cosa y no como un collage. */
+[data-pz-letrero="placa"] .puesto__nombre {
+  background: var(--pz-toldo);
+  color: #fff;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px var(--pz-canto);
+  border-radius: var(--r-md);
+}
+
+/* Cinta pintada a mano. La inclinación es de medio grado: lo justo para que
+   se note que la pintó una persona y no tanto como para que parezca un error. */
+[data-pz-letrero="cinta"] .puesto__nombre {
+  background: linear-gradient(180deg, var(--pz-toldo-2), var(--pz-toldo));
+  color: #fff;
+  transform: rotate(-.9deg);
+  transform-origin: left center;
+  border-radius: 3px 10px 4px 11px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .3);
+}
+
+/* ==========================================================================
+   SUELO — sobre qué está montado
+
+   Es un hermano del puesto, no un hijo: va detrás en el marcado y por debajo
+   en el pintado. Sobresale un poco por los lados porque una tarima del ancho
+   exacto del puesto no se ve como una tarima, se ve como un borde.
+   ========================================================================== */
+
+.puesto__suelo {
+  position: relative;
+  z-index: 0;
+  width: calc(100% + 22px);
+  height: 16px;
+  margin-top: 5px;
+  border-radius: 0 0 12px 12px;
+  pointer-events: none;
+}
+
+[data-pz-suelo="tarima"] .puesto__suelo {
+  height: 17px;
+  background:
+    repeating-linear-gradient(90deg,
+      #B07A45 0 26px, #8A5C31 26px 28px),
+    #B07A45;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .30), 0 4px 0 #6E4826;
+}
+
+[data-pz-suelo="tapete"] .puesto__suelo {
+  height: 15px;
+  border-radius: 4px;
+  background:
+    repeating-linear-gradient(90deg,
+      #C9553F 0 9px, #E0805F 9px 18px);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .30);
+  /* El fleco de las orillas: la misma teja de máscara del toldo, girada. */
+  -webkit-mask: linear-gradient(90deg, transparent 0 4px, #000 4px calc(100% - 4px), transparent calc(100% - 4px));
+  mask: linear-gradient(90deg, transparent 0 4px, #000 4px calc(100% - 4px), transparent calc(100% - 4px));
+}
+
+[data-pz-suelo="adoquin"] .puesto__suelo {
+  height: 15px;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, .16) 0 2px, transparent 2px 24px),
+    repeating-linear-gradient(0deg,  rgba(0, 0, 0, .16) 0 2px, transparent 2px 15px),
+    linear-gradient(180deg, #C3B4A4, #A3947F);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .34);
+}
+
+[data-pz-suelo="pasto"] .puesto__suelo {
+  height: 16px;
+  background: linear-gradient(180deg, #57A24A, #3C7A34);
+  /* Las puntas de la hierba, con la teja de picos del toldo en pequeño. */
+  -webkit-mask: linear-gradient(#000, #000) 0 100% / 100% calc(100% - 5px) no-repeat,
+                conic-gradient(from -45deg at 50% 100%, #000 0 90deg, transparent 0) 0 0 / 9px 6px repeat-x;
+  mask: linear-gradient(#000, #000) 0 100% / 100% calc(100% - 5px) no-repeat,
+        conic-gradient(from -45deg at 50% 100%, #000 0 90deg, transparent 0) 0 0 / 9px 6px repeat-x;
+}
+
+/* ==========================================================================
+   ADORNOS — lo que hay alrededor
+
+   Dos franjas sueltas por encima del puesto, y ninguna recibe un toque.
+
+   `aspect-ratio` es lo que hace que esto funcione, y llegó después de verlo
+   fallar: con una capa estirada sobre el puesto entero, un puesto de tres
+   líneas estiraba el dibujo y las macetas subían hasta el texto. Con la
+   proporción fija, el lienzo mide siempre lo mismo en relación a su ancho, y
+   cada franja se ancla al borde que le toca — el pie o la cabeza.
+
+   Los 24 px de sobresalir por cada lado son los que dejan sitio a las piezas
+   laterales fuera del cuerpo del puesto. Cambiar ese número o la proporción
+   descoloca todas las piezas de js/data/puesto-piezas.js.
+   ========================================================================== */
+
+.puesto__adorno {
+  position: absolute;
+  left: -24px; right: -24px;
+  z-index: 4;
+  pointer-events: none;
+}
+/* El desplazamiento va en `transform` y no en `top`/`bottom`, y ahí hay una
+   razón: un porcentaje en `top` se mide contra el alto del PUESTO, que cambia
+   con el largo de la frase; uno en `translateY` se mide contra el alto de la
+   propia franja, que es siempre la misma proporción de su ancho.
+
+   Con `top: -26px` fijo, la guirnalda caía encima del toldo en un puesto
+   ancho y quedaba flotando en uno estrecho. Con esto, el borde superior del
+   puesto cae SIEMPRE en y 34 del lienzo alto, y el inferior en y 88 del bajo,
+   que es exactamente lo que dan por hecho los dibujos. */
+.puesto__adorno--bajo {
+  bottom: 0;
+  aspect-ratio: 320 / 96;
+  transform: translateY(8.3333%);    /* 8 de 96 por debajo del pie */
+}
+.puesto__adorno--alto {
+  top: 0;
+  aspect-ratio: 320 / 56;
+  transform: translateY(-60.7143%);  /* 34 de 56 por encima de la cabeza */
+}
+.puesto__adorno svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+/* La llama del farol. Late despacio y con poco recorrido: un farol que
+   parpadea fuerte se lee como un aviso, no como una luz. */
+.pz-llama {
+  transform-origin: 306px 34px;
+  animation: pzLlama 2.8s var(--ease-in-out) infinite;
+}
+@keyframes pzLlama {
+  0%, 100% { opacity: .82; transform: scaleY(1); }
+  50%      { opacity: 1;   transform: scaleY(1.06); }
+}
+
+/* ==========================================================================
+   EL INTERRUPTOR DE APARIENCIA
+
+   Apaga la decoración del puesto propio, igual que ya apagaba su color por
+   sector. Va aquí abajo, después de todas las piezas, para que gane sin
+   depender de la especificidad de cada una.
+   ========================================================================== */
+
+html[data-personaliza="off"] .pz-hueco .puesto__adorno,
+html[data-personaliza="off"] .pz-hueco .puesto__suelo {
+  display: none;
+}
+html[data-personaliza="off"] .puesto--tuyo .puesto__nombre {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  box-shadow: none;
+  text-shadow: none;
+  transform: none;
+}
+html[data-personaliza="off"] .puesto--tuyo .puesto__toldo {
+  background: linear-gradient(150deg, var(--pz-toldo), var(--pz-toldo-2));
+  clip-path: none;
+  -webkit-mask:
+    radial-gradient(9px 11px at 50% 0, transparent 99%, #000 100%) 0 100% / 22px 12px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 11px) no-repeat;
+  mask:
+    radial-gradient(9px 11px at 50% 0, transparent 99%, #000 100%) 0 100% / 22px 12px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 11px) no-repeat;
+}
+
+/* ==========================================================================
+   LA PANTALLA DE DECORAR
+
+   La vista previa de arriba es el puesto de verdad, con los mismos
+   componentes y las mismas piezas, como la vista previa de Personalizar mi
+   experiencia. Nada de maquetas: si algo se ve mal aquí, se ve mal en la
+   Plaza.
+   ========================================================================== */
+
+.dec-previa {
+  position: relative;
+  padding: 26px 18px 22px;
+  border-radius: var(--r-xl);
+  background: linear-gradient(180deg, #FFF4E8 0%, #FFEAD8 58%, var(--bg) 100%);
+  border: 2px solid var(--line-2);
+  overflow: hidden;
+}
+html[data-theme="dark"] .dec-previa {
+  background: linear-gradient(180deg, #1B2233 0%, #161D2C 58%, var(--bg) 100%);
+}
+.dec-previa__sol {
+  position: absolute;
+  left: 50%; top: -60px;
+  transform: translateX(-50%);
+  width: 190px; height: 190px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 201, 140, .6), rgba(255, 201, 140, 0) 66%);
+  pointer-events: none;
+}
+
+.dec-grupo { margin-top: var(--s5); }
+.dec-grupo__t {
+  font-size: var(--fs-md);
+  font-weight: 900;
+  letter-spacing: -.2px;
+  color: var(--ink);
+}
+.dec-grupo__p {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--ink-3);
+  line-height: 1.4;
+  margin: 2px 0 10px;
+}
+
+/* La rejilla de opciones. Dos columnas en un teléfono estrecho y tres en
+   cuanto cabe: con una sola, elegir entre seis toldos era hacer scroll. */
+.dec-rejilla {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 9px;
+}
+@media (min-width: 400px) {
+  .dec-rejilla { grid-template-columns: repeat(3, 1fr); }
+}
+
+.dec-op {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 7px 9px;
+  border-radius: var(--r-lg);
+  border: 2px solid var(--line-2);
+  background: var(--card);
+  text-align: center;
+  transition: transform .12s var(--spring), border-color .18s var(--ease-out);
+}
+.dec-op:active { transform: scale(.96); }
+.dec-op.is-on {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(255, 107, 26, .18);
+}
+.dec-op__n {
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--ink-2);
+  line-height: 1.25;
+}
+.dec-op.is-on .dec-op__n { color: var(--brand-dark); }
+
+/* La muestra de cada opción: un trocito del puesto de verdad, no un icono
+   que lo represente. Elegir un toldo mirando un dibujo de un toldo distinto
+   es exactamente la clase de sorpresa que esta pantalla tiene que evitar. */
+.dec-m {
+  width: 100%;
+  height: 34px;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  background: var(--line-2);
+}
+.dec-m .puesto__toldo { height: 34px; padding: 0; }
+.dec-m--color { height: 26px; border: 2px solid rgba(0, 0, 0, .10); }
+.dec-m--suelo { height: 26px; display: flex; align-items: flex-end; background: none; }
+.dec-m--suelo .puesto__suelo { width: 100%; margin: 0; }
+.dec-m--adorno { background: none; padding: 0; }
+.dec-m--adorno-bajo { aspect-ratio: 320 / 96; height: auto; }
+.dec-m--adorno-alto { aspect-ratio: 320 / 56; height: auto; }
+.dec-m--adorno svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.dec-m--letrero {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+}
+.dec-m--letrero .puesto__nombre { font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pz-llama { animation: none; }
+}

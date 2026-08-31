@@ -24,6 +24,9 @@
         operativo, al lado de dos ilustraciones.
      6. Los seis sectores tienen toldo en css/plaza.css. Uno sin toldo se
         pinta con el color de reserva y dos negocios distintos se ven igual.
+     7. Lo que sale en `estilo` son claves del catálogo cerrado y nada más.
+        Es el único campo publicable que no es texto, y el único sitio por el
+        que podría colarse algo escrito por alguien.
 
    Uso:
      node tools/check-vitrina.js
@@ -49,6 +52,23 @@ function leer(rel) { return fs.readFileSync(path.join(raiz, rel), 'utf8'); }
    ================================================================== */
 
 var CAMPOS_ESPERADOS = ['negocio', 'producto', 'idea', 'cliente', 'problema', 'valor', 'sector', 'etapa'];
+
+/* `estilo` sale publicado y NO está en CAMPOS. Declarado aquí a mano, que es
+   lo que pide la regla 1 de este script.
+
+   POR QUÉ ES PUBLICABLE
+   Son cinco claves de un catálogo cerrado —js/data/puesto-piezas.js— que dicen
+   de qué color es su toldo y si tiene macetas. No las escribe nadie: se eligen
+   tocando. No hay dentro un dato del negocio ni puede haberlo, porque un valor
+   que no esté en el catálogo no se guarda siquiera. El usuario pidió que sus
+   vecinos vieran su puesto como él lo dejó, y esto es exactamente eso.
+
+   POR QUÉ NO ESTÁ EN CAMPOS
+   CAMPOS es la lista de lo que se recorta, se revisa por si lleva un teléfono
+   y se compara letra a letra para saber si el puesto está al día. `estilo` es
+   un objeto: metido ahí, `!==` lo compararía por referencia y el aviso de "tu
+   puesto no está al día" se quedaría encendido para siempre. */
+var CAMPO_ESTILO = 'estilo';
 var EDITABLES_ESPERADOS = ['negocio', 'producto', 'cliente', 'problema', 'valor'];
 var SECTORES = ['comida', 'hechoamano', 'servicios', 'digital', 'reventa', 'otro'];
 
@@ -131,6 +151,12 @@ function cargar() {
     }
   };
 
+  /* El catálogo de piezas y su capa de validación SÍ se cargan de verdad: la
+     regla 7 comprueba justo que lo que sale por `estilo` viene de ahí. */
+  new Function('window', leer('js/data/puesto-piezas.js'))(ventana);
+  new Function('window', leer('js/core/puesto.js'))(ventana);
+  if (!ventana.Puesto) throw new Error('js/core/puesto.js no se publicó en window');
+
   new Function('window', leer('js/core/plaza.js'))(ventana);
   if (!ventana.Plaza) throw new Error('js/core/plaza.js no se publicó en window');
   return ventana;
@@ -175,10 +201,16 @@ function revisarFuga(P) {
 
   var claves = Object.keys(p.vitrina).filter(function (k) { return k !== 'v'; });
   claves.forEach(function (k) {
+    if (k === CAMPO_ESTILO) return;   // declarado arriba, y lo revisa revisarEstilo()
     if (P.CAMPOS.indexOf(k) < 0) fallos.push('la vitrina lleva un campo fuera de la lista blanca: ' + k);
   });
 
-  var texto = claves.map(function (k) { return String(p.vitrina[k]); }).join(' | ').toLowerCase();
+  /* El estilo entra en el barrido de secretos igual que los demás, aplanado:
+     si algún día alguien mete ahí una cadena libre, se ve aquí. */
+  var texto = claves.map(function (k) {
+    var v = p.vitrina[k];
+    return v && typeof v === 'object' ? Object.keys(v).map(function (x) { return v[x]; }).join(' ') : String(v);
+  }).join(' | ').toLowerCase();
   Object.keys(SECRETOS).forEach(function (nombre) {
     var secreto = String(SECRETOS[nombre]).toLowerCase();
     if (texto.indexOf(secreto) >= 0) {
@@ -291,18 +323,63 @@ function revisarToldos(P) {
 }
 
 /* ==================================================================
+   7 — QUE POR EL ESTILO NO ENTRE NADA ESCRITO
+
+   `estilo` es el único campo publicable que no es texto, y por eso es el
+   único sitio de la vitrina por el que alguien podría intentar sacar una
+   cadena libre. Se comprueba de dos maneras: que lo que sale de verdad son
+   claves del catálogo, y que un estilo falsificado —el que mandaría un
+   cliente modificado— no consigue sacar nada.
+   ================================================================== */
+
+function revisarEstilo(ventana) {
+  var P2 = ventana.Plaza, PU = ventana.Puesto, K = ventana.PUESTO_PIEZAS;
+  var v = P2.propuesta().vitrina;
+
+  if (!v || !v.estilo) { fallos.push('la vitrina no lleva estilo: los vecinos verían el puesto de serie'); return; }
+
+  K.RANURAS.forEach(function (r) {
+    if (!Object.prototype.hasOwnProperty.call(v.estilo, r)) {
+      fallos.push('el estilo publicado no trae la ranura «' + r + '»');
+    } else if (!K.valida(r, v.estilo[r])) {
+      fallos.push('el estilo publica «' + v.estilo[r] + '» en «' + r + '», que no está en el catálogo');
+    }
+  });
+
+  Object.keys(v.estilo).forEach(function (k) {
+    if (K.RANURAS.indexOf(k) < 0) fallos.push('el estilo lleva una ranura que no existe: ' + k);
+  });
+
+  /* Lo que mandaría un cliente modificado: una ranura inventada, un valor
+     inventado y una cadena con un teléfono dentro. Nada de eso puede
+     sobrevivir a limpio(). */
+  var sucio = PU.limpio({
+    toldo: 'rayas', color: '<script>', letrero: 'llámame al 55 1234 5678',
+    adorno: 'macetas', suelo: 'ninguno', __proto__: 'x', extra: 'fuga'
+  });
+  if (sucio.color !== 'oficio') fallos.push('un color inventado sobrevivió a limpio(): ' + sucio.color);
+  if (sucio.letrero !== 'ninguno') fallos.push('un letrero escrito a mano sobrevivió a limpio(): ' + sucio.letrero);
+  if (sucio.extra !== undefined) fallos.push('limpio() dejó pasar una ranura que no existe');
+  if (sucio.toldo !== 'rayas' || sucio.adorno !== 'macetas') {
+    fallos.push('limpio() tiró piezas válidas: el usuario perdería su decoración');
+  }
+}
+
+/* ==================================================================
    EJECUCIÓN
    ================================================================== */
 
 var P;
 try {
-  P = cargar().Plaza;
+  var ventana = cargar();
+  P = ventana.Plaza;
   revisarContrato(P);
   revisarFuga(P);
   revisarVolcado();
   revisarContacto(P);
   revisarEmojis();
   revisarToldos(P);
+  revisarEstilo(ventana);
 } catch (e) {
   console.error('✗ no se pudo revisar la vitrina: ' + e.message);
   process.exit(1);

@@ -146,6 +146,14 @@
        datos que no deberían salir del teléfono ni de camino. */
     var v = {};
     (w.Plaza.CAMPOS || []).forEach(function (c) { v[c] = vitrina ? (vitrina[c] || '') : ''; });
+
+    /* La decoración va aparte de los campos de texto y pasa por su propia
+       lista blanca antes de salir. Cinco claves de un catálogo cerrado: si
+       alguna no existe, `limpio()` la devuelve al valor de serie en vez de
+       mandarla. El Worker lo vuelve a hacer, porque un cliente modificado
+       existe en cuanto la app es pública. */
+    if (w.Puesto) v.estilo = w.Puesto.limpio(vitrina ? vitrina.estilo : null);
+
     return pide('publicar', { vitrina: v });
   }
 

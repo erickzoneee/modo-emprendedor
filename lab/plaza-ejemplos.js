@@ -24,6 +24,9 @@
 (function (raiz) {
   'use strict';
 
+  /* Cada uno con su puesto decorado. La app nunca carga este archivo, así que
+     esto no es "decoración inventada de un vecino": es la única forma de ver
+     cómo queda una plaza con puestos distintos antes de que haya gente. */
   var EJEMPLOS = [
     {
       id: 'ej-cafe',
@@ -34,7 +37,8 @@
       problema: 'Trabajar desde casa aísla y las cafeterías te apuran para que te vayas',
       valor: 'Un lugar donde puedes quedarte toda la tarde sin sentirte incómodo',
       sector: 'comida',
-      etapa: 'operating'
+      etapa: 'operating',
+      estilo: { toldo: 'rayas',   color: 'oficio', letrero: 'tabla',   adorno: 'macetas',    suelo: 'tarima' }
     },
     {
       id: 'ej-nido',
@@ -45,7 +49,8 @@
       problema: 'En un departamento rentado no puedes clavar, pintar ni modificar nada',
       valor: 'Tu casa se siente tuya aunque no sea tuya',
       sector: 'servicios',
-      etapa: 'starting'
+      etapa: 'starting',
+      estilo: { toldo: 'lona',    color: 'menta',  letrero: 'placa',   adorno: 'ninguno',    suelo: 'tapete' }
     },
     {
       id: 'ej-marca',
@@ -56,7 +61,8 @@
       problema: 'Un negocio nuevo se ve improvisado y por eso le compran menos',
       valor: 'Te ven como un negocio de verdad desde el primer día',
       sector: 'digital',
-      etapa: 'operating'
+      etapa: 'operating',
+      estilo: { toldo: 'picos',   color: 'indigo', letrero: 'ninguno', adorno: 'banderines', suelo: 'ninguno' }
     },
     {
       id: 'ej-empaque',
@@ -67,7 +73,8 @@
       problema: 'Los proveedores de empaque piden pedidos enormes que un negocio chico no puede',
       valor: 'Empaque que se ve caro en cantidades que sí puedes pagar',
       sector: 'reventa',
-      etapa: 'operating'
+      etapa: 'operating',
+      estilo: { toldo: 'cuadros', color: 'oceano', letrero: 'ninguno', adorno: 'cajas',      suelo: 'adoquin' }
     },
     {
       id: 'ej-velas',
@@ -78,7 +85,8 @@
       problema: 'Las velas baratas huelen a químico y las buenas cuestan carísimo',
       valor: 'Una vela que huele bien de verdad y dura',
       sector: 'hechoamano',
-      etapa: 'starting'
+      etapa: 'starting',
+      estilo: { toldo: 'ondas',   color: 'uva',    letrero: 'cinta',   adorno: 'farol',      suelo: 'ninguno' }
     },
     {
       id: 'ej-madero',
@@ -89,7 +97,8 @@
       problema: 'Los muebles normales no caben en un departamento pequeño',
       valor: 'Muebles hechos a la medida de tu espacio',
       sector: 'hechoamano',
-      etapa: 'idea'
+      etapa: 'idea',
+      estilo: { toldo: 'feston',  color: 'miel',   letrero: 'tabla',   adorno: 'ninguno',    suelo: 'tarima' }
     },
     {
       id: 'ej-postres',
@@ -100,7 +109,8 @@
       problema: 'Organizar una fiesta es agotador y el postre siempre queda al final',
       valor: 'Un postre que se ve hecho en casa sin que tengas que hacerlo',
       sector: 'comida',
-      etapa: 'starting'
+      etapa: 'starting',
+      estilo: { toldo: 'rayas',   color: 'cereza', letrero: 'pizarra', adorno: 'pizarron',   suelo: 'ninguno' }
     },
     {
       id: 'ej-ruta',
@@ -111,7 +121,8 @@
       problema: 'Los negocios chicos no saben qué tienen y compran de más',
       valor: 'Dejas de comprar lo que ya tenías',
       sector: 'digital',
-      etapa: 'growing'
+      etapa: 'growing',
+      estilo: { toldo: 'lona',    color: 'bosque', letrero: 'ninguno', adorno: 'girasoles',  suelo: 'pasto' }
     },
     {
       /* A propósito incompleto: sin nombre y sin problema. Sirve para

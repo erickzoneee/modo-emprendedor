@@ -111,8 +111,15 @@
       // Todo lo que hay aquí es suyo, por eso puede viajar en el respaldo.
       // El día que la Plaza tenga vecinos, lo que sea de OTRAS personas no
       // puede vivir aquí: el respaldo se comparte por WhatsApp.
+      // `puesto` es cómo lo decoró: cinco piezas de un catálogo cerrado
+      // (js/data/puesto-piezas.js). Va aquí y no en `settings` porque decora
+      // SU puesto, que es de este emprendimiento, no la app entera. Lo
+      // mantiene js/core/puesto.js.
       // Lo mantiene js/core/plaza.js.
-      plaza: { v: 1, vitrina: null, editada: {}, aprobadaAt: 0, rev: null },
+      plaza: {
+        v: 1, vitrina: null, editada: {}, aprobadaAt: 0, rev: null,
+        puesto: { toldo: 'feston', color: 'oficio', letrero: 'ninguno', adorno: 'ninguno', suelo: 'ninguno' }
+      },
 
       settings: {
         sound: true, haptics: true, theme: 'light', reduceMotion: false,

@@ -29,6 +29,7 @@
 <link rel="stylesheet" href="../css/animations.css">
 <link rel="stylesheet" href="../css/iconos.css">
 <link rel="stylesheet" href="../css/plaza.css">
+<link rel="stylesheet" href="../css/puesto.css">
 <link rel="stylesheet" href="../css/temas.css">
 
 <style>
@@ -109,8 +110,14 @@
 <script src="../js/core/ui.js"></script>
 <script src="../js/data/iconos.js"></script>
 <script src="../js/core/iconos.js"></script>
+<script src="../js/data/puesto-piezas.js"></script>
+<script src="../js/core/puesto.js"></script>
 <script src="../js/core/plaza.js"></script>
 <script src="../js/core/plaza-motor.js"></script>
+<!-- plaza-nube.js faltaba y la vista previa llevaba rota desde que existe:
+     pantallaPlaza() le pregunta si hay servidor y aquí no había a quién
+     preguntar. No hace ninguna llamada mientras no haya sesión. -->
+<script src="../js/core/plaza-nube.js"></script>
 <script src="../js/screens/plaza.js"></script>
 
 <!-- Los vecinos de mentira -->

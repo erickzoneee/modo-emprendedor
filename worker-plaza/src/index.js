@@ -61,6 +61,25 @@ const CAMPOS_TEXTO = ['negocio', 'producto', 'idea', 'cliente', 'problema', 'val
 const SECTORES = ['hechoamano', 'comida', 'servicios', 'digital', 'reventa', 'otro'];
 const ETAPAS   = ['idea', 'starting', 'operating', 'growing'];
 
+/* Cómo decoró su puesto. Cinco ranuras y una lista cerrada por ranura, las
+   mismas de js/data/puesto-piezas.js. Van escritas otra vez y no importadas,
+   por lo mismo que los topes: este código no puede depender de que nadie
+   afloje los del cliente, y un cliente modificado existe en cuanto la app es
+   pública. Que las dos listas no se separen lo vigila tools/check-puesto.js.
+
+   Nada de esto es texto de nadie: son claves de catálogo. Por eso no pasan por
+   el filtro de contacto ni por los topes de longitud — lo que no esté en la
+   lista simplemente no existe. */
+const PIEZAS = {
+  toldo:   ['feston', 'rayas', 'picos', 'ondas', 'cuadros', 'lona'],
+  color:   ['oficio', 'mandarina', 'miel', 'menta', 'indigo', 'oceano', 'teal', 'cereza', 'uva', 'bosque'],
+  letrero: ['ninguno', 'tabla', 'pizarra', 'placa', 'cinta'],
+  adorno:  ['ninguno', 'macetas', 'farol', 'banderines', 'cajas', 'pizarron', 'girasoles'],
+  suelo:   ['ninguno', 'tarima', 'tapete', 'adoquin', 'pasto']
+};
+const RANURAS = ['toldo', 'color', 'letrero', 'adorno', 'suelo'];
+const PIEZA_DEFECTO = { toldo: 'feston', color: 'oficio', letrero: 'ninguno', adorno: 'ninguno', suelo: 'ninguno' };
+
 const INTENCIONES = ['probar', 'colaborar', 'opinar', 'me-sirve', 'conocer'];
 const MOTIVOS = ['necesita:haciaEllos', 'necesita:haciaTi', 'mismoPublico',
                  'complementa', 'puedeProbarte', 'mismaEtapa'];
@@ -304,11 +323,44 @@ function vitrinaLimpia(entrada) {
   }
   v.sector = SECTORES.includes(entrada.sector) ? entrada.sector : 'otro';
   v.etapa  = ETAPAS.includes(entrada.etapa) ? entrada.etapa : 'idea';
+  v.estilo = estiloLimpio(entrada.estilo);
 
   // Sin qué haces y para quién, no hay puesto que enseñar.
   if (!v.producto && !v.idea) return null;
   if (!v.cliente) return null;
   return v;
+}
+
+/** La decoración del puesto, campo por campo desde la lista cerrada. Lo que
+    no esté en el catálogo cae al valor de serie: no se corrige, no se avisa y
+    no se guarda. */
+function estiloLimpio(entrada) {
+  const e = {};
+  const dado = (entrada && typeof entrada === 'object') ? entrada : {};
+  for (const r of RANURAS) {
+    e[r] = PIEZAS[r].includes(dado[r]) ? dado[r] : PIEZA_DEFECTO[r];
+  }
+  return e;
+}
+
+/**
+ * Una fila de `vitrina` con las cinco columnas del estilo anidadas en
+ * `estilo`, y sin las columnas planas. Se pasa por la lista blanca otra vez a
+ * propósito: una base migrada a mano, o una fila escrita por una versión
+ * anterior de este Worker, puede traer una clave que ya no existe, y eso no
+ * puede llegar al teléfono de nadie.
+ */
+function conEstilo(fila) {
+  if (!fila) return fila;
+  const out = {};
+  for (const k of Object.keys(fila)) {
+    if (!k.startsWith('estilo_')) out[k] = fila[k];
+  }
+  out.estilo = estiloLimpio({
+    toldo: fila.estilo_toldo, color: fila.estilo_color, letrero: fila.estilo_letrero,
+    adorno: fila.estilo_adorno, suelo: fila.estilo_suelo
+  });
+  return out;
 }
 
 /* ==========================================================================
@@ -430,19 +482,26 @@ const OPS = {
     const ahora = Date.now();
     await env.DB.prepare(
       `INSERT INTO vitrina
-         (cuenta_id, negocio, producto, idea, cliente, problema, valor, sector, etapa, estado, publicada)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'publicada', ?)
+         (cuenta_id, negocio, producto, idea, cliente, problema, valor, sector, etapa,
+          estilo_toldo, estilo_color, estilo_letrero, estilo_adorno, estilo_suelo,
+          estado, publicada)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'publicada', ?)
        ON CONFLICT(cuenta_id) DO UPDATE SET
          negocio=excluded.negocio, producto=excluded.producto, idea=excluded.idea,
          cliente=excluded.cliente, problema=excluded.problema, valor=excluded.valor,
          sector=excluded.sector, etapa=excluded.etapa,
+         estilo_toldo=excluded.estilo_toldo, estilo_color=excluded.estilo_color,
+         estilo_letrero=excluded.estilo_letrero, estilo_adorno=excluded.estilo_adorno,
+         estilo_suelo=excluded.estilo_suelo,
          publicada=excluded.publicada,
          -- Una vitrina que la moderación ocultó no se reabre sola al
          -- guardarla otra vez: eso convertiría el ocultar en un botón de
          -- "espera un minuto".
          estado = CASE WHEN vitrina.estado = 'oculta' THEN 'oculta' ELSE 'publicada' END`
     ).bind(yo.id, v.negocio, v.producto, v.idea, v.cliente, v.problema, v.valor,
-           v.sector, v.etapa, ahora).run();
+           v.sector, v.etapa,
+           v.estilo.toldo, v.estilo.color, v.estilo.letrero, v.estilo.adorno, v.estilo.suelo,
+           ahora).run();
 
     return { ok: true };
   },
@@ -470,7 +529,9 @@ const OPS = {
 
     const filas = await env.DB.prepare(
       `SELECT v.cuenta_id AS id, v.negocio, v.producto, v.idea, v.cliente,
-              v.problema, v.valor, v.sector, v.etapa
+              v.problema, v.valor, v.sector, v.etapa,
+              v.estilo_toldo, v.estilo_color, v.estilo_letrero,
+              v.estilo_adorno, v.estilo_suelo
          FROM vitrina v
          JOIN cuenta c ON c.id = v.cuenta_id
         WHERE v.estado = 'publicada'
@@ -483,7 +544,12 @@ const OPS = {
         LIMIT ?`
     ).bind(yo.id, yo.id, yo.id, MAX_VECINOS).all();
 
-    return { ok: true, vecinos: filas.results || [] };
+    /* Las cinco columnas del estilo se devuelven anidadas en `estilo`, que es
+       la forma que espera js/core/puesto.js. Planas en la base porque una
+       columna por pieza es una lista cerrada que la propia base entiende;
+       anidadas en la respuesta porque el teléfono pinta un puesto, no cinco
+       columnas. */
+    return { ok: true, vecinos: (filas.results || []).map(conEstilo) };
   },
 
   /* -------------------------------------------------------- veo-valor --
@@ -525,7 +591,8 @@ const OPS = {
        alguien que todavía no ha aceptado nada — reescribiéndola las veces que
        quisiera. La regla 4 se cierra por delante, no solo por detrás. */
     const mia = await env.DB.prepare(
-      `SELECT negocio, producto, idea, cliente, problema, valor, sector, etapa
+      `SELECT negocio, producto, idea, cliente, problema, valor, sector, etapa,
+              estilo_toldo, estilo_color, estilo_letrero, estilo_adorno, estilo_suelo
          FROM vitrina WHERE cuenta_id = ? AND estado = 'publicada'`
     ).bind(yo.id).first();
     if (!mia) {
@@ -546,7 +613,8 @@ const OPS = {
          -- algo ya aceptado: eso devolvía al emisor a la bandeja del otro una
          -- y otra vez, que es un vector de insistencia con otro nombre.
          estado = CASE WHEN valor.estado IN ('declinado','aceptado') THEN valor.estado ELSE 'enviado' END`
-    ).bind(nuevoId(), yo.id, para, intencion, motivo, mensaje, ahora, JSON.stringify(mia)).run();
+    ).bind(nuevoId(), yo.id, para, intencion, motivo, mensaje, ahora,
+           JSON.stringify(conEstilo(mia))).run();
 
     return { ok: true };
   },

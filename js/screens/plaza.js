@@ -264,7 +264,17 @@
       el('div', { class: 'puesto__cuerpo' }, cuerpo)
     ]);
 
-    return el('div', { class: 'pz-hueco' + (opts.aura ? ' pz-aura' : '') }, [caja]);
+    var hueco = el('div', { class: 'pz-hueco' + (opts.aura ? ' pz-aura' : '') }, [caja]);
+
+    /* Cómo está decorado. El tuyo se pinta con lo que has elegido AHORA y no
+       con lo que salió publicado: quien acaba de cambiarle el toldo tiene que
+       verlo cambiado al volver a la Plaza, aunque el servidor todavía no se
+       haya enterado. El de otra persona se pinta con lo que trajo su vitrina,
+       que es lo único suyo que hay aquí — y pasa por la misma lista blanca,
+       porque viene de la red. */
+    if (w.Puesto) w.Puesto.decorar(hueco, opts.mio ? w.Puesto.estilo() : v.estilo);
+
+    return hueco;
   }
 
   /* ==================================================================
@@ -502,6 +512,91 @@
     });
   }
 
+  /* ==================================================================
+     EL MUNDO
+
+     Los planos del lugar, en orden de lejanía. Van todos en css/plaza.css y
+     aquí solo se cuelgan: son divs vacíos y decorativos, sin texto que un
+     lector de pantalla tenga que leer y sin nada que se pueda tocar.
+
+     El orden del marcado ES el orden de pintado. `.plaza__cont` lleva
+     z-index 2 y se queda por encima de todos ellos pase lo que pase.
+     ================================================================== */
+
+  /* El orden es el de una escena de verdad, y cada cambio se pagó mirando la
+     pantalla: los puestos del fondo van DESPUÉS del suelo —están de pie sobre
+     él, no detrás— y también después de la bruma, que es lo que costó dos
+     intentos. Con la bruma encima desaparecían: en su borde de arriba es
+     opaca del todo, y ahí es justo donde está el horizonte. La bruma no es
+     niebla entre ellos y tú; es el vaho del cielo DETRÁS de ellos, y ahora se
+     ven recortados contra él, que es lo que hace un horizonte. */
+  var PLANOS = [
+    'plaza__sol', 'plaza__nubes', 'plaza__suelo', 'plaza__bruma',
+    'plaza__lejania', 'plaza__adoquin',
+    'plaza__farol plaza__farol--izq', 'plaza__farol plaza__farol--der',
+    'plaza__guirnalda', 'plaza__motas'
+  ];
+
+  function montarMundo(root) {
+    PLANOS.forEach(function (c) {
+      root.appendChild(el('div', { class: c, 'aria-hidden': 'true' }));
+    });
+  }
+
+  /* --- El paralaje ---
+
+     Un solo oyente, puesto una vez al cargar el archivo y nunca quitado. No
+     hace falta quitarlo: si la pantalla de arriba no es la Plaza, no hay
+     `.plaza` que encontrar y la función se va en una comparación.
+
+     Escribe una sola propiedad —--pz-scroll— y de eso salen los diez planos.
+     Mover cada uno desde aquí sería diez escrituras de estilo por cuadro; así
+     es una, y quien decide cuánto se mueve cada plano es la hoja de estilo,
+     que es donde vive esa decisión. */
+
+  var menosMovimiento = w.matchMedia ? w.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  var cuadroPedido = false;
+
+  function seguirScroll() {
+    if (cuadroPedido) return;
+    cuadroPedido = true;
+    w.requestAnimationFrame(function () {
+      cuadroPedido = false;
+      if (menosMovimiento && menosMovimiento.matches) return;
+      var vista = d.getElementById('view');
+      var plaza = vista && vista.querySelector('.plaza');
+      if (!plaza) return;
+      plaza.style.setProperty('--pz-scroll', vista.scrollTop + 'px');
+    });
+  }
+
+  (function engancharScroll() {
+    var vista = d.getElementById('view');
+    if (vista) vista.addEventListener('scroll', seguirScroll, { passive: true });
+  })();
+
+  /* --- Los sitios libres ---
+
+     Tres, siempre tres. No representan a nadie y no cuentan nada: son el
+     hueco que hay al lado de tu puesto. La Plaza no inventa vecinos, pero sí
+     puede enseñar que tiene sitio, y eso no es una promesa que se pueda
+     incumplir.
+
+     Son botones porque tocar un sitio libre y que se abra "invitar a alguien
+     que conoces" es exactamente lo que uno esperaría que pasara. */
+
+  function sitiosLibres() {
+    var fila = el('div', { class: 'pz-libres' });
+    for (var i = 0; i < 3; i++) {
+      fila.appendChild(el('button', {
+        class: 'pz-libre', type: 'button',
+        'aria-label': 'Sitio libre. Invitar a alguien que conoces',
+        onclick: invitar
+      }, [el('span', { class: 'pz-libre__t', text: 'Libre' })]));
+    }
+    return fila;
+  }
+
   function pantallaPlaza() {
     var P2 = P();
     var v = P2.vitrina();
@@ -509,9 +604,7 @@
     traerVecinos();
 
     var root = el('div', { class: 'screen plaza' });
-    root.appendChild(el('div', { class: 'plaza__sol' }));
-    root.appendChild(el('div', { class: 'plaza__bruma' }));
-    root.appendChild(el('div', { class: 'plaza__suelo' }));
+    montarMundo(root);
 
     var cont = el('div', { class: 'plaza__cont' });
 
@@ -572,6 +665,11 @@
 
     if (v) cont.appendChild(puesto(v, { mio: true, aura: !recs.length }));
 
+    /* El sitio que hay al lado del tuyo. Va justo debajo del puesto y no al
+       final de la pantalla: una plaza es tu puesto Y lo que tiene alrededor,
+       y ponerlo detrás de todo lo demás lo convertiría en un pie de página. */
+    if (v) cont.appendChild(sitiosLibres());
+
     /* Los que ya saludó. Van en su propia sección, debajo de tu puesto, y no
        mezclados con las recomendaciones: los huecos de arriba son para gente
        nueva. Pero tienen que estar en algún sitio — al excluirlos sin más, la
@@ -624,6 +722,13 @@
         variant: 'brand', size: 'sm', onClick: invitar
       }));
     }
+    /* Decorar va ANTES que revisar la vitrina, y no es un capricho de orden:
+       lo de arriba es cómo se ve tu puesto y lo de abajo es lo que dice. La
+       mayoría de las veces que alguien vuelve a esta pantalla es por lo
+       primero. */
+    cont.appendChild(UI.btn('Decorar mi puesto', {
+      variant: 'ghost', onClick: function () { UI.Router.go('puesto'); }
+    }));
     cont.appendChild(UI.btn('Revisar mi vitrina', {
       variant: 'flat', onClick: function () { UI.Router.go('plaza-vitrina'); }
     }));
@@ -712,7 +817,7 @@
         el('span', { text: it ? it.label : 'Quiere hablar contigo' })
       ]));
 
-      caja.appendChild(el('div', { class: 'pz-hueco pz-aura' }, [
+      var hueco = el('div', { class: 'pz-hueco pz-aura' }, [
         el('article', { class: 'puesto', data: { toldo: r.sector || 'otro' } }, [
           el('header', { class: 'puesto__toldo' }, [
             el('span', { class: 'puesto__sector', text: P().rotulo(r) })
@@ -725,7 +830,13 @@
               onClick: function () { contestar(r, false); } })
           ])
         ])
-      ]));
+      ]);
+
+      /* Quien se acercó a ti se ve como se veía cuando lo hizo: `estilo` viene
+         dentro de la foto congelada de su vitrina, no de la vitrina en vivo. */
+      if (w.Puesto) w.Puesto.decorar(hueco, r.estilo);
+
+      caja.appendChild(hueco);
     });
 
     return caja;
@@ -988,7 +1099,14 @@
       el('div', { class: 'puesto__pie' }, [pie])
     ]);
 
-    return el('div', { class: 'pz-hueco' }, [caja]);
+    var hueco = el('div', { class: 'pz-hueco' }, [caja]);
+
+    /* Su puesto, como él lo dejó. Pasa por la misma lista blanca que el tuyo
+       porque esto viene de la red: lo que no esté en el catálogo se cae al
+       puesto de serie en vez de pintarse. */
+    if (w.Puesto) w.Puesto.decorar(hueco, v.estilo);
+
+    return hueco;
   }
 
   function deshacerValor(v) {
@@ -1182,6 +1300,10 @@
   w.PlazaScreen = {
     open: abrir,
     hayAlgo: hayAlgo,
+    /* El puesto dibujado, para que la vista previa de js/screens/puesto.js sea
+       el puesto de verdad y no una maqueta parecida. Si algo se ve mal
+       decorando, se ve mal en la Plaza: esa es la idea. */
+    dibujar: puesto,
     promesa: antesDeAbrir,
     conectar: conectar,
     // lo llama js/app.js al arrancar, por si venimos del enlace del correo

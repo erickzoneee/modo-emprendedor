@@ -81,11 +81,17 @@ function haceD1(db) {
   };
 }
 
+/* TODAS las migraciones, en orden de nombre — que es el orden en el que las
+   aplica wrangler. Antes solo se leía la 0001, y la primera migración nueva
+   dejó las pruebas corriendo contra un esquema que ya no existe en ningún
+   sitio: fallaban por una columna que sí está en producción. */
 function baseNueva() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON');   // D1 lo hace por defecto
-  const sql = fs.readFileSync(path.join(raiz, 'worker-plaza/migrations/0001_inicial.sql'), 'utf8');
-  db.exec(sql);
+  const dir = path.join(raiz, 'worker-plaza/migrations');
+  fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort().forEach(f => {
+    db.exec(fs.readFileSync(path.join(dir, f), 'utf8'));
+  });
   return db;
 }
 
@@ -365,6 +371,54 @@ async function correr() {
     comprueba('regla 3 · un sector inventado cae en "otro"', v && v.sector === 'otro', v && v.sector);
     comprueba('regla 3 · una etapa inventada cae en "idea"', v && v.etapa === 'idea', v && v.etapa);
     comprueba('regla 3 · no se puede fijar el estado desde el cliente', v && v.estado === 'publicada');
+
+    /* La decoración del puesto es el único campo publicable que no es texto,
+       así que es el único sitio por el que se podría intentar sacar una
+       cadena libre. Lo que no esté en el catálogo cae al valor de serie, y lo
+       que sí esté se guarda tal cual. */
+    const c = await alta(worker, env, 'estilo@b.com');
+    await llama(worker, env, {
+      op: 'publicar', sesion: c.sesion,
+      vitrina: Object.assign(VIT('Decorado'), {
+        estilo: {
+          toldo: 'rayas', color: 'cereza',
+          letrero: 'escríbeme al 55 1234 5678',
+          adorno: 'no-existe', suelo: 'tarima', extra: 'fuga'
+        }
+      })
+    });
+    const dec = db.prepare("SELECT * FROM vitrina WHERE negocio = 'Decorado'").get();
+    comprueba('el estilo válido se guarda',
+      dec && dec.estilo_toldo === 'rayas' && dec.estilo_color === 'cereza' && dec.estilo_suelo === 'tarima',
+      JSON.stringify(dec));
+    comprueba('una pieza escrita a mano cae al valor de serie',
+      dec && dec.estilo_letrero === 'ninguno', dec && dec.estilo_letrero);
+    comprueba('una pieza inventada cae al valor de serie',
+      dec && dec.estilo_adorno === 'ninguno', dec && dec.estilo_adorno);
+    comprueba('una ranura inventada no crea columna ni se guarda',
+      JSON.stringify(dec || {}).indexOf('fuga') < 0, JSON.stringify(dec));
+
+    /* Publicar sin mandar estilo tiene que dejar el puesto de siempre: es lo
+       que hace un teléfono con la app anterior, y no puede cambiarle el
+       aspecto a nadie. */
+    const d2 = await alta(worker, env, 'sinestilo@b.com');
+    await llama(worker, env, { op: 'publicar', sesion: d2.sesion, vitrina: VIT('Sin estilo') });
+    const sinE = db.prepare("SELECT * FROM vitrina WHERE negocio = 'Sin estilo'").get();
+    comprueba('sin estilo se publica el puesto de serie',
+      sinE && sinE.estilo_toldo === 'feston' && sinE.estilo_color === 'oficio' &&
+      sinE.estilo_letrero === 'ninguno' && sinE.estilo_adorno === 'ninguno' && sinE.estilo_suelo === 'ninguno',
+      JSON.stringify(sinE));
+
+    /* Y al servirlo, las cinco columnas vuelven anidadas: es la forma que
+       espera js/core/puesto.js, y plana no la sabría pintar. */
+    const mirando = await alta(worker, env, 'mirando@b.com');
+    await llama(worker, env, { op: 'publicar', sesion: mirando.sesion, vitrina: VIT('Mirando') });
+    const vecinos = await llama(worker, env, { op: 'vecinos', sesion: mirando.sesion });
+    const otro = (vecinos.vecinos || []).filter(x => x.negocio === 'Decorado')[0];
+    comprueba('el estilo se sirve anidado en `estilo`',
+      !!(otro && otro.estilo && otro.estilo.toldo === 'rayas'), JSON.stringify(otro));
+    comprueba('el estilo no se sirve además en columnas planas',
+      !!otro && otro.estilo_toldo === undefined, JSON.stringify(otro));
 
     /* Y si el contacto va en un campo imprescindible, la vitrina entera se
        queda sin publicar: mejor no abrir el puesto que abrirlo con el

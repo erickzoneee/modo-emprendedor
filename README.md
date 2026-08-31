@@ -63,6 +63,8 @@ Es un sitio estático puro. Sube la carpeta completa a Netlify, Vercel, GitHub P
 | **La app se adapta a tu negocio** | color secundario, ejemplos del oficio, orden del panel y Chispa con delantal, herramienta y su espacio de trabajo |
 | **Expediente Mi Negocio** | 12 secciones que se llenan solas y se exportan |
 | **Lectura en voz alta** | escucha las lecciones y las respuestas con la voz del dispositivo |
+| **La Plaza** | Tu puesto, con lo que ya contaste. Sale solo lo que apruebes, y nunca tus números |
+| **Decora tu puesto** | 33 piezas en 5 ranuras: el toldo, su color, el letrero, lo que hay alrededor y sobre qué está montado. Gratis desde el primer día |
 | **Iconos propios** | 60 piezas dibujadas a mano en el mismo lenguaje que Chispa. Nada de emoji del sistema: se ven igual en cualquier teléfono y se mueven |
 
 > **Cómo se cuentan:** el mapa tiene **58 paradas** = **50 lecciones** + **8 retos reales**.
@@ -252,6 +254,83 @@ Los colores viven solo en `css/temas.css`. `js/core/persona.js` no escribe ni un
 
 ---
 
+## La Plaza y tu puesto
+
+La Plaza es el único sitio de la app donde hay alguien más. Tu emprendimiento se enseña
+como un **puesto de mercado**: un toldo con tu oficio y, debajo, el nombre y una frase.
+
+### Sale solo lo que apruebes
+
+La vitrina se arma sola con lo que ya le contaste a Chispa. Antes de abrir el puesto se
+ve **entera, línea por línea**, y cada línea se puede corregir a mano. Lo que nunca sale
+está escrito y verificado a máquina: tus precios y costos, tu plan y tus decisiones, tu
+ciudad y tus contactos, tu presupuesto y tu experiencia, y tu progreso.
+
+`tools/check-vitrina.js` arma un perfil de mentira lleno de datos privados, construye la
+vitrina y comprueba que ninguno sale. Si alguien amplía la lista de lo publicable sin
+declararlo, el verificador falla antes de que llegue a publicarse.
+
+### La Plaza es un lugar, no una lista
+
+Detrás del puesto hay una plaza de verdad: cielo, horizonte con más puestos al fondo,
+faroles, una guirnalda cruzando, empedrado que se aleja y motas de luz. Todo se mueve a
+distinta velocidad al hacer scroll, así que se lee como profundidad. De noche no cierra:
+se enciende.
+
+Está hecho **sin librerías, sin `perspective` y sin una sola imagen**: gradientes, máscaras
+y una variable —`--pz-scroll`— que la pantalla escribe al desplazarse y de la que salen
+los diez planos. Quien pidió menos movimiento ve el mundo entero, quieto.
+
+**No hay vecinos inventados, y no los va a haber.** La Liga puede permitirse rivales
+simulados porque ahí lo que está en juego son puntos; aquí el botón dice "Veo valor" y un
+vecino que nunca contesta sería una mentira. Lo que sí hay son **sitios libres**: la plaza
+tiene espacio, y eso es verdad. Tocar uno invita a alguien que conoces.
+
+### Decorar tu puesto
+
+**Mi negocio › La Plaza › Decorar mi puesto.** Cinco ranuras y 33 piezas, todas
+disponibles desde el primer día:
+
+| Ranura | Piezas |
+|---|---|
+| **El toldo** | Festón, rayas, picos, ondas, cuadros, lona |
+| **De qué color** | El de tu oficio y 9 colores más |
+| **El letrero** | Sin marco, tabla de madera, pizarra, placa esmaltada, cinta pintada |
+| **Lo que hay alrededor** | Nada, macetas, farol, banderines, cajas, pizarrón, girasoles |
+| **Sobre qué está** | Nada, tarima, tapete, adoquín, pasto |
+
+La vista previa de arriba **es el puesto de verdad**, con los mismos componentes y las
+mismas piezas que la Plaza. No hay maquetas: si algo se ve mal ahí, se ve mal allí.
+
+Cada toque se guarda solo y, si tu puesto ya está abierto, sale hacia la Plaza sin
+preguntar nada. El texto sí pasa por «Así está bien», porque lo escribió la app y hay que
+revisarlo; la decoración no, porque la elegiste tú mirando el puesto entero mientras la
+elegías.
+
+### Cómo funciona por dentro
+
+Es la misma idea que las capas de Chispa, un escalón más arriba. `js/data/puesto-piezas.js`
+es un **catálogo cerrado**: los colores no viven ahí, viven en `css/puesto.css`, así que
+una clave que no exista simplemente no pinta. `js/core/puesto.js` tiene una sola puerta
+—`limpio()`— por la que pasa todo: lo que elige el usuario, lo que se guarda, lo que se
+publica y lo que llega de otra persona.
+
+La lista blanca está escrita **tres veces** a propósito: en el teléfono, en el Worker y en
+el `CHECK` de la base. El Worker no puede fiarse del cliente, porque un cliente modificado
+existe en cuanto la app es pública. Que las tres no se separen lo comprueba
+`tools/check-puesto.js`, que además mide cada dibujo para que ninguna pieza se salga de su
+franja ni acabe encima del texto del puesto.
+
+El interruptor de **Personalizar mi experiencia** manda también aquí: apagado, tu puesto
+se ve —y se publica— tal y como venía. Lo que elegiste no se borra; solo deja de
+enseñarse.
+
+> Puntos de entrada: `js/data/puesto-piezas.js` (el catálogo), `js/core/puesto.js`
+> (validación y estado), `js/screens/puesto.js` (la pantalla), `css/puesto.css` (las
+> piezas) y `css/plaza.css` (el lugar). La maqueta viva está en `lab/plaza-mundo.html`.
+
+---
+
 ## Elementos de juego
 
 Racha diaria con congeladores · XP y 10 rangos · 5 vidas que se regeneran cada 30 min · monedas y tienda · 26 insignias · 7 ligas semanales · 5 retos semanales · mapa visual de progreso · meta diaria ajustable · modo oscuro · sonido sintetizado (sin archivos) · vibración háptica.
@@ -285,15 +364,26 @@ EMPRENDO/
 │   ├── tokens.css           colores, tipografía, sombras, temas
 │   ├── base.css             reset y layout
 │   ├── components.css       botones, tarjetas, opciones, fichas…
+│   ├── captura.css          las 8 formas de contestar
 │   ├── screens.css          cada pantalla
 │   ├── animations.css       todos los keyframes
-│   └── temas.css            el color secundario por tipo de negocio
+│   ├── iconos.css           el alfabeto visual dibujado a mano
+│   ├── plaza.css            el lugar: cielo, horizonte, faroles y puestos
+│   ├── puesto.css           lo que el usuario le pone encima a su puesto
+│   ├── temas.css            el color secundario por tipo de negocio
+│   └── splash.css           la pantalla de arranque
 ├── worker/                  IA gratuita: Worker de Cloudflare (se despliega aparte)
+├── worker-plaza/            la Plaza: cuentas, vitrinas y conversaciones (aparte también)
 ├── docs/                    investigación de proveedores y de Chispa Engine
-├── lab/                     laboratorio aislado para medir modelos locales
+├── lab/                     laboratorio aislado: modelos locales, captura y la Plaza
 ├── tools/
 │   ├── check-precache.js    cuadra index.html con el precache del sw
-│   └── check-captura.js     ejecuta el motor de la captura y lo verifica
+│   ├── check-captura.js     ejecuta el motor de la captura y lo verifica
+│   ├── check-catalogo.js    que todos los logros compartibles sean alcanzables
+│   ├── check-motor.js       las razones para acercarse a un vecino
+│   ├── check-vitrina.js     que de la vitrina no salga nada que no se dijo
+│   ├── check-puesto.js      que las tres listas de piezas no se separen
+│   └── check-plaza-worker.js  ejecuta el Worker de la Plaza contra sus reglas
 └── js/
     ├── core/
     │   ├── store.js         estado + persistencia + rachas
@@ -312,6 +402,10 @@ EMPRENDO/
     │   ├── ui.js            DOM, router, modales, toasts
     │   ├── fx.js            confeti, partículas, contadores
     │   ├── audio.js         sonido sintetizado con WebAudio
+    │   ├── plaza.js         la vitrina: qué se puede enseñar y qué nunca
+    │   ├── plaza-motor.js   por qué te conviene acercarte a un vecino
+    │   ├── plaza-nube.js    lo único que habla con un servidor sobre personas
+    │   ├── puesto.js        cómo decoró su puesto, y la lista blanca que lo guarda
     │   └── mascot.js        Chispa (SVG animable, 7 estados de ánimo)
     ├── data/
     │   ├── config.js        niveles, jefes, insignias, ligas, tienda
@@ -320,11 +414,14 @@ EMPRENDO/
     │   ├── kb.js            base de conocimiento de Chispa (77 entradas)
     │   ├── venture-templates.js  plantillas de desafío por tema y por oficio
     │   ├── mascota-capas.js  accesorios de Chispa, por capas
+    │   ├── puesto-piezas.js  las 33 piezas con las que se decora un puesto
     │   ├── sim.js           simulador: modelo y 22 eventos
     │   └── mentor-kb.js     las 26 respuestas escritas del mentor
     ├── local/               motor de la IA local — NO va en el precache
     ├── screens/             una pantalla por archivo
-    │   └── personaliza.js   "Personalizar mi experiencia": vista previa y controles
+    │   ├── personaliza.js   "Personalizar mi experiencia": vista previa y controles
+    │   ├── plaza.js         la Plaza, la vitrina y las conversaciones
+    │   └── puesto.js        "Decorar mi puesto": vista previa y las 5 ranuras
     └── app.js               arranque y navegación
 ```
 
@@ -338,10 +435,22 @@ Antes de publicar, comprueba que el precache siga cuadrando:
 node tools/check-precache.js
 ```
 
-Y que la captura siga cuadrando:
+Y que lo demás siga cuadrando:
 
 ```bash
 node tools/check-captura.js
+```
+
+```bash
+node tools/check-vitrina.js
+```
+
+```bash
+node tools/check-puesto.js
+```
+
+```bash
+node tools/check-plaza-worker.js
 ```
 
 Ese carga el catálogo y el motor de verdad, y comprueba lo que no da error cuando se

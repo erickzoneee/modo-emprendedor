@@ -80,6 +80,10 @@
      antes que temas.css a propósito: los toldos de los puestos ajenos no
      deben poder ganarle al cortafuegos que apaga --neg-* dentro de ellos. -->
 <link rel="stylesheet" href="css/plaza.css">
+<!-- Lo que el usuario le pone encima a su puesto. Va detrás de plaza.css a
+     propósito: casi todo lo suyo sobrescribe algo de allí, y a igual
+     especificidad decide el orden de la cascada. -->
+<link rel="stylesheet" href="css/puesto.css">
 <!-- Va el último a propósito: sus reglas tienen la misma especificidad que las
      que sobrescribe, así que quien decide es el orden de la cascada. -->
 <link rel="stylesheet" href="css/temas.css">
@@ -165,6 +169,9 @@
 <script src="js/data/mentor-kb.js"></script>
 <script src="js/data/venture-templates.js"></script>
 <script src="js/data/mascota-capas.js"></script>
+<!-- Con qué se decora un puesto de la Plaza. Es al puesto lo que
+     mascota-capas.js es a Chispa: un catálogo cerrado y nada más. -->
+<script src="js/data/puesto-piezas.js"></script>
 <script src="js/data/logros-compartibles.js"></script>
 <script src="js/data/kb.js"></script>
 
@@ -196,6 +203,9 @@
 <!-- Lee del perfil y no escribe en él: escribir subiría venture.rev y
      tiraría la caché de desafíos personalizados. -->
 <script src="js/core/comparte.js"></script>
+<!-- Cómo decoró su puesto. Va delante de plaza.js porque aquel le pide el
+     estilo al construir la vitrina que se publica. -->
+<script src="js/core/puesto.js"></script>
 <!-- La vitrina de la Plaza. Lee de Venture y del expediente, igual que
      comparte.js, y como él tampoco escribe en el perfil. -->
 <script src="js/core/plaza.js"></script>
@@ -218,6 +228,8 @@
 <script src="js/screens/personaliza.js"></script>
 <script src="js/screens/comparte.js"></script>
 <script src="js/screens/plaza.js"></script>
+<!-- Detrás de plaza.js: su vista previa es el puesto que aquel dibuja. -->
+<script src="js/screens/puesto.js"></script>
 <script src="js/screens/profile.js"></script>
 <script src="js/screens/league.js"></script>
 <script src="js/screens/shop.js"></script>

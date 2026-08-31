@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La Plaza como mundo · vista previa</title>
+
+<!--
+  LA PLAZA COMO UN LUGAR, Y EL PUESTO DECORADO
+
+  Esto NO es una maqueta. Es la pantalla de verdad —el mismo
+  js/screens/plaza.js, el mismo css/plaza.css, el mismo css/puesto.css— con
+  un puesto de mentira metido a mano y unos mandos para probar cada pieza sin
+  tener que registrar un negocio antes.
+
+  Existe por la misma razón que lab/plaza.html: no se puede decidir por
+  sensación mirando una pantalla que cuesta diez minutos alcanzar. Aquí se ve
+  el mundo entero y las treinta y cinco piezas del catálogo de una vez.
+
+  Los vecinos, si se encienden, salen de lab/plaza-ejemplos.js. La app no los
+  carga nunca: esa es la línea que este proyecto no cruza.
+-->
+
+<link rel="stylesheet" href="../css/fonts.css">
+<link rel="stylesheet" href="../css/tokens.css">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/components.css">
+<link rel="stylesheet" href="../css/screens.css">
+<link rel="stylesheet" href="../css/animations.css">
+<link rel="stylesheet" href="../css/iconos.css">
+<link rel="stylesheet" href="../css/plaza.css">
+<link rel="stylesheet" href="../css/puesto.css">
+<link rel="stylesheet" href="../css/temas.css">
+
+<style>
+  body { background: var(--bg-2); padding: 26px 16px 60px; }
+
+  .lab-cab { max-width: 860px; margin: 0 auto 20px; text-align: center; }
+  .lab-cab h1 { font-size: var(--fs-2xl); font-weight: 900; letter-spacing: -.5px; margin-bottom: 8px; }
+  .lab-cab p { color: var(--ink-2); font-size: var(--fs-md); font-weight: 700; line-height: 1.55; }
+
+  .lab-mandos {
+    max-width: 860px; margin: 0 auto 22px;
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+  }
+
+  .lab-tablero {
+    max-width: 1180px; margin: 0 auto;
+    display: grid; gap: 26px;
+    grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+    align-items: start;
+  }
+  @media (max-width: 900px) { .lab-tablero { grid-template-columns: 1fr; } }
+
+  .lab-tel {
+    width: 420px; max-width: 100%;
+    height: 820px;
+    margin: 0 auto;
+    border-radius: 34px;
+    overflow: hidden;
+    background: var(--bg);
+    box-shadow: var(--sh-pop);
+    display: grid; grid-template-rows: 1fr;
+  }
+  .lab-tel .viewport { height: 100%; }
+
+  .lab-hoja { display: flex; flex-direction: column; gap: 20px; }
+  .lab-bloque {
+    background: var(--card);
+    border: 2px solid var(--line-2);
+    border-radius: var(--r-xl);
+    padding: 16px 16px 20px;
+  }
+  .lab-bloque > h2 {
+    font-size: var(--fs-lg); font-weight: 900; letter-spacing: -.3px;
+    margin-bottom: 3px;
+  }
+  .lab-bloque > p {
+    font-size: var(--fs-sm); font-weight: 700; color: var(--ink-3);
+    line-height: 1.45; margin-bottom: 12px;
+  }
+  .lab-piezas { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
+
+  .lab-pie {
+    max-width: 860px; margin: 30px auto 0; text-align: center;
+    font-size: var(--fs-sm); font-weight: 700; color: var(--ink-3);
+  }
+  .lab-pie code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div class="lab-cab">
+  <h1>La Plaza como un lugar</h1>
+  <p>La pantalla de verdad, con los planos del mundo y el puesto decorado. Todos los mandos cambian
+     el estado real: lo que se ve aquí es lo que se ve en la app.</p>
+</div>
+
+<div class="lab-mandos" id="mandos"></div>
+
+<div class="lab-tablero">
+  <div class="lab-tel">
+    <main class="viewport" id="view"></main>
+  </div>
+
+  <div class="lab-hoja" id="hoja"></div>
+</div>
+
+<!-- Capas globales que la app espera encontrar -->
+<div id="toast-layer" class="toast-layer" aria-live="polite"></div>
+<div id="modal-layer" class="modal-layer" hidden></div>
+<div id="sheet-layer" class="sheet-layer" hidden></div>
+<canvas id="fx-canvas" class="fx-canvas" aria-hidden="true"></canvas>
+
+<!-- La app de verdad, en el mismo orden que index.html -->
+<script src="../js/data/brand.js"></script>
+<script src="../js/core/mascot.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/audio.js"></script>
+<script src="../js/core/fx.js"></script>
+<script src="../js/core/ui.js"></script>
+<script src="../js/data/iconos.js"></script>
+<script src="../js/core/iconos.js"></script>
+<script src="../js/data/puesto-piezas.js"></script>
+<script src="../js/core/puesto.js"></script>
+<script src="../js/core/plaza.js"></script>
+<script src="../js/core/plaza-motor.js"></script>
+<script src="../js/core/plaza-nube.js"></script>
+<script src="../js/screens/plaza.js"></script>
+<script src="../js/screens/puesto.js"></script>
+
+<!-- Los vecinos de mentira -->
+<script src="plaza-ejemplos.js"></script>
+
+<script>
+(function (w, d) {
+  'use strict';
+  var UI = w.UI, el = UI.el;
+  var K = w.PUESTO_PIEZAS;
+  var E = w.PLAZA_EJEMPLOS;
+
+  /* Igual que en lab/plaza.html: se trabaja en memoria y no se le pisa el
+     progreso a nadie que abra esto en el mismo navegador donde usa la app. */
+  w.Store.init();
+  w.Store.save = function () { /* la vista previa no persiste nada */ };
+
+  w.Store.state.plaza = {
+    v: 1, vitrina: E.yo, editada: {}, aprobadaAt: Date.now(), rev: 1,
+    puesto: w.Puesto.defecto()
+  };
+
+  w.FX.init();
+
+  function pintar() { UI.Router.go('plaza', {}, 'none'); }
+
+  /* ------------------------------ Mandos ------------------------------ */
+
+  function mando(texto, variante, fn) {
+    return UI.btn(texto, { variant: variante, block: false, size: 'sm', onClick: fn });
+  }
+
+  var mandos = d.getElementById('mandos');
+
+  mandos.appendChild(mando('Plaza vacía', 'brand', function () {
+    w.Plaza.__inyectar(null); pintar();
+  }));
+  mandos.appendChild(mando('Con vecinos', 'ghost', function () {
+    w.Plaza.__inyectar(JSON.parse(JSON.stringify(E.lista))); pintar();
+  }));
+  mandos.appendChild(mando('Decorar mi puesto', 'ghost', function () {
+    UI.Router.go('puesto');
+  }));
+  mandos.appendChild(mando('Puesto al azar', 'ghost', function () {
+    K.RANURAS.forEach(function (r) {
+      var cs = K.claves(r);
+      w.Puesto.set(r, cs[Math.floor(Math.random() * cs.length)]);
+    });
+    pintar(); hoja();
+  }));
+  mandos.appendChild(mando('Como venía', 'flat', function () {
+    w.Puesto.restablecer(); pintar(); hoja();
+  }));
+  mandos.appendChild(mando('Día / noche', 'flat', function () {
+    var h = d.documentElement;
+    h.setAttribute('data-theme', h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  }));
+  mandos.appendChild(mando('Apariencia on / off', 'flat', function () {
+    var h = d.documentElement;
+    h.setAttribute('data-personaliza', h.getAttribute('data-personaliza') === 'off' ? 'on' : 'off');
+  }));
+
+  /* --------------------------- Hoja de piezas --------------------------- */
+
+  function hoja() {
+    var caja = d.getElementById('hoja');
+    UI.clear(caja);
+
+    K.RANURAS.forEach(function (ranura) {
+      var bloque = el('div', { class: 'lab-bloque' }, [
+        el('h2', { text: K.TITULO[ranura] }),
+        el('p', { text: K.PISTA[ranura] })
+      ]);
+      var rejilla = el('div', { class: 'lab-piezas' });
+      var puesto = w.Puesto.actual();
+
+      K.claves(ranura).forEach(function (clave) {
+        var b = el('button', {
+          class: 'dec-op' + (clave === puesto[ranura] ? ' is-on' : ''),
+          type: 'button',
+          onclick: function () { w.Puesto.set(ranura, clave); pintar(); hoja(); }
+        }, [
+          w.Puesto.muestra(ranura, clave, E.yo.sector),
+          el('span', { class: 'dec-op__n', text: K.CATALOGO[ranura][clave].nombre })
+        ]);
+        rejilla.appendChild(b);
+      });
+
+      bloque.appendChild(rejilla);
+      caja.appendChild(bloque);
+    });
+  }
+
+  w.Plaza.__inyectar(null);
+  pintar();
+  hoja();
+})(window, document);
+</script>
+</body>
+</html>

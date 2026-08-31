@@ -115,6 +115,299 @@ html[data-theme="dark"] .plaza__bruma {
   padding: var(--s5) var(--s5) calc(var(--s8) + 20px);
 }
 
+/* ==========================================================================
+   EL MUNDO
+
+   Los tres planos de arriba —cielo, bruma, suelo— hacían un fondo. Lo que
+   falta para que sea un LUGAR son las cosas que uno espera encontrarse en
+   una plaza: puestos al fondo, faroles, una guirnalda cruzando y el suelo
+   empedrado yendo hacia el horizonte.
+
+   TODO SE MUEVE CON EL MISMO MANDO
+   js/screens/plaza.js escribe --pz-scroll en .plaza con lo que lleva
+   desplazado el visor, y cada plano lo multiplica por su distancia: el cielo
+   casi no se mueve, el suelo se queda casi quieto y lo que está a tus pies
+   viaja contigo. Es la única forma de que el ojo lea profundidad sin
+   perspective, sin preserve-3d y sin una sola librería, que es la misma regla
+   que ya seguía el resto de esta hoja.
+
+   Un plano que no declare su multiplicador se queda pegado al contenido, que
+   es lo que hacían los tres de antes.
+
+   NADA DE ESTO SE PUEDE TOCAR
+   El mundo entero es `pointer-events: none`. Lo único de esta pantalla con lo
+   que se interactúa son las tarjetas y los botones, y un adorno que se coma
+   un toque es un adorno que rompe la pantalla.
+   ========================================================================== */
+
+.plaza {
+  --pz-lejos:  #B0855C;
+  --pz-junta:  rgba(150, 110, 78, .055);
+  --pz-poste:  #C9A889;
+  --pz-luz:    rgba(255, 193, 120, 0);
+  --pz-vidrio: rgba(255, 215, 154, 0);
+  --pz-nube:   rgba(255, 255, 255, .60);
+  --pz-mota:   rgba(255, 255, 255, 0);
+}
+html[data-theme="dark"] .plaza {
+  --pz-lejos:  #3E4766;
+  --pz-junta:  rgba(255, 255, 255, .04);
+  --pz-poste:  #4A4356;
+  /* De noche los faroles se encienden. Es el mismo cambio de tema que hace
+     el resto de la app, contado con luz en vez de con color de fondo. */
+  --pz-luz:    rgba(255, 193, 120, .55);
+  /* El vidrio del farol. En claro es transparente y el farol es un poste; de
+     noche se enciende y es lo único que alumbra la plaza. Un solo token, dos
+     lecturas: no hay dos dibujos que mantener. */
+  --pz-vidrio: #FFD79A;
+  --pz-nube:   rgba(190, 205, 235, .10);
+  --pz-mota:   rgba(255, 214, 150, .70);
+}
+
+/* Nubes. Dos bandas a distinta altura y a distinta velocidad: con una sola,
+   el ojo la sigue y deja de ser fondo. */
+.plaza__nubes {
+  position: absolute;
+  left: -20%; right: -20%; top: 24px; height: 96px;
+  transform: translateY(calc(var(--pz-scroll, 0px) * .86));
+  background:
+    radial-gradient(46px 17px at 12% 30%, var(--pz-nube), transparent 70%),
+    radial-gradient(34px 13px at 34% 62%, var(--pz-nube), transparent 70%),
+    radial-gradient(58px 20px at 63% 22%, var(--pz-nube), transparent 70%),
+    radial-gradient(40px 15px at 86% 58%, var(--pz-nube), transparent 70%);
+  animation: pzNubes 120s linear infinite;
+  pointer-events: none;
+}
+@keyframes pzNubes {
+  from { background-position: 0 0, 0 0, 0 0, 0 0; }
+  to   { background-position: 240px 0, -180px 0, 300px 0, -140px 0; }
+}
+
+/* La plaza sigue más allá. Son tejados y cuerpos de puestos, no vecinos: no
+   dicen un nombre, no se pueden tocar y no prometen a nadie. Un mercado
+   tiene puestos aunque hoy no haya venido nadie a montarlos.
+
+   Los tejados salen de una teja cónica —el mismo truco que el festón del
+   toldo, con el vértice arriba en vez de la mordida abajo— y los cuerpos de
+   una franja con hueco a los lados, las dos con el MISMO periodo de 40px
+   para que cada tejado caiga sobre su puesto. */
+.plaza__lejania {
+  position: absolute;
+  left: -8%; right: -8%; top: 112px; height: 48px;
+  transform: translateY(calc(var(--pz-scroll, 0px) * .68));
+  background:
+    conic-gradient(from 135deg at 50% 0, var(--pz-lejos) 0 90deg, transparent 0) 0 0 / 34px 17px repeat-x,
+    linear-gradient(90deg, transparent 0 4px, var(--pz-lejos) 4px 30px, transparent 30px 34px) 0 17px / 34px 27px repeat-x;
+  /* Se disuelve hacia ABAJO, no hacia arriba. La primera versión fundía los
+     22 píxeles de arriba, que es justo donde están los tejados: la fila
+     entera se veía como una banda de rectángulos pálidos. Lo que tiene que
+     desaparecer es la base, que es donde el suelo empieza. */
+  -webkit-mask: linear-gradient(180deg, #000 0 58%, transparent 100%);
+  mask: linear-gradient(180deg, #000 0 58%, transparent 100%);
+  opacity: .55;
+  pointer-events: none;
+}
+
+/* Una segunda fila, más pequeña, más pálida y con otro paso. Sin ella la
+   primera se lee como una valla: es la repetición exacta lo que delata que
+   son una teja repetida, y basta con que algo no cuadre para que el ojo deje
+   de contar. */
+.plaza__lejania::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: -9px; height: 34px;
+  background:
+    conic-gradient(from 135deg at 50% 0, var(--pz-lejos) 0 90deg, transparent 0) 11px 0 / 25px 12px repeat-x,
+    linear-gradient(90deg, transparent 0 3px, var(--pz-lejos) 3px 22px, transparent 22px 25px) 11px 12px / 25px 22px repeat-x;
+  opacity: .55;
+}
+
+/* El empedrado. Las juntas radiales salen de un cónico repetido con el
+   vértice en el horizonte: eso es exactamente lo que hace la perspectiva, y
+   sale de una sola declaración. Las hiladas horizontales van a paso
+   constante y la máscara se encarga de que arriba no se distingan, que es lo
+   que el ojo espera de algo que se aleja. */
+.plaza__adoquin {
+  position: absolute;
+  left: -24%; right: -24%; top: 176px; bottom: -60px;
+  transform: translateY(calc(var(--pz-scroll, 0px) * .30));
+  background:
+    repeating-conic-gradient(from 90deg at 50% 0,
+      var(--pz-junta) 0 .26deg, transparent .26deg 7deg),
+    repeating-linear-gradient(0deg,
+      var(--pz-junta) 0 1px, transparent 1px 46px);
+  -webkit-mask: linear-gradient(180deg, transparent 0, #000 110px, #000 55%, transparent 96%);
+  mask: linear-gradient(180deg, transparent 0, #000 110px, #000 55%, transparent 96%);
+  pointer-events: none;
+}
+
+/* Los faroles. Dos, a los lados, plantados en el suelo. De día son postes; de
+   noche son la razón de que la plaza no cierre. */
+.plaza__farol {
+  position: absolute;
+  top: 206px;
+  width: 34px; height: 104px;
+  /* El elemento es ancho y el poste es una franja pintada en el medio. Así
+     cabe debajo la sombra de apoyo, que es lo único que separa un farol
+     plantado en el suelo de un palo flotando en el aire. */
+  background:
+    radial-gradient(15px 4px at 50% 100%, rgba(120, 80, 50, .26), transparent 72%),
+    linear-gradient(180deg, var(--pz-poste), rgba(0, 0, 0, .10)) 50% 0 / 7px 100% no-repeat;
+  transform: translateY(calc(var(--pz-scroll, 0px) * .16));
+  pointer-events: none;
+}
+html[data-theme="dark"] .plaza__farol {
+  background:
+    radial-gradient(18px 5px at 50% 100%, rgba(255, 193, 120, .18), transparent 72%),
+    linear-gradient(180deg, var(--pz-poste), rgba(0, 0, 0, .10)) 50% 0 / 7px 100% no-repeat;
+}
+.plaza__farol--izq { left: 4%; }
+.plaza__farol--der { right: 4%; }
+.plaza__farol::before {
+  content: '';
+  position: absolute;
+  left: 50%; top: -19px;
+  margin-left: -12px;
+  width: 24px; height: 27px;
+  border-radius: 12px 12px 5px 5px;
+  background: linear-gradient(180deg, var(--pz-poste), rgba(0, 0, 0, .18));
+  box-shadow: 0 0 26px 8px var(--pz-luz);
+}
+/* El vidrio encendido. En claro es transparente y no se ve: no hay dos
+   dibujos, hay uno que de noche tiene luz dentro. */
+.plaza__farol::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: -14px;
+  margin-left: -7px;
+  width: 14px; height: 16px;
+  border-radius: 7px 7px 3px 3px;
+  background: var(--pz-vidrio);
+  box-shadow: 0 0 14px 3px var(--pz-luz);
+}
+
+/* La guirnalda. Cruza por delante de todo lo del fondo y por detrás del
+   contenido. Dos capas de banderines desfasadas media teja: así alternan de
+   color sin necesitar un nodo por banderín. */
+.plaza__guirnalda {
+  position: absolute;
+  left: -6%; right: -6%; top: 96px; height: 15px;
+  transform: translateY(calc(var(--pz-scroll, 0px) * .80));
+  background:
+    conic-gradient(from 135deg at 50% 0, #E0703C 0 90deg, transparent 0) 0 0 / 30px 14px repeat-x,
+    conic-gradient(from 135deg at 50% 0, #2FA67B 0 90deg, transparent 0) 15px 0 / 30px 14px repeat-x;
+  border-top: 1.5px solid rgba(154, 132, 104, .45);
+  opacity: .58;
+  pointer-events: none;
+}
+html[data-theme="dark"] .plaza__guirnalda { opacity: .40; }
+
+/* Motas de luz. De día es polvo al sol y de noche son luciérnagas: la misma
+   capa, y lo único que cambia es de qué color son. */
+.plaza__motas {
+  position: absolute;
+  left: 0; right: 0; top: 120px; height: 340px;
+  transform: translateY(calc(var(--pz-scroll, 0px) * .58));
+  background:
+    radial-gradient(2.5px 2.5px at 14% 18%, var(--pz-mota), transparent 60%),
+    radial-gradient(2px 2px   at 78% 32%, var(--pz-mota), transparent 60%),
+    radial-gradient(3px 3px   at 32% 64%, var(--pz-mota), transparent 60%),
+    radial-gradient(2px 2px   at 62% 82%, var(--pz-mota), transparent 60%),
+    radial-gradient(2.5px 2.5px at 88% 70%, var(--pz-mota), transparent 60%);
+  /* Late en opacidad y no en posición. Mover esta capa significaría escribir
+     `transform` en una animación, y `transform` es justo donde vive el
+     paralaje: la animación ganaría y la capa dejaría de tener profundidad. */
+  animation: pzMotas 9s var(--ease-in-out) infinite alternate;
+  pointer-events: none;
+}
+@keyframes pzMotas {
+  from { opacity: .45; }
+  to   { opacity: 1; }
+}
+
+/* Los tres planos que ya existían entran en el mismo sistema. Sin esto, el
+   mundo nuevo se movía y el suelo de siempre se quedaba clavado al texto. */
+.plaza__sol   { transform: translateX(-50%) translateY(calc(var(--pz-scroll, 0px) * .90)); }
+.plaza__bruma { transform: translateY(calc(var(--pz-scroll, 0px) * .56)); }
+.plaza__suelo { transform: translateY(calc(var(--pz-scroll, 0px) * .34)); }
+
+/* De noche, el sol es una luna: el mismo disco, más pequeño y frío. */
+html[data-theme="dark"] .plaza__sol {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(226, 236, 255, .92) 0 16%, rgba(226, 236, 255, 0) 17%),
+    radial-gradient(circle, rgba(150, 180, 240, .22), rgba(150, 180, 240, 0) 62%);
+}
+
+/* Quien pidió menos movimiento ve el mundo entero, quieto. El paralaje es
+   decoración: la información —quién hay, qué puedes hacer— no está en él.
+
+   El !important es la única forma de ganarle al valor que js/screens/plaza.js
+   escribe en línea. Ese código ya comprueba la preferencia y no debería
+   escribir nada; esto es el cinturón por si algún día alguien lo olvida. */
+@media (prefers-reduced-motion: reduce) {
+  .plaza { --pz-scroll: 0px !important; }
+  .plaza__nubes, .plaza__motas { animation: none; }
+}
+
+/* ------------------------- Los sitios libres -------------------------
+
+   La plaza tiene sitio para más. Se dibujan como lo que son —una lona
+   doblada sobre una tarima vacía— y no como un puesto apagado: un puesto
+   apagado se lee como alguien que se fue, y aquí nunca hubo nadie.
+
+   Son botones y no adorno a propósito: tocar un sitio libre es la forma más
+   corta de decir "aquí cabe alguien que conozco". Lleva a lo mismo que el
+   botón de invitar, que sigue estando debajo con todas sus letras.
+   ------------------------------------------------------------------- */
+
+.pz-libres {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+}
+
+.pz-libre {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 78px;
+  padding: 0 0 8px;
+  border-radius: var(--r-lg);
+  border: 2px dashed var(--line);
+  background: rgba(255, 255, 255, .34);
+  transition: transform .14s var(--spring), border-color .2s var(--ease-out);
+}
+html[data-theme="dark"] .pz-libre { background: rgba(255, 255, 255, .04); }
+.pz-libre:active { transform: scale(.96); }
+
+/* La lona doblada: una franja gris con el mismo festón del toldo, más corta
+   y sin brillo. Es el mismo puesto, sin estrenar. */
+.pz-libre::before {
+  content: '';
+  position: absolute;
+  left: 8px; right: 8px; top: 8px;
+  height: 22px;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(150deg, var(--line), var(--line-2));
+  -webkit-mask:
+    radial-gradient(7px 8px at 50% 0, transparent 99%, #000 100%) 0 100% / 16px 9px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 8px) no-repeat;
+  mask:
+    radial-gradient(7px 8px at 50% 0, transparent 99%, #000 100%) 0 100% / 16px 9px repeat-x,
+    linear-gradient(#000, #000) 0 0 / 100% calc(100% - 8px) no-repeat;
+}
+
+.pz-libre__t {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
 /* ------------------------- El puesto ------------------------- */
 
 .pz-hueco { position: relative; display: flex; flex-direction: column; align-items: center; }

@@ -329,6 +329,18 @@
     }
     v.v = VERSION;
 
+    /* Cómo decoró su puesto. No entra en CAMPOS y no es un descuido: CAMPOS
+       es la lista de lo que se recorta, se revisa por si lleva un teléfono
+       dentro y se compara letra a letra. Esto son cinco claves de un catálogo
+       cerrado —js/data/puesto-piezas.js— que no las escribe nadie a mano y
+       que no pueden llevar un dato dentro. Mezclarlas con el texto libre
+       obligaría a que las reglas del texto libre las trataran como texto, y
+       no lo son.
+
+       Sale publicado por decisión suya: eligió que sus vecinos vieran su
+       puesto como él lo dejó. Lo vigila tools/check-puesto.js. */
+    v.estilo = w.Puesto ? w.Puesto.estilo() : null;
+
     var faltan = [], sugeridos = [];
     for (i = 0; i < IMPRESCINDIBLES.length; i++) {
       k = IMPRESCINDIBLES[i];
@@ -416,7 +428,46 @@
     for (var i = 0; i < CAMPOS.length; i++) {
       if (p.vitrina[CAMPOS[i]] !== e.vitrina[CAMPOS[i]]) return true;
     }
+    /* El estilo NO entra aquí. No es un olvido: js/core/puesto.js pone al día
+       la vitrina aprobada en cuanto se toca una pieza, así que aquello nunca
+       puede diferir. Compararlo solo servía para dejar el aviso encendido
+       cuando la sincronización venía por otro camino. */
     return false;
+  }
+
+  /** ¿La decoración de su puesto ya no es la que está publicada? Se comparan
+      las cinco claves una a una y no los objetos: dos objetos con el mismo
+      contenido nunca son iguales con `!==`, y esa comparación habría dejado
+      el aviso de "tu puesto no está al día" encendido para siempre. */
+  function estiloCambio(a, b) {
+    if (!w.Puesto) return false;
+    var x = w.Puesto.limpio(a), y = w.Puesto.limpio(b);
+    var ranuras = (w.PUESTO_PIEZAS && w.PUESTO_PIEZAS.RANURAS) || [];
+    for (var i = 0; i < ranuras.length; i++) {
+      if (x[ranuras[i]] !== y[ranuras[i]]) return true;
+    }
+    return false;
+  }
+
+  /** Pone al día la decoración de la vitrina YA APROBADA, sin volver a pasar
+      por la pantalla de aprobación.
+
+      Es lo único de la vitrina que se puede cambiar así, y tiene una razón:
+      decorar el puesto ES verlo. Se hace mirando el puesto entero, pieza a
+      pieza, en la pantalla de decorar — no hay nada que aprobar después que
+      no haya visto ya. Con el texto es al revés, y por eso el texto sigue
+      pasando por «Así está bien».
+
+      Devuelve la vitrina al día, o null si no hay puesto abierto. */
+  function sincronizarEstilo() {
+    var e = estado();
+    if (!e.vitrina || !e.aprobadaAt || !w.Puesto) return null;
+    if (!estiloCambio(w.Puesto.estilo(), e.vitrina.estilo)) return e.vitrina;
+
+    w.Store.set(function (s) {
+      s.plaza.vitrina.estilo = w.Puesto.estilo();
+    }, 'plaza');
+    return estado().vitrina;
   }
 
   /* ==================================================================
@@ -635,9 +686,11 @@
     sesion: sesion,
     idNube: idNube,
     conectado: conectado,
+    estiloCambio: estiloCambio,
     // escritura
     aprobar: aprobar,
     editar: editar,
+    sincronizarEstilo: sincronizarEstilo,
     retirar: retirar,
     veoValor: veoValor,
     retirarValor: retirarValor,

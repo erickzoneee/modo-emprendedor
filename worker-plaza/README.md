@@ -75,6 +75,22 @@ va a hacer antes de hacerlo:
 npx.cmd wrangler d1 migrations list emprendo-plaza --remote
 ```
 
+**Este mismo comando es el que aplica las migraciones nuevas.** El orden lo da
+el nombre del archivo, y wrangler solo corre las que faltan.
+
+> `0002_estilo.sql` añade cómo está decorado cada puesto: cinco columnas, una
+> por ranura, cada una con su `CHECK` contra el catálogo de
+> `js/data/puesto-piezas.js`. Las cinco tienen valor por defecto —el puesto de
+> siempre—, así que **se puede aplicar con la Plaza abierta**: las vitrinas ya
+> publicadas se siguen viendo exactamente igual.
+>
+> El Worker desplegado **antes** de esta migración no se rompe con un cliente
+> nuevo: `vitrinaLimpia()` construye la vitrina campo por campo desde su propia
+> lista blanca, así que un `estilo` que no espera simplemente no existe para
+> él. Lo que pasa mientras tanto es que la decoración no se guarda y los
+> vecinos ven el puesto de siempre. Al revés —Worker nuevo con base vieja— sí
+> falla, con `no such column`: por eso la migración va **antes** del despliegue.
+
 ### 3. Desplegar
 
 ```
