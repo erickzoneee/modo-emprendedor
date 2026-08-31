@@ -152,8 +152,19 @@
          vive en la web, no aquí: esto es una frase de Chispa, no un contrato.
          Y se puede cumplir literalmente — el correo se guarda como huella, no
          en claro, así que ni el servidor tiene la lista. */
+      /* La frase de Chispa y, debajo, el enlace al aviso completo. El aviso
+         entero vive en la web y no aquí dentro: lo que la ley pide tiene una
+         forma que no es la de esta app, y meterlo en una hoja convertiría el
+         momento de mayor confianza en un contrato. Pero tiene que estar a un
+         toque, y justo aquí — que es donde se decide. */
       el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0' },
         text: 'Tu correo solo sirve para que puedas volver a entrar. No lo enseño a nadie.' }),
+      el('a', {
+        class: 'tiny',
+        style: { textTransform: 'none', letterSpacing: '0', color: 'var(--brand)', display: 'block' },
+        href: 'privacidad.html', target: '_blank', rel: 'noopener',
+        text: 'Ver el aviso de privacidad'
+      }),
       UI.btn('Mándame el enlace', { variant: 'brand', size: 'lg', onClick: function () {
         var correo = (input.value || '').trim();
         if (correo.indexOf('@') < 1 || correo.indexOf('.') < 0 || correo.length < 6) {
