@@ -5,7 +5,8 @@
       "name": "modo-emprendedor",
       "runtimeExecutable": "node",
       "runtimeArgs": ["serve.js"],
-      "port": 4321
+      "port": 4321,
+      "autoPort": true
     }
   ]
 }
