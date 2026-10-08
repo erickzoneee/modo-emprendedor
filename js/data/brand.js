@@ -75,7 +75,21 @@
        llevaría los identificadores y los mensajes de otras personas metidos
        en un archivo que viaja por ahí. Lo suyo —su vitrina— sí va en el
        respaldo, porque es suyo. Esto no. */
-    plaza: 'modo-emprendedor:plaza'
+    plaza: 'modo-emprendedor:plaza',
+
+    /* El pase de Impulso. Fuera del estado por dos razones distintas, y las
+       dos importan:
+
+       · `Store.exportJSON()` vuelca el estado entero y ese archivo se manda
+         por WhatsApp. Un pase ahí dentro es Impulso viajando por un chat.
+       · `Store.reset()` escribe los valores por defecto encima de todo. Si el
+         pase viviera ahí, «Reiniciar todo» le borraría a un suscriptor lo que
+         pagó. Aquí no lo alcanza, igual que no alcanza a su cuenta.
+
+       Y una tercera que no es de almacenamiento: el pase no es un dato de la
+       app, es una firma del servidor. No tiene nada que hacer en un objeto
+       cuyo importador acepta lo que le pongan. */
+    impulso: 'modo-emprendedor:impulso'
   };
 
   /* Prefijo de las cachés de la PWA. El service worker borra las que empiezan
@@ -113,7 +127,17 @@
        blanca. Si algún día la app se sirve desde otro sitio, hay que añadirlo
        en `ORIGENES` de worker-plaza/wrangler.jsonc — con su carpeta, si la
        tiene. Ahí acaba la dirección a la que vuelve el enlace del correo. */
-    plaza: 'https://plaza.emprendo.life'
+    plaza: 'https://plaza.emprendo.life',
+
+    /* El Worker que cobra (worker-pago/). Vacío hasta que esté desplegado, y
+       vacío significa que Impulso no existe: la app no enseña la pantalla de
+       cobro, nadie ve un precio y nadie ve un botón que no lleva a ningún
+       sitio. Es el mismo criterio que `api`.
+
+       Va aparte de `plaza` aunque compartan base de datos: son dos Workers
+       distintos con dos despliegues distintos, y el de pago tiene una puerta
+       —el webhook— que la Plaza no puede tener. */
+    pago: ''
   };
 
   raiz.BRAND = {

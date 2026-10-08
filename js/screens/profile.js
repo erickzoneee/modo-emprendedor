@@ -264,10 +264,75 @@
     ]));
 
     card.appendChild(el('div', { class: 'tiny', style: { marginTop: '10px', textTransform: 'none', letterSpacing: '0' },
-      text: 'No hay servidor ni cuentas: esta copia es la única forma de recuperar tu progreso o llevarlo a otro dispositivo. Pégala en tus notas o guárdala en tu nube.' }));
+      text: 'Esta copia es la única forma de recuperar tu progreso o llevarlo a otro dispositivo. Pégala en tus notas o guárdala en tu nube.' }));
+
+    /* Lo que el respaldo NO se lleva, dicho aquí y no en la letra pequeña.
+
+       La sesión de la Plaza vive fuera del estado a propósito —ese archivo se
+       manda por WhatsApp y no puede llevar la llave de una cuenta dentro— y
+       con ella se queda fuera Impulso. Quien restaure este archivo en un
+       teléfono nuevo va a creer que perdió lo que pagó, y va a creerlo en el
+       peor momento posible. Se dice antes, y solo a quien le afecta. */
+    if (w.Impulso && w.Impulso.activo()) {
+      card.appendChild(el('div', { class: 'tiny', style: { marginTop: '8px', textTransform: 'none', letterSpacing: '0', fontWeight: '900', color: 'var(--ink-2)' },
+        text: 'Impulso no viaja en esta copia. En un teléfono nuevo, entra con tu correo y vuelve solo.' }));
+    }
 
     paint();
     return card;
+  }
+
+  /* ------------------------- Impulso -------------------------
+
+     Una tarjeta que está siempre y no persigue a nadie. Dice una cosa u otra
+     según el caso, y en los dos lleva al mismo sitio: la pantalla donde está
+     todo explicado. Aquí no hay precio, ni botón de pagar, ni argumento de
+     venta — este es el Perfil, no un escaparate. */
+
+  function impulsoCard() {
+    if (!w.ImpulsoScreen || !w.ImpulsoScreen.hay()) return null;
+
+    var activo = w.Impulso.activo();
+
+    return el('button', {
+      class: 'card card--tight', type: 'button',
+      style: { display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left', width: '100%' },
+      onclick: function () { w.Sound.tap(); UI.Router.go('impulso', { desde: 'perfil' }); }
+    }, [
+      el('span', { style: { fontSize: '22px', flex: 'none' }, text: '⚡' }),
+      el('div', { class: 'grow', style: { minWidth: '0' } }, [
+        el('div', { class: 'small', style: { fontWeight: '900' }, text: activo ? 'Impulso activo' : 'Emprendo Impulso' }),
+        el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0' },
+          text: activo
+            ? 'Gestionar o cancelar cuando quieras'
+            : 'Avanza sin pausas. La ruta sigue siendo gratis.' })
+      ]),
+      activo ? w.ImpulsoScreen.sello() : el('span', { text: '›' })
+    ]);
+  }
+
+  /* ------------------------- Anuncios -------------------------
+
+     Solo aparece si hay red configurada y si esta persona ya contestó. Con
+     Impulso no aparece nunca: no hay anuncios que ajustar.
+
+     El interruptor no enciende ni apaga la publicidad —eso lo decide pagar o
+     no—, decide si la red puede perfilar. Decirlo así es lo único honesto:
+     un interruptor llamado «anuncios» que no los quita sería peor que no
+     tenerlo. */
+
+  function anunciosCard() {
+    if (!w.Anuncios || !w.Anuncios.hayRed()) return null;
+    if (w.Impulso && w.Impulso.activo()) return null;
+    if (w.Anuncios.consentimiento() === null) return null;
+
+    return toggle('Anuncios a mi medida',
+      'Si lo apagas, sigues viendo anuncios, pero genéricos',
+      w.Anuncios.consentimiento() === true,
+      function (v) {
+        w.Anuncios.guardar(v);
+        UI.toast(v ? 'Anuncios a tu medida' : 'Anuncios genéricos', 'blue', '🧘');
+      });
   }
 
   /* ------------------------- Instalar como app ------------------------- */
@@ -467,6 +532,55 @@
         'Las voces las instala tu sistema, no la app: si no ves ninguna en español, agrégala desde los ajustes de tu teléfono.' }),
       list
     ]);
+  }
+
+  /* ------------------------- Chispa con Impulso -------------------------
+
+     Se pinta ENCIMA de la IA gratuita porque es la que va a responder: la
+     cascada de ai.js la pone por delante. Si no se enseñara, alguien con
+     Impulso vería «te quedan 20 de 25 consultas» y ese número no sería el
+     suyo.
+
+     Empieza con lo que dijo el servidor la última vez y se refresca sola. No
+     hay barra de carga: el número viejo es lo bastante bueno mientras llega
+     el nuevo, y una tarjeta que parpadea cada vez que se abre el Perfil es
+     peor que un número con un minuto de retraso. */
+
+  function iaImpulsoCard() {
+    if (!w.IAImpulso || !w.IAImpulso.disponible()) return null;
+
+    var card = el('div', { class: 'card card--tight', style: { textAlign: 'left' } });
+    var linea = el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', lineHeight: '1.5' } });
+
+    function texto(c) {
+      if (!c || typeof c.quedanMes !== 'number') {
+        return 'Activa. Respondo con un modelo de pago, respuestas más largas y memoria de lo que hablamos.';
+      }
+      return 'Te quedan ' + UI.num(c.quedanHoy) + ' consultas hoy y ' +
+             UI.num(c.quedanMes) + ' este mes. Respuestas más largas y con memoria de lo que hablamos.';
+    }
+
+    linea.textContent = texto(w.IAImpulso.cupoConocido());
+
+    card.appendChild(el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+      el('span', { style: { fontSize: '22px', flex: 'none' }, text: '💬' }),
+      el('div', { class: 'grow', style: { minWidth: '0' } }, [
+        el('div', { class: 'row between' }, [
+          el('div', { class: 'small', style: { fontWeight: '900' }, text: 'Chispa con Impulso' }),
+          w.ImpulsoScreen ? w.ImpulsoScreen.sello() : null
+        ]),
+        linea
+      ])
+    ]));
+
+    card.appendChild(el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', marginTop: '8px', opacity: '.8' },
+      text: 'Cuando se acaben, sigo contestando igual con mis reglas y mis cálculos. No se corta nada.' }));
+
+    w.IAImpulso.cupo().then(function (c) {
+      if (c) linea.textContent = texto(c);
+    });
+
+    return card;
   }
 
   /* ------------------------- IA gratuita de Emprendo ------------------------- */
@@ -993,7 +1107,13 @@
     var voz = speechCard();
     if (voz) col.appendChild(voz);
 
-    // La gratuita primero: es la que va a usar casi todo el mundo.
+    /* Las vías de IA, en el mismo orden en que responden (ai.js). Enseñarlas
+       en otro orden haría que el primer número que se lee no fuera el que
+       cuenta: alguien con Impulso vería «te quedan 20 de 25» y esas 25 no son
+       las suyas. */
+    var impIa = iaImpulsoCard();
+    if (impIa) col.appendChild(impIa);
+
     var gratis = iaGratuitaCard();
     if (gratis) col.appendChild(gratis);
 
@@ -1002,6 +1122,15 @@
 
     var ia = aiCard();
     if (ia) col.appendChild(ia);
+
+    // Impulso. Va antes de la meta diaria y después de la IA: es una cosa de
+    // la cuenta, no un ajuste que se toca todos los días.
+    var imp = impulsoCard();
+    if (imp) col.appendChild(imp);
+
+    // Anuncios: solo se enseña el interruptor si de verdad hay anuncios.
+    var anun = anunciosCard();
+    if (anun) col.appendChild(anun);
 
     // Meta diaria
     col.appendChild(el('button', { class: 'card card--tight', type: 'button',

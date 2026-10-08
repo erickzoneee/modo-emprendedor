@@ -54,12 +54,19 @@
      CROMO SUPERIOR / INFERIOR
      ================================================================== */
 
+  /** Lo que dice la pastilla de vidas de la lección. Con Impulso, ∞: no hay
+      número que contar, y enseñar un 5 fijo haría pensar que se están
+      gastando. */
+  function textoVidas() {
+    return w.Engine.energiaIlimitada() ? '∞' : String(w.Store.state.hearts);
+  }
+
   function topBar() {
     var bar = UI.pbar(0, 'green');
     bar.id = 'lesson-bar';
     var hearts = el('div', { class: 'stat stat--heart', id: 'lesson-hearts' }, [
       el('span', { class: 'stat__icon', text: '❤️' }),
-      el('span', { text: String(w.Store.state.hearts) })
+      el('span', { text: textoVidas() })
     ]);
     return el('div', { class: 'lesson-top' }, [
       UI.closeBtn(confirmExit),
@@ -350,8 +357,9 @@
     var h = d.getElementById('lesson-hearts');
     if (h) {
       var span = h.querySelector('span:last-child');
-      if (span && span.textContent !== String(w.Store.state.hearts)) {
-        span.textContent = String(w.Store.state.hearts);
+      var ahora = textoVidas();
+      if (span && span.textContent !== ahora) {
+        span.textContent = ahora;
         h.classList.add('heart-break');
         setTimeout(function () { h.classList.remove('heart-break'); }, 620);
       }
@@ -1259,26 +1267,87 @@
      SIN VIDAS
      ================================================================== */
 
+  /* ==================================================================
+     SIN ENERGÍA — y por qué este modal está escrito así
+
+     Aquí es donde se decide si esta app respeta a quien no paga.
+
+     El botón grande es SEGUIR, gratis. No recargar, no Impulso: seguir. Es
+     verdad que se puede —nunca se bloqueó a nadie, ni antes ni ahora— y es lo
+     que la mayoría va a querer hacer.
+
+     El texto dice lo que de verdad pasa: la lección cuenta igual y los puntos
+     valen la mitad. Durante meses esta ventana prometió que no se ganaba XP y
+     el código lo daba entero; ahora el código lo cumple a medias a propósito,
+     y la frase dice exactamente eso.
+
+     Impulso entra ABAJO, en pequeño, y solo si de verdad existe —hace falta
+     el servidor de pago y la llave—. Si no está montado, este modal es
+     idéntico al de antes con dos frases mejores.
+
+     Lo que NO hay: cuenta atrás, precio tachado, «solo hoy», ni una pantalla
+     completa que haya que cerrar para seguir.
+     ================================================================== */
+
   function noHearts() {
+    var V = w.CONFIG.VIDAS;
+    var eta = w.Engine.heartsETA();
+    var puedePagar = w.Store.state.coins >= V.recarga;
+
     UI.modal([
-      el('div', { class: 'mascot mascot--lg is-sad', style: { margin: '0 auto' }, html: w.Mascot.svg('sad') }),
-      el('h3', { class: 'h2', text: 'Te quedaste sin vidas' }),
-      el('p', { class: 'p', text: 'Puedes recargar con monedas, esperar a que se regeneren o seguir practicando sin vidas (no ganarás XP).' }),
-      el('div', { class: 'small', text: 'Siguiente vida en ' + (w.Engine.heartsETA() || '—') }),
-      UI.btn('Recargar por 60 🪙', {
-        variant: 'gold',
+      el('div', { class: 'mascot mascot--lg is-think', style: { margin: '0 auto' }, html: w.Mascot.svg('think') }),
+      el('h3', { class: 'h2', text: 'Se acabó la energía' }),
+      el('p', { class: 'p', text: 'Sigue si quieres. La lección cuenta igual, solo que los puntos valen la mitad hasta que vuelva la energía.' }),
+      el('div', { class: 'small', text: eta ? 'La siguiente llega en ' + eta : '' }),
+
+      UI.btn('Seguir aprendiendo', {
+        variant: 'brand', size: 'lg', shiny: true, onClick: UI.closeModal
+      }),
+
+      UI.btn('Recargar por ' + V.recarga + ' 🪙', {
+        variant: 'ghost',
         onClick: function () {
-          if (w.Store.state.coins < 60) { UI.toast('No tienes suficientes monedas', 'red', '🪙'); return; }
-          w.Engine.addCoins(-60);
+          if (w.Store.state.coins < V.recarga) { UI.toast('No tienes suficientes monedas', 'red', '🪙'); return; }
+          w.Engine.addCoins(-V.recarga);
           w.Engine.refillHearts();
           updateBar();
           UI.closeModal();
           UI.toast('¡Vidas recargadas!', 'green', '❤️');
-        }
+        },
+        disabled: !puedePagar
       }),
-      UI.btn('Seguir sin vidas', { variant: 'ghost', onClick: UI.closeModal }),
+
+      guinoImpulso(),
+
       UI.btn('Salir de la lección', { variant: 'flat', onClick: function () { UI.closeModal(); exit(); } })
     ], { dismissible: false });
+  }
+
+  /**
+   * La invitación a Impulso. La construye js/screens/impulso.js —un solo
+   * sitio la dibuja, así que todas se ven igual y todas respetan las mismas
+   * reglas— y aquí solo se le añade lo propio de estar dentro de una
+   * lección: al tocarla hay que cerrar el modal y salir, o la pantalla de
+   * Impulso se pintaría debajo de una lección a medias.
+   *
+   * Devuelve null si Impulso no está montado o si ya lo tiene, y entonces el
+   * modal simplemente no la pinta: un hueco vacío en un modal se nota.
+   */
+  function guinoImpulso() {
+    if (!w.ImpulsoScreen) return null;
+    var g = w.ImpulsoScreen.guino(null, null, 'energia');
+    if (!g) return null;
+
+    /* Se sustituye el manejador entero, no se le añade otro: si los dos
+       corrieran, el `go()` del original se ejecutaría antes del `exit()` y la
+       lección se quedaría montada por debajo. */
+    g.onclick = function () {
+      w.Sound.tap();
+      UI.closeModal();
+      exit();
+      UI.Router.go('impulso', { desde: 'energia' });
+    };
+    return g;
   }
 
   function confirmExit() {
@@ -1367,6 +1436,20 @@
     } else {
       var pregunta = w.Personalize.reflection(lesson);
       if (pregunta) wrap.appendChild(reflectionCard(lesson, pregunta));
+    }
+
+    /* El anuncio va AQUÍ y en ningún otro sitio de esta pantalla: después de
+       la recompensa, después de la pregunta de Chispa y antes de los botones.
+       Nunca entre los ejercicios, nunca encima de nada y nunca como algo que
+       haya que cerrar. Devuelve null casi siempre —sin red configurada, con
+       Impulso, sin consentimiento o en la primera lección— y entonces esto no
+       existe. Las reglas viven en js/core/anuncios.js. */
+    if (w.Anuncios) {
+      var anuncio = w.Anuncios.bloque('leccion');
+      if (anuncio) {
+        anuncio.style.width = '100%';
+        wrap.appendChild(anuncio);
+      }
     }
 
     var actions = el('div', { class: 'col', style: { width: '100%', gap: '10px', marginTop: '10px' } });

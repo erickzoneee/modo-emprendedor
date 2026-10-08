@@ -49,7 +49,17 @@
   var FILAS = [
     ['✨',  'Solo la uso para ayudarte', 'Con ella escribo tu ruta y tus desafíos.'],
     ['🤝',  'No se publica',             'Nada sale de aquí hasta que tú lo decidas.'],
-    ['❤️', 'No se vende',               'Emprendo no vive de tus datos. Nunca.']
+    /* La tercera cambió el día que entraron los anuncios, y cambió en vez de
+       quedarse. «Emprendo no vive de tus datos. Nunca.» dejó de ser exacta en
+       el momento en que una red publicitaria entró en la app: Google no ve
+       nada de su negocio, pero sí ve que está aquí.
+
+       Lo que sí se puede seguir cumpliendo, y se cumple en el código, es esto
+       otro: js/core/anuncios.js no le manda a la red ni el sector, ni la
+       etapa, ni el texto de ninguna pantalla, ni el correo. Solo carga un
+       bloque. Por eso la frase nueva habla de la IDEA y no de «los datos»: es
+       más pequeña, y es verdad. */
+    ['❤️', 'No se vende',               'Tu idea no se la doy a nadie. Nunca.']
   ];
 
   var TITULO = 'Tu idea es tuya 🔒';

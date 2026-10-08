@@ -78,7 +78,17 @@
     // `wrangler dev`, que trae su propio origen.
     "ORIGENES": "https://app.emprendo.life,https://erickzoneee.github.io/modo-emprendedor",
     "APP_URL": "https://app.emprendo.life",
-    "CORREO_DESDE": "hola@emprendo.life"
+    "CORREO_DESDE": "hola@emprendo.life",
+
+    // El modelo que responde a quien tiene Impulso. Va como variable y no
+    // escrito en el codigo para poder cambiarlo sin desplegar de nuevo.
+    // Haiku 4.5 y no uno mas caro: para cruzar los datos que Chispa ya tiene
+    // delante la diferencia no se nota, y en la factura si.
+    //
+    // La CLAVE va aparte, como secreto:  npx wrangler secret put IA_CLAVE
+    // Sin ella, la operacion responde 503 y la app cae sola al camino
+    // gratuito. No es un fallo: es el estado normal hasta que se ponga.
+    "IA_MODELO": "claude-haiku-4-5-20251001"
   },
 
   // Se deja encendida: es lo único que va a contar qué pasó cuando algo

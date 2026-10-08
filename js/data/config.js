@@ -235,13 +235,98 @@
   ];
 
   /* ------------------------- Tienda ------------------------- */
+  /* ------------------------- La energía -------------------------
+
+     Estos cuatro números estaban escritos a mano en nueve sitios: el tope de
+     5 en cinco (store.js dos veces, engine.js tres), la cadencia de 30
+     minutos en dos y el precio de la recarga en cuatro —config, la barra
+     superior, la hoja del mapa y el modal de la lección—. Cambiar uno solo
+     dejaba la app incoherente sin que nada fallara: subir el tope en la
+     regeneración pero no en la recarga comprada hacía que pagar diera menos
+     vidas de las que el tiempo regala gratis.
+
+     `mitadSinEnergia` es lo que hace que la energía signifique algo. Sin
+     energía se sigue aprendiendo y la lección cuenta igual —nadie se queda
+     encerrado nunca—, pero los puntos valen la mitad hasta que vuelva. Antes
+     el modal prometía que no se ganaba XP y el código lo daba entero: era una
+     promesa que la app llevaba meses sin cumplir. */
+  var VIDAS = {
+    max: 5,
+    regenMs: 30 * 60 * 1000,
+    recarga: 60,              // monedas
+    mitadSinEnergia: 0.5
+  };
+
   var SHOP = [
-    { id: 'hearts',  icon: '❤️', name: 'Recarga de vidas',   desc: 'Rellena tus 5 vidas al instante.', price: 60 },
+    { id: 'hearts',  icon: '❤️', name: 'Recarga de vidas',
+      desc: 'Rellena tus ' + VIDAS.max + ' vidas al instante.', price: VIDAS.recarga },
     { id: 'freeze',  icon: '🧊', name: 'Congelador de racha', desc: 'Protege tu racha un día que falles.', price: 90, max: 3 },
     { id: 'double',  icon: '⚡', name: 'XP doble (30 min)',  desc: 'Duplica los puntos que ganes.', price: 120 },
     { id: 'hint',    icon: '💡', name: 'Paquete de 3 pistas', desc: 'Descarta una opción incorrecta en las lecciones.', price: 45 },
     { id: 'audit',   icon: '🔬', name: 'Auditoría del negocio', desc: 'Reviso las 12 secciones de Mi Negocio y te doy las 3 prioridades.', price: 150 }
   ];
+
+  /* ------------------------- Emprendo Impulso -------------------------
+
+     LO QUE ESTA LISTA NO PUEDE HACER es prometer algo que la app todavía no
+     hace. Por eso cada beneficio lleva `listo`, y el que no lo está se pinta
+     apagado y con la palabra «pronto» al lado, no con un candado: un candado
+     dice «existe y no te lo doy», que sería mentira.
+
+     Cuando la fase 2 entregue el plan semanal, se cambia su `listo` a true y
+     ya está. Mientras tanto, quien pague ve exactamente lo que se lleva hoy.
+
+     EL PRECIO ESTÁ ESCRITO AQUÍ Y TAMBIÉN EN STRIPE, y las dos copias tienen
+     que decir lo mismo. No se puede leer del servidor porque esta pantalla
+     tiene que poder pintarse sin conexión. Si alguna vez cambia, se cambia en
+     los dos sitios el mismo día: enseñar 5 y cobrar 7 no es un fallo de
+     programación, es otra cosa. */
+  var IMPULSO = {
+    nombre: 'Emprendo Impulso',
+    /* El número y su unidad van separados porque en pantalla se pintan con
+       dos tamaños. «pesos» y no «MXN» ni «$»: la primera es una sigla que hay
+       que saber leer y la segunda se confunde con dólares justo en el país
+       donde más se confunde. */
+    precio: '99',
+    unidad: 'pesos al mes',
+    corto: '99 pesos al mes',
+
+    BENEFICIOS: [
+      { icon: '⚡',  listo: true,
+        t: 'Energía sin límite',      p: 'Aprende hasta que tú quieras parar.' },
+      { icon: '🧘',  listo: true,
+        t: 'Sin anuncios',            p: 'Nada que te corte el paso.' },
+      { icon: '💬',  listo: true,
+        t: 'Yo, más cerca',           p: 'Más preguntas al día y respuestas más largas.' },
+      { icon: '🗓️', listo: true,
+        t: 'Tu plan de la semana',    p: 'Te digo qué hacer primero, y por qué.' },
+      { icon: '✍️',  listo: true,
+        t: 'Material listo para usar', p: 'Tu publicación, tu mensaje, tu cotización.' }
+    ]
+  };
+
+  /* ------------------------- Anuncios -------------------------
+
+     Vacío significa APAGADO, y apagado significa que la app se comporta
+     exactamente como antes de que esto existiera: sin script de terceros, sin
+     preguntar nada y sin ningún hueco pintado. La aprobación de AdSense tarda
+     días y puede denegarse, así que este es el estado normal hasta que llegue.
+
+     `editor` es el identificador de editor de AdSense (`ca-pub-…`) y los dos
+     `slots` son los identificadores de bloque que da el panel al crear cada
+     unidad. Los tres los pone el dueño de la instancia; no hay ninguno en el
+     repositorio.
+
+     Las reglas de dónde y cuándo NO están aquí: viven en js/core/anuncios.js,
+     que es la única puerta. Aquí solo van los números que cambian según quién
+     publique la app. */
+  var ANUNCIOS = {
+    editor: '',
+    slots: {
+      leccion: '',   // al terminar una lección, debajo del resultado
+      ruta: ''       // en la Ruta, después del mapa
+    }
+  };
 
   /* ------------------------- Retos semanales ------------------------- */
   var WEEKLY = [
@@ -397,6 +482,7 @@
   w.CONFIG = {
     LEVELS: LEVELS, BOSSES: BOSSES, DOSSIER: DOSSIER, BADGES: BADGES,
     LEAGUES: LEAGUES, BOT_NAMES: BOT_NAMES, SHOP: SHOP, WEEKLY: WEEKLY,
+    VIDAS: VIDAS, IMPULSO: IMPULSO, ANUNCIOS: ANUNCIOS,
     GOALS: GOALS, SECTORS: SECTORS, KNOWLEDGE: KNOWLEDGE, TIMES: TIMES, BUDGETS: BUDGETS,
     STAGES: STAGES, OBJECTIVES: OBJECTIVES,
     PERSONALIDADES: PERSONALIDADES, TEMAS: TEMAS, TEMA_POR_SECTOR: TEMA_POR_SECTOR,

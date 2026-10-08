@@ -1,0 +1,82 @@
+{
+  // ==========================================================================
+  // EMPRENDO IMPULSO · configuración del Worker que cobra
+  //
+  // Va aparte de la Plaza aunque compartan base: la Plaza rechaza todo lo que
+  // no traiga un Origin de su lista blanca, y un aviso de pago no manda
+  // Origin. Abrir esa puerta en la Plaza sería tocar lo único que la protege.
+  //
+  // ANTES DE DESPLEGAR, cinco cosas que no están aquí y no pueden estarlo:
+  //
+  //   node tools/nueva-llave-pase.js         -> imprime las dos mitades
+  //   npx wrangler secret put PASE_JWK       -> pega la mitad PRIVADA
+  //   npx wrangler secret put STRIPE_SK      -> sk_test_… para empezar
+  //   npx wrangler secret put STRIPE_PRECIO  -> price_… del producto mensual
+  //   npx wrangler secret put STRIPE_WHSEC   -> whsec_…, lo da Stripe al
+  //                                             crear el webhook
+  //
+  // La mitad PÚBLICA de la llave va escrita en js/core/impulso.js. Las dos
+  // salen del mismo comando y tienen que ir juntas: con una llave nueva en el
+  // Worker y la vieja en la app, ningún pase verifica y todo el mundo pierde
+  // Impulso a la vez. Si hay que rotarla, se despliega primero la app con las
+  // DOS públicas aceptadas y después el Worker.
+  //
+  // El webhook de Stripe apunta a:
+  //   https://pago.emprendo.life/webhook
+  // con estos eventos: checkout.session.completed,
+  // customer.subscription.created, customer.subscription.updated,
+  // customer.subscription.deleted, invoice.paid, invoice.payment_failed.
+  // ==========================================================================
+
+  "name": "pago",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+
+  // La misma cuenta que la Plaza, escrita a mano por la misma razón: sin
+  // esto, wrangler despliega donde tenga la sesión abierta, y la base D1 de
+  // abajo vive en ESTA cuenta. Un despliegue desde otra falla en vez de
+  // acertar por casualidad.
+  "account_id": "740434c6ad262092cf983617356a3a15",
+
+  "routes": [
+    { "pattern": "pago.emprendo.life", "custom_domain": true }
+  ],
+
+  // LA MISMA BASE QUE LA PLAZA. No es una copia: es la misma, con el mismo
+  // database_id. El plan vive en columnas de `cuenta` (migración 0003), así
+  // que la Plaza lo lee sin enterarse de que existe este Worker, y borrar una
+  // cuenta se lleva su suscripción por cascada.
+  //
+  // La migración se aplica desde worker-plaza/, que es donde vive la carpeta
+  // migrations/. Aquí no hay ninguna.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "emprendo-plaza",
+      "database_id": "4ee8d3b6-21ad-409f-bc74-03e8c16c9283"
+    }
+  ],
+
+  // Más suelto que el de la Plaza: aquí una persona hace tres peticiones en
+  // toda su vida —pedir el pase, ir a pagar y volver—, y el pase se pide en
+  // cada arranque. Lo que frena es el raspado, no el uso.
+  "ratelimits": [
+    { "name": "LIMITE_IP", "namespace_id": "3001", "simple": { "limit": 20, "period": 60 } }
+  ],
+
+  "vars": {
+    // Las direcciones COMPLETAS de la app, con carpeta si la tiene. De aquí
+    // sale también la dirección a la que Stripe devuelve al usuario después
+    // de pagar: sin la carpeta, en GitHub Pages eso es un 404.
+    //
+    // Igual que en la Plaza, NO se pone localhost: aquí la sesión viaja
+    // dentro del cuerpo. Para desarrollo, `wrangler dev`.
+    "ORIGENES": "https://app.emprendo.life,https://erickzoneee.github.io/modo-emprendedor"
+  },
+
+  // Encendida. Es lo único que va a contar qué pasó cuando un cobro falle, y
+  // un cobro que falla en silencio es dinero que no llega sin que nadie se
+  // entere. La regla que la hace segura está en el código: no se registra
+  // nunca el cuerpo de una petición, porque ahí viaja la sesión.
+  "observability": { "enabled": true }
+}

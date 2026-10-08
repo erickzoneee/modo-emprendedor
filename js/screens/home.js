@@ -21,6 +21,7 @@
        decidir devuelve la lista tal cual. Se reordena, nunca se filtra. */
     var MODULOS = [
       { id: 'venture', build: ventureStrip },
+      { id: 'plan',    build: planSemana },
       { id: 'daily',   build: dailyCard },
       { id: 'weekly',  build: weeklyStrip }
     ];
@@ -44,8 +45,121 @@
     });
 
     root.appendChild(container);
+
+    /* El anuncio de la Ruta va al final del mapa, debajo de todo. Devuelve
+       null casi siempre —sin red configurada, con Impulso, sin haber
+       contestado o en la primera lección— y entonces esto no existe. */
+    if (w.Anuncios) {
+      var anuncio = w.Anuncios.bloque('ruta');
+      if (anuncio) root.appendChild(anuncio);
+    }
+
     root.appendChild(finale(ps));
+
+    /* La pregunta de los anuncios, una sola vez y en el sitio más tranquilo
+       que tiene la app: la Ruta, recién vuelto de una lección. No en el
+       arranque, que ya tiene saludo y aviso de respaldo, y no dentro de la
+       celebración, que es de él y no de esto. */
+    pedirConsentimientoUnaVez();
+
     return root;
+  }
+
+  var consentimientoPedido = false;
+
+  function pedirConsentimientoUnaVez() {
+    if (consentimientoPedido || !w.Anuncios) return;
+    if (!w.Anuncios.hayRed()) return;
+    if (w.Anuncios.consentimiento() !== null) return;
+    if (w.Impulso && w.Impulso.activo()) return;
+    // No antes de la primera lección terminada: la misma regla que los huecos.
+    if ((w.Store.state.stats.lessons || 0) < 1) return;
+
+    consentimientoPedido = true;
+    setTimeout(function () {
+      // Si mientras tanto se abrió otra cosa, se deja para la próxima vez.
+      var modal = d.getElementById('modal-layer');
+      var hoja = d.getElementById('sheet-layer');
+      if ((modal && !modal.hidden) || (hoja && !hoja.hidden)) {
+        consentimientoPedido = false;
+        return;
+      }
+      w.Anuncios.preguntar();
+    }, 1400);
+  }
+
+  /* ------------------------- El plan de la semana -------------------------
+
+     Tres cosas y el porqué de cada una. El porqué es lo que la hace valer lo
+     que cuesta: una lista de pendientes la hace cualquiera, y se pospone
+     igual de fácil.
+
+     Solo con Impulso. `Plan.semana()` devuelve null si no lo tiene, y esa es
+     la única puerta — aquí no se comprueba nada más, para que no haya dos
+     sitios que puedan decir cosas distintas. Quien no lo tiene ve la
+     invitación pequeña justo debajo del mapa, no aquí: enseñar el plan
+     tapado sería enseñarlo.
+     ------------------------------------------------------------------------ */
+
+  function planSemana() {
+    var p = w.Plan ? w.Plan.semana() : null;
+    if (!p || !p.tareas.length) return el('span', { style: { display: 'none' } });
+
+    var card = el('div', { class: 'card' });
+
+    var todas = p.hechas >= p.tareas.length;
+
+    card.appendChild(el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+      el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg(todas ? 'party' : 'think') }),
+      el('div', { class: 'speech' }, [
+        el('div', { class: 'small', text: todas
+          ? 'Hiciste las tres. La semana que viene te pongo otras.'
+          : cabeceraPlan(p) })
+      ])
+    ]));
+
+    var lista = el('div', { style: { marginTop: '6px' } });
+    p.tareas.forEach(function (tarea, i) {
+      lista.appendChild(filaPlan(tarea, i + 1));
+    });
+    card.appendChild(lista);
+
+    card.appendChild(el('div', { style: { marginTop: '12px' } }, [
+      UI.pbar(w.Plan.progreso(p), todas ? 'green' : 'brand', true)
+    ]));
+
+    card.appendChild(el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', marginTop: '8px' },
+      text: 'Se actualiza sola cuando avanzas. Si esta semana no puedes, la muevo.' }));
+
+    return card;
+  }
+
+  /** Lo que dice Chispa encima del plan. Cambia con lo que ya lleva hecho,
+      porque «esta semana lo importante es…» el jueves con dos hechas suena a
+      que la app no se está enterando. */
+  function cabeceraPlan(p) {
+    var quedan = p.tareas.length - p.hechas;
+    if (p.hechas === 0) return 'Esta semana, estas tres. Empieza por la primera.';
+    if (quedan === 1) return 'Te queda una. Es la que más pesa de las tres.';
+    return 'Llevas ' + p.hechas + '. Quedan ' + quedan + ', y hay semana de sobra.';
+  }
+
+  function filaPlan(tarea, n) {
+    var fila = el('button', {
+      class: 'imp-plan__t' + (tarea.hecho ? ' is-hecha' : ''),
+      type: 'button',
+      onclick: function () {
+        w.Sound.tap();
+        UI.Router.go(tarea.ir.pantalla, tarea.ir.params || {});
+      }
+    }, [
+      el('span', { class: 'imp-plan__n', text: tarea.hecho ? '✓' : String(n) }),
+      el('span', { class: 'grow', style: { minWidth: '0' } }, [
+        el('span', { class: 'imp-plan__q', text: tarea.titulo }),
+        el('span', { class: 'imp-plan__pq', text: tarea.porque })
+      ])
+    ]);
+    return fila;
   }
 
   /* ------------------------- Encabezado del negocio -------------------------
@@ -438,7 +552,8 @@
     var lv = w.Engine.levelInfo(lesson.level);
     var done = w.Engine.isDone(lesson.id);
     var rec = w.Store.state.lessons[lesson.id];
-    var hearts = w.Store.state.hearts;
+    var V = w.CONFIG.VIDAS;
+    var sinEnergia = w.Engine.sinEnergia() && !done;
 
     UI.sheet([
       el('div', { class: 'row', style: { gap: '14px' } }, [
@@ -469,31 +584,43 @@
           el('div', { class: 'small', style: { marginTop: '6px' }, text: ej.text })
         ]) : null;
       })(),
-      hearts <= 0 && !done
-        ? el('div', { class: 'card card--tight', style: { background: 'var(--red-soft)', borderColor: 'var(--red)' } }, [
+      /* Sin energía la lección SE PUEDE EMPEZAR igual.
+
+         Antes esto sustituía el botón de empezar por el de recargar, y era la
+         única puerta de verdad de toda la app. Dejaba la app diciendo dos
+         cosas contrarias: dentro de una lección siempre se podía seguir sin
+         vidas, pero desde el mapa no se podía entrar. Ahora la energía marca
+         el ritmo —los puntos valen la mitad— y no cierra nada. */
+      sinEnergia
+        ? el('div', { class: 'card card--tight', style: { background: 'var(--gold-soft)', borderColor: 'var(--gold)' } }, [
             el('div', { class: 'row', style: { gap: '10px' } }, [
-              el('span', { style: { fontSize: '24px' }, text: '💔' }),
-              el('div', [
-                el('div', { class: 'small', style: { fontWeight: '900', color: 'var(--red-dark)' }, text: 'Te quedaste sin vidas' }),
-                el('div', { class: 'tiny', text: 'Siguiente vida en ' + (w.Engine.heartsETA() || '—') })
+              el('span', { style: { fontSize: '24px' }, text: '🔋' }),
+              el('div', { class: 'grow', style: { minWidth: '0' } }, [
+                el('div', { class: 'small', style: { fontWeight: '900', color: 'var(--ink)' }, text: 'Sin energía' }),
+                el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0' },
+                  text: 'Puedes hacerla igual; los puntos valen la mitad. La siguiente energía llega en ' + (w.Engine.heartsETA() || '—') + '.' })
               ])
             ])
           ])
         : null,
-      hearts <= 0 && !done
-        ? UI.btn('Recargar vidas (60 🪙)', {
-            variant: 'gold',
+
+      UI.btn(done ? 'Repasar lección' : 'Empezar lección', {
+        variant: done ? 'ghost' : 'brand', size: 'lg', shiny: !done,
+        onClick: function () { UI.closeSheet(); UI.Router.go('lesson', { id: lesson.id }); }
+      }),
+
+      sinEnergia
+        ? UI.btn('Recargar por ' + V.recarga + ' 🪙', {
+            variant: 'ghost',
+            disabled: w.Store.state.coins < V.recarga,
             onClick: function () {
-              if (w.Store.state.coins < 60) { UI.toast('No tienes suficientes monedas', 'red', '🪙'); return; }
-              w.Engine.addCoins(-60); w.Engine.refillHearts();
+              if (w.Store.state.coins < V.recarga) { UI.toast('No tienes suficientes monedas', 'red', '🪙'); return; }
+              w.Engine.addCoins(-V.recarga); w.Engine.refillHearts();
               UI.closeSheet(); UI.toast('¡Vidas recargadas!', 'green', '❤️');
               w.App.renderChrome();
             }
           })
-        : UI.btn(done ? 'Repasar lección' : 'Empezar lección', {
-            variant: done ? 'ghost' : 'brand', size: 'lg', shiny: !done,
-            onClick: function () { UI.closeSheet(); UI.Router.go('lesson', { id: lesson.id }); }
-          })
+        : null
     ]);
   }
 

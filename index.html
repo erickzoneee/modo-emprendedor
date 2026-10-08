@@ -39,7 +39,7 @@
 <meta property="og:locale" content="es_MX">
 <meta property="og:url" content="https://erickzoneee.github.io/modo-emprendedor/">
 <meta property="og:title" content="Modo Emprendedor — Aprende. Construye. Vende.">
-<meta property="og:description" content="No es un curso: es una misión al día para pasar de una idea a un negocio real. 50 microlecciones, 8 retos del mundo real, simulador de empresa y mentor. Gratis y sin cuentas.">
+<meta property="og:description" content="No es un curso: es una misión al día para pasar de una idea a un negocio real. 50 microlecciones, 8 retos del mundo real, simulador de empresa y mentor. La ruta entera es gratis.">
 <meta property="og:image" content="https://erickzoneee.github.io/modo-emprendedor/assets/og-image.png">
 <meta property="og:image:secure_url" content="https://erickzoneee.github.io/modo-emprendedor/assets/og-image.png">
 <meta property="og:image:type" content="image/png">
@@ -74,6 +74,10 @@
      sus botones y delante de screens.css, que puede querer ajustarla. -->
 <link rel="stylesheet" href="css/captura.css">
 <link rel="stylesheet" href="css/screens.css">
+<!-- La pantalla de cobro y sus dos apariciones. Detras de screens.css
+     porque se apoya en sus tarjetas, y delante de temas.css para que el
+     color del negocio no se meta en una pantalla que es de EMPRENDO. -->
+<link rel="stylesheet" href="css/impulso.css">
 <link rel="stylesheet" href="css/animations.css">
 <link rel="stylesheet" href="css/iconos.css">
 <!-- La Plaza trae su propio lugar y su propia familia de color (--pz-*). Va
@@ -173,6 +177,12 @@
      mascota-capas.js es a Chispa: un catálogo cerrado y nada más. -->
 <script src="js/data/puesto-piezas.js"></script>
 <script src="js/data/logros-compartibles.js"></script>
+<!-- Lo que puede tocar en una semana, y el porque de cada cosa. Es una
+     tabla declarativa: quien la lee decide, no el orden de carga. -->
+<script src="js/data/plan-semanal.js"></script>
+<!-- Las ocho plantillas de material listo. Deterministas: se rellenan con
+     Venture.terms() y funcionan sin conexion. -->
+<script src="js/data/materiales.js"></script>
 <script src="js/data/kb.js"></script>
 
 <!-- ============ Motor ============
@@ -215,6 +225,23 @@
 <!-- Lo unico de la app que habla con un servidor sobre datos de personas.
      Va detras de plaza.js porque le pide la sesion y la lista blanca. -->
 <script src="js/core/plaza-nube.js"></script>
+<!-- El pase de Impulso: quien ha pagado, y como se comprueba sin
+     conexion. Va detras de plaza.js porque usa SU sesion: la cuenta es
+     la misma, no hay dos. Y delante de las pantallas, que preguntan. -->
+<script src="js/core/impulso.js"></script>
+<!-- El primer tercero del proyecto, y su unica puerta. Detras de impulso.js
+     porque lo primero que pregunta es si esta persona paga: con Impulso no
+     carga ni el script de la red. -->
+<script src="js/core/anuncios.js"></script>
+<!-- El plan de la semana. Detras de engine.js y venture.js, que son de
+     donde saca el contexto, y detras de impulso.js, que es su unica
+     puerta: sin Impulso devuelve null y no hay plan que pintar. -->
+<!-- Chispa con Impulso: la via de pago. Detras de impulso.js y de
+     plaza.js, que son los dos que le dicen si puede hablar: hace falta
+     el pase Y la sesion. ai.js la busca de forma perezosa, asi que da
+     igual que aquel cargue antes. -->
+<script src="js/core/ia-impulso.js"></script>
+<script src="js/core/plan.js"></script>
 
 <!-- ============ Pantallas ============ -->
 <script src="js/screens/onboarding.js"></script>
@@ -230,6 +257,9 @@
 <script src="js/screens/plaza.js"></script>
 <!-- Detrás de plaza.js: su vista previa es el puesto que aquel dibuja. -->
 <script src="js/screens/puesto.js"></script>
+<!-- La pantalla donde se cobra. Antes que perfil, que la enlaza. -->
+<script src="js/screens/materiales.js"></script>
+<script src="js/screens/impulso.js"></script>
 <script src="js/screens/profile.js"></script>
 <script src="js/screens/league.js"></script>
 <script src="js/screens/shop.js"></script>

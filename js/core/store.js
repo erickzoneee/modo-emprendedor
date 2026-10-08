@@ -107,6 +107,15 @@
       // Retos semanales
       weekly: { week: null, progress: {}, claimed: [] },
 
+      /* El plan de la semana (js/core/plan.js). Solo se guardan los TRES IDS
+         elegidos y la semana en que se eligieron: si ya están hechos o no se
+         calcula en vivo cada vez, porque nadie marca nada a mano.
+
+         Va en la raíz y no en el emprendimiento porque el ritmo semanal es de
+         la persona, igual que la racha: quien registra otra idea no empieza
+         la semana de cero. */
+      plan: { week: null, ids: [], generadoAt: 0 },
+
       // La vitrina de la Plaza: qué aprobó enseñar y qué corrigió a mano.
       // Todo lo que hay aquí es suyo, por eso puede viajar en el respaldo.
       // El día que la Plaza tenga vecinos, lo que sea de OTRAS personas no
@@ -155,7 +164,20 @@
         // usando la app —merge() da el valor base a las claves que no están en
         // su guardado— porque es precisamente esa persona la que si no
         // recibiría la Plaza dentro de una actualización sin una sola palabra.
-        plazaVista: false
+        plazaVista: false,
+        /* ¿Puede la red de anuncios enseñarle publicidad a su medida?
+           (js/core/anuncios.js)
+
+           TRES VALORES, y los tres significan cosas distintas:
+             null   todavía no se le ha preguntado
+             true   dijo que sí
+             false  prefiere anuncios genéricos
+
+           Arranca en null a propósito, y merge() se lo da también a quien ya
+           venía usando la app: mientras no haya contestado no se carga el
+           script de nadie. Un false por defecto sería decidir por él, y un
+           true sería peor. */
+        anunciosPersonalizados: null
       },
 
       // Respaldo: el progreso vive solo en este dispositivo, así que hay que
@@ -467,14 +489,20 @@
         }
       }
 
-      // Regeneración de vidas: 1 cada 30 min
-      var REGEN = 30 * 60 * 1000;
-      if (state.hearts < 5) {
+      /* Regeneración de vidas. El tope y la cadencia salen de CONFIG.VIDAS,
+         no de dos números escritos aquí: estaban también en engine.js y una
+         de las dos copias siempre se quedaba atrás. Se lee dentro de la
+         función y con reserva porque este archivo carga ANTES que config.js
+         —Store va en el bloque de núcleo y CONFIG en el de datos—, y aunque
+         rollDay() no corre hasta que app.js arranca, no conviene que el orden
+         de dos <script> decida si la energía funciona. */
+      var V = (w.CONFIG && w.CONFIG.VIDAS) || { max: 5, regenMs: 30 * 60 * 1000 };
+      if (state.hearts < V.max) {
         var elapsed = Date.now() - (state.heartsTs || Date.now());
-        var gained = Math.floor(elapsed / REGEN);
+        var gained = Math.floor(elapsed / V.regenMs);
         if (gained > 0) {
-          state.hearts = Math.min(5, state.hearts + gained);
-          state.heartsTs = state.hearts >= 5 ? Date.now() : state.heartsTs + gained * REGEN;
+          state.hearts = Math.min(V.max, state.hearts + gained);
+          state.heartsTs = state.hearts >= V.max ? Date.now() : state.heartsTs + gained * V.regenMs;
           changed = true;
         }
       } else {

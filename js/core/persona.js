@@ -307,11 +307,15 @@
      quien ya vende necesita la tarea del día. Es la etapa la que manda aquí,
      no el sector: un taller que arranca y una pastelería que arranca tienen
      el mismo problema. */
+  /* `plan` es el plan de la semana, y solo existe con Impulso: quien no lo
+     tiene recibe null de su constructor y la tarjeta no se pinta. Aparece en
+     las cuatro etapas porque es lo que esa persona pagó, y arriba en las dos
+     últimas porque a quien ya vende le ordena el día mejor que la Ruta. */
   var PANEL_POR_ETAPA = {
-    idea:      ['venture', 'daily', 'weekly'],
-    starting:  ['venture', 'daily', 'weekly'],
-    operating: ['daily', 'venture', 'weekly'],
-    growing:   ['daily', 'weekly', 'venture']
+    idea:      ['venture', 'plan', 'daily', 'weekly'],
+    starting:  ['venture', 'plan', 'daily', 'weekly'],
+    operating: ['plan', 'daily', 'venture', 'weekly'],
+    growing:   ['plan', 'daily', 'weekly', 'venture']
   };
 
   function ordenPanel(modulos) {

@@ -122,10 +122,39 @@
      ECONOMÍA
      ------------------------------------------------------------------ */
 
+  /** ¿Tiene Impulso? Se pregunta por aquí y no directamente a `w.Impulso`
+      para que el motor siga funcionando en los verificadores y en las
+      maquetas de lab/, donde ese archivo no está cargado. Sin él, la
+      respuesta es que no, que es el estado seguro. */
+  function energiaIlimitada() {
+    return !!(w.Impulso && w.Impulso.activo && w.Impulso.activo());
+  }
+
+  /** Se quedó sin energía y no tiene Impulso. Es lo que hace que los puntos
+      valgan la mitad: no bloquea nada, solo marca el ritmo. */
+  function sinEnergia() {
+    return !energiaIlimitada() && w.Store.state.hearts <= 0;
+  }
+
+  /**
+   * Cuánto vale cada punto ahora mismo.
+   *
+   * Dos factores, y se multiplican entre sí a propósito: quien compró XP
+   * doble y se quedó sin energía va a x1, no a x2 ni a x0,5. Cualquier otra
+   * combinación obliga a decidir cuál gana, y esa decisión no se puede
+   * explicar en una frase.
+   *
+   * Aquí, y en ningún otro sitio. `addXP()` es el único camino por el que se
+   * ganan puntos en toda la app, así que un factor puesto aquí no se puede
+   * saltar por una pantalla que no se enteró.
+   */
   function xpMultiplier() {
     var s = w.Store.state;
-    if (s.boostUntil && Date.now() < s.boostUntil) return 2;
-    return 1;
+    var V = (C && C.VIDAS) || { mitadSinEnergia: 0.5 };
+    var m = 1;
+    if (s.boostUntil && Date.now() < s.boostUntil) m *= 2;
+    if (sinEnergia()) m *= V.mitadSinEnergia;
+    return m;
   }
 
   function addXP(n, silent) {
@@ -153,11 +182,23 @@
     if (n > 0) w.Sound.coin();
   }
 
+  /**
+   * Quita una vida. Es el ÚNICO sitio de toda la app que lo hace, y por eso
+   * es también el único sitio donde hace falta escribir que con Impulso no se
+   * quitan: cualquier otra forma —comprobarlo en la lección, en la barra, en
+   * el mapa— sería tres sitios que se pueden desincronizar.
+   *
+   * Devuelve las vidas que quedan. Con Impulso devuelve el tope, que es lo
+   * que espera quien llama: «te quedan todas».
+   */
   function loseHeart() {
+    var V = (C && C.VIDAS) || { max: 5 };
+    if (energiaIlimitada()) return V.max;
+
     var s = w.Store.state;
     if (s.hearts <= 0) return 0;
     w.Store.set(function (st) {
-      if (st.hearts === 5) st.heartsTs = Date.now();
+      if (st.hearts === V.max) st.heartsTs = Date.now();
       st.hearts = Math.max(0, st.hearts - 1);
     }, 'hearts');
     w.Sound.heartLost();
@@ -166,14 +207,15 @@
   }
 
   function refillHearts() {
-    w.Store.set(function (s) { s.hearts = 5; s.heartsTs = Date.now(); }, 'hearts');
+    var V = (C && C.VIDAS) || { max: 5 };
+    w.Store.set(function (s) { s.hearts = V.max; s.heartsTs = Date.now(); }, 'hearts');
   }
 
   function heartsETA() {
+    var V = (C && C.VIDAS) || { max: 5, regenMs: 30 * 60 * 1000 };
     var s = w.Store.state;
-    if (s.hearts >= 5) return null;
-    var REGEN = 30 * 60 * 1000;
-    var next = (s.heartsTs || Date.now()) + REGEN - Date.now();
+    if (energiaIlimitada() || s.hearts >= V.max) return null;
+    var next = (s.heartsTs || Date.now()) + V.regenMs - Date.now();
     if (next < 0) next = 0;
     var m = Math.floor(next / 60000), sec = Math.floor((next % 60000) / 1000);
     return m + ':' + String(sec).padStart(2, '0');
@@ -446,6 +488,7 @@
     lessonById: lessonById, bossById: bossById, levelInfo: levelInfo, isDone: isDone,
     addXP: addXP, addCoins: addCoins, loseHeart: loseHeart, refillHearts: refillHearts,
     heartsETA: heartsETA, xpMultiplier: xpMultiplier,
+    energiaIlimitada: energiaIlimitada, sinEnergia: sinEnergia,
     touchDay: touchDay, completeLesson: completeLesson, completeMission: completeMission,
     award: award, checkBadges: checkBadges, hasBadge: has,
     leagueTier: leagueTier, leagueBoard: leagueBoard,

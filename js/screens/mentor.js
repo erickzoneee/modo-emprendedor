@@ -175,6 +175,11 @@
     pushMe(text);
     if (practice) return practiceTurn(text);
 
+    /* La revisión de decisiones no pasa por Chispa: no es una pregunta, es
+       un encargo con los hechos ya escritos. Va antes que nada para que
+       ninguna intención se la quede por parecido de palabras. */
+    if (text === ETIQUETA_REVISION && hayRevision()) return revisarDecisiones();
+
     var t = w.Mentor.util.norm(text);
 
     // Cancelar una serie de preguntas a medias.
@@ -293,8 +298,108 @@
 
   function sugerenciasChispa() {
     var out = [];
+    /* Con Impulso, la primera sugerencia es la revisión de decisiones. Va
+       delante porque es lo único de esta pantalla que no se puede hacer sin
+       pagar, y porque solo tiene sentido cuando ya hay decisiones tomadas:
+       ofrecérsela a alguien que acaba de entrar sería enseñarle una pantalla
+       vacía con un nombre bonito. */
+    if (hayRevision()) out.push(ETIQUETA_REVISION);
     w.Chispa.INTENCIONES.forEach(function (i) { if (out.length < 5) out.push(i.etiqueta); });
     return out;
+  }
+
+  /* ------------------------- Revisión de decisiones -------------------------
+
+     Lo que Chispa hace aquí no lo puede hacer una plantilla: mirar TODO lo que
+     esta persona ha decidido —su precio, su costo, su cliente, su oferta, en
+     qué etapa está y qué lleva hecho— y decir qué no cuadra entre sí.
+
+     Es determinista en lo que importa: los hechos los arma la app y van
+     escritos, con orden de no inventar ninguno. El modelo solo los cruza y los
+     ordena. Es la misma regla que sostiene todo lo demás — el modelo nunca es
+     la fuente de la verdad.
+     ------------------------------------------------------------------------ */
+
+  var ETIQUETA_REVISION = '🔎 Revisa mis decisiones';
+
+  /** Solo con Impulso, y solo si ya hay algo que revisar. Tres decisiones o
+      dos secciones del expediente es el mínimo para que la revisión diga algo
+      y no sea una lista de huecos. */
+  function hayRevision() {
+    if (!w.IAImpulso || !w.IAImpulso.disponible()) return false;
+    try {
+      var v = w.Venture.active();
+      var cuantas = Object.keys(v.decisions || {}).length;
+      var secciones = w.CONFIG.DOSSIER.filter(function (s) { return !!w.Store.state.dossier[s.key]; }).length;
+      return cuantas >= 3 || secciones >= 2;
+    } catch (e) { return false; }
+  }
+
+  /** Los hechos, escritos por la app. El modelo recibe esto y nada más. */
+  function hechosParaRevisar() {
+    var t = w.Venture.terms();
+    var v = w.Venture.active();
+    var s = w.Store.state;
+    var lineas = [];
+
+    lineas.push('NEGOCIO: ' + t.negocio);
+    if (t.tiene.producto) lineas.push('VENDE: ' + t.producto);
+    if (t.tiene.cliente) lineas.push('A: ' + t.cliente);
+    lineas.push('ETAPA: ' + (t.etapaCorta || 'sin definir'));
+    if (t.objetivo) lineas.push('OBJETIVO: ' + t.objetivo);
+    if (t.lugar) lineas.push('DONDE: ' + t.lugar);
+
+    if (t.precio) lineas.push('PRECIO: $' + t.precio);
+    if (t.costo) lineas.push('COSTO POR ' + String(t.unidad).toUpperCase() + ': $' + t.costo);
+    if (t.precio && t.costo) {
+      var margen = Math.round(((t.precio - t.costo) / t.precio) * 100);
+      lineas.push('MARGEN: ' + margen + '%');
+    }
+    if (t.minutos) lineas.push('TIEMPO AL DIA: ' + t.minutos + ' minutos');
+    if (t.presupuesto) lineas.push('PRESUPUESTO: ' + t.presupuesto);
+
+    var decs = v.decisions || {};
+    Object.keys(decs).forEach(function (k) {
+      var d = decs[k];
+      if (!d || !d.value) return;
+      lineas.push('DECIDIO ' + (d.label || k) + ': ' + w.Venture.util.shorten(String(d.value), 140));
+    });
+
+    w.CONFIG.DOSSIER.forEach(function (sec) {
+      var data = s.dossier[sec.key];
+      if (!data || !data.answers) return;
+      var txt = '';
+      for (var campo in data.answers) {
+        if (!Object.prototype.hasOwnProperty.call(data.answers, campo)) continue;
+        txt += ' ' + String(data.answers[campo] || '');
+      }
+      txt = txt.trim();
+      if (txt) lineas.push('EXPEDIENTE · ' + sec.title + ': ' + w.Venture.util.shorten(txt, 200));
+    });
+
+    var prog = w.Engine.overallProgress();
+    lineas.push('RUTA: ' + prog.done + ' de ' + prog.total + ' paradas');
+
+    return lineas.join('\n');
+  }
+
+  /** Lo llama handle(), que ya pintó el mensaje del usuario. */
+  function revisarDecisiones() {
+    var prompt =
+      'Estos son TODOS los datos de un negocio pequeño, escritos por su dueño ' +
+      'dentro de la app:\n\n' + hechosParaRevisar() + '\n\n' +
+      'Revísalos como lo haría alguien con experiencia que quiere ayudar, no ' +
+      'lucirse. En español de México, tuteando, sin adornos.\n\n' +
+      'Estructura la respuesta así:\n' +
+      '1. Lo que está bien: una o dos cosas concretas, con el dato que lo dice.\n' +
+      '2. Lo que no cuadra: hasta tres cosas que se contradicen entre sí o que ' +
+      'no encajan con su etapa. Cita el dato exacto.\n' +
+      '3. Lo primero que haría yo esta semana: UNA cosa, concreta y de esta semana.\n\n' +
+      'REGLAS: no inventes ni un dato que no esté arriba. Si algo falta y es ' +
+      'importante, dilo como lo que es —un hueco—, no lo supongas. No felicites ' +
+      'de más y no repitas los datos por repetirlos.';
+
+    askAI(ETIQUETA_REVISION, prompt);
   }
 
   function seguimiento(r) {

@@ -132,6 +132,10 @@
     var s = w.Plaza && w.Plaza.sesion ? w.Plaza.sesion() : '';
     if (s) pide('salir', {}, true);
     w.Plaza.salir();
+    /* Y el pase de Impulso con ella. Sin cuenta no hay a quién pertenezca, y
+       en un teléfono prestado dejarlo puesto sería regalarle Impulso al
+       siguiente. Vuelve solo al entrar otra vez con el correo. */
+    if (w.Impulso) w.Impulso.olvidar();
     return Promise.resolve({ ok: true });
   }
 
@@ -194,10 +198,37 @@
 
   function bloquear(sobre) { return pide('bloquear', { sobre: sobre }); }
 
+  /**
+   * Borra la cuenta. De verdad y en cascada: aquí no hay estado «borrada»,
+   * porque una fila marcada como borrada sigue siendo un dato.
+   *
+   * PRIMERO SE CANCELA LO QUE SE ESTÉ COBRANDO, y si eso falla no se borra
+   * nada. La razón no es de código: si alguien borra su cuenta con una
+   * suscripción viva, la pasarela le sigue cobrando cada mes y ya no queda
+   * una sola fila que relacione ese cobro con nadie — ni él puede reclamar
+   * señalando su cuenta, ni nosotros podemos encontrarla para devolvérselo.
+   *
+   * El orden importa al revés que casi siempre: es preferible dejar una
+   * cuenta viva con la suscripción cancelada —recuperable, y el usuario lo
+   * puede repetir— que una cuenta borrada con un cobro fantasma.
+   */
   function borrarme() {
-    return pide('borrarme', {}).then(function (r) {
-      if (r && r.ok) w.Plaza.salir();
-      return r;
+    var cancelar = (w.Impulso && w.Impulso.activo())
+      ? w.Impulso.cancelarAntesDeBorrar()
+      : Promise.resolve({ ok: true });
+
+    return cancelar.then(function (c) {
+      if (!c || !c.ok) {
+        return { error: 'cobro-vivo',
+          mensaje: 'No pude cancelar tu Impulso, y no quiero borrarte la cuenta mientras haya un cobro abierto. Inténtalo en un momento.' };
+      }
+      return pide('borrarme', {}).then(function (r) {
+        if (r && r.ok) {
+          w.Plaza.salir();
+          if (w.Impulso) w.Impulso.olvidar();
+        }
+        return r;
+      });
     });
   }
 
@@ -219,6 +250,7 @@
     'sin-puesto':   'Abre tu puesto antes de acercarte.',
     'contacto':     'Todavía no pongas tu contacto.',
     'no-existe':    'Ese puesto ya no está.',
+    'cobro-vivo':   'Antes tengo que cancelar tu Impulso. Inténtalo en un momento.',
     'incompleta':   'Falta qué haces o para quién.',
     'grande':       'Eso es demasiado largo.'
   };

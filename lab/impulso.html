@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emprendo Impulso · propuesta visual</title>
+
+<!--
+  EMPRENDO IMPULSO — cómo se vería antes de escribirlo
+
+  Esta es una maqueta, no la pantalla de verdad: el código de la suscripción
+  todavía no existe. Lo que sí es de verdad es la ropa —css/tokens.css,
+  css/components.css, css/screens.css— y Chispa, que sale del mismo
+  js/core/mascot.js. Así que lo que se ve aquí es lo que se vería en el
+  teléfono.
+
+  Existe para decidir por sensación antes de tocar nada. Son seis momentos
+  puestos uno al lado del otro:
+
+    1  Lo que pasa HOY cuando se acaban las vidas.
+    2  Lo mismo, con Impulso a la vista y sin dejar de ser amable.
+    3  La pantalla de Impulso. El corazón de todo esto.
+    4  Cómo se ve la app de alguien que ya lo tiene.
+    5  El plan de la semana.
+    6  El material listo para usar.
+
+  Las clases que empiezan por .imp- son nuevas y viven aquí abajo, en el
+  bloque <style>. Si la propuesta se aprueba, se mudan a css/screens.css tal
+  cual están.
+-->
+
+<link rel="stylesheet" href="../css/fonts.css">
+<link rel="stylesheet" href="../css/tokens.css">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/components.css">
+<link rel="stylesheet" href="../css/screens.css">
+<link rel="stylesheet" href="../css/animations.css">
+<link rel="stylesheet" href="../css/iconos.css">
+<link rel="stylesheet" href="../css/temas.css">
+
+<style>
+  /* ---------- el laboratorio, no la app ----------
+     base.css deja el <body> en overflow:hidden porque la app no scrollea:
+     scrollea el .viewport de dentro del teléfono. Aquí sí hay página. */
+  html, body { height: auto; overflow: visible; }
+  body { background: var(--bg-2); padding: 26px 16px 80px; }
+
+  .lab-cab { max-width: 900px; margin: 0 auto 26px; text-align: center; }
+  .lab-cab h1 { font-size: var(--fs-3xl); font-weight: 900; letter-spacing: -.6px; margin-bottom: 10px; }
+  .lab-cab p { color: var(--ink-2); font-size: var(--fs-md); font-weight: 700; line-height: 1.6; }
+  .lab-cab .lab-mandos { margin-top: 18px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+  .lab-rejilla {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 34px 26px;
+    max-width: 1520px;
+    margin: 0 auto;
+    align-items: start;
+  }
+
+  .lab-panel { display: flex; flex-direction: column; gap: 12px; }
+  .lab-panel__cab { text-align: center; padding: 0 6px; }
+  .lab-panel__n {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--ink); color: var(--bg);
+    font-size: var(--fs-sm); font-weight: 900; margin-bottom: 8px;
+  }
+  .lab-panel__t { font-size: var(--fs-lg); font-weight: 900; color: var(--ink); }
+  .lab-panel__p { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-2); line-height: 1.5; margin-top: 4px; }
+
+  /* Un teléfono más bajito que el de verdad: aquí caben seis en pantalla. */
+  .lab-tel {
+    position: relative;
+    width: 100%; max-width: 400px; margin: 0 auto;
+    height: 660px;
+    background: var(--bg);
+    border-radius: 30px;
+    box-shadow: var(--sh-3);
+    overflow: hidden;
+    display: grid; grid-template-rows: auto 1fr;
+    isolation: isolate;
+  }
+  .lab-tel--modal { display: block; }
+  /* La pantalla de Impulso es la que hay que poder mirar entera de una vez. */
+  .lab-tel--largo { height: 1090px; }
+  .lab-tel__scroll { overflow-y: auto; }
+  .lab-tel__scroll::-webkit-scrollbar { width: 6px; }
+  .lab-tel__scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; }
+
+  /* El fondo apagado sobre el que se pinta un modal, para que se lea como
+     una capa encima de la lección y no como una pantalla suelta. */
+  .lab-fondo {
+    position: absolute; inset: 0;
+    background: var(--bg);
+    padding: var(--s5);
+    display: flex; flex-direction: column; gap: var(--s4);
+    filter: blur(2px); opacity: .5;
+  }
+  .lab-capa {
+    position: absolute; inset: 0;
+    background: rgba(16,32,58,.42);
+    display: grid; place-items: center;
+    padding: var(--s4);
+  }
+  .lab-capa .modal { max-height: none; }
+
+  .lab-nota {
+    max-width: 900px; margin: 40px auto 0;
+    background: var(--card); border: 2px solid var(--line);
+    border-radius: var(--r-lg); padding: var(--s5) var(--s6);
+  }
+  .lab-nota h2 { font-size: var(--fs-xl); font-weight: 900; margin-bottom: 10px; }
+  .lab-nota h3 { font-size: var(--fs-md); font-weight: 900; margin: 18px 0 6px; }
+  .lab-nota p, .lab-nota li { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-2); line-height: 1.6; }
+  .lab-nota ul { padding-left: 22px; margin: 6px 0; list-style: disc; }
+  .lab-nota li { margin: 3px 0; }
+  .lab-nota strong { color: var(--ink); }
+
+  /* ======================================================================
+     LO QUE SERÍA NUEVO EN css/screens.css
+     ====================================================================== */
+
+  /* --- El sello de Impulso: la chispa dentro de un anillo --- */
+  .imp__sello {
+    position: relative;
+    display: grid; place-items: center;
+    padding: 2px 0 0;
+  }
+  .imp__aura {
+    position: absolute;
+    width: 132px; height: 132px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 46%,
+                rgba(255,200,0,.34) 0%, rgba(255,154,60,.16) 44%, rgba(255,154,60,0) 72%);
+    animation: impAura 4.2s var(--ease-in-out) infinite;
+    pointer-events: none;
+  }
+  @keyframes impAura {
+    0%,100% { transform: scale(1);    opacity: .9 }
+    50%     { transform: scale(1.07); opacity: 1 }
+  }
+
+  /* --- La franja verde: lo primero que se lee, y dice que todo sigue gratis --- */
+  .imp__libre {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--green-soft);
+    border: 2px solid rgba(67,201,94,.34);
+    border-radius: var(--r-lg);
+    padding: var(--s3) var(--s4);
+    text-align: left;
+  }
+  .imp__libre__ico { font-size: 22px; flex: none; line-height: 1; }
+  .imp__libre__t { font-size: var(--fs-sm); font-weight: 900; color: var(--green-dark); line-height: 1.35; }
+  .imp__libre__p { display: block; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-2); line-height: 1.45; margin-top: 2px; }
+
+  /* --- La lista de lo que trae. Misma familia que .promesa__lista --- */
+  .imp__lista {
+    display: flex; flex-direction: column; gap: 2px;
+    background: var(--brand-soft);
+    border: 2px solid rgba(255,107,26,.22);
+    border-radius: var(--r-lg);
+    padding: var(--s3) var(--s4);
+    text-align: left;
+  }
+  .imp__fila { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
+  .imp__fila + .imp__fila { border-top: 2px solid rgba(255,107,26,.14); }
+  .imp__fila__ico { font-size: 21px; flex: none; line-height: 1; }
+  .imp__fila__t { font-size: var(--fs-sm); font-weight: 900; color: var(--ink); line-height: 1.35; }
+  .imp__fila__p { display: block; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-2); line-height: 1.45; margin-top: 1px; }
+
+  /* --- El precio. Grande, sin trucos, sin tachones, sin cuenta atrás --- */
+  .imp__precio { text-align: center; padding: var(--s2) 0 0; }
+  .imp__precio__n {
+    font-size: var(--fs-3xl); font-weight: 900; color: var(--ink);
+    letter-spacing: -1px; line-height: 1;
+  }
+  .imp__precio__n span { font-size: var(--fs-lg); font-weight: 800; color: var(--ink-2); letter-spacing: 0; }
+  .imp__precio__p { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-3); margin-top: 6px; }
+
+  /* --- El cierre: la frase que sostiene todo lo demás --- */
+  .imp__cierre {
+    font-size: var(--fs-xs); font-weight: 700; color: var(--ink-3);
+    text-align: center; line-height: 1.55; margin-top: 2px;
+  }
+
+  /* --- La invitación pequeña. Nunca un botón grande, nunca un modal --- */
+  .imp-guino {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    background: var(--card-2);
+    border: 2px dashed var(--line);
+    border-radius: var(--r-md);
+    padding: 10px var(--s3);
+    text-align: left; cursor: pointer;
+    font: inherit; color: inherit;
+  }
+  .imp-guino__ico { font-size: 18px; flex: none; }
+  .imp-guino__t { font-size: var(--fs-xs); font-weight: 900; color: var(--ink-2); display: block; }
+  .imp-guino__p { font-size: var(--fs-xs); font-weight: 700; color: var(--ink-3); display: block; margin-top: 1px; }
+  .imp-guino__ir { font-size: var(--fs-sm); font-weight: 900; color: var(--brand); flex: none; }
+
+  /* --- La marca de quien ya lo tiene. Discreta: no es un trofeo --- */
+  .imp-sel {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: linear-gradient(135deg, var(--gold), var(--brand-2));
+    color: #3A2313;
+    border-radius: var(--r-full);
+    padding: 3px 9px;
+    font-size: var(--fs-xs); font-weight: 900; letter-spacing: .2px;
+  }
+
+  /* --- El plan de la semana --- */
+  .imp-plan__t { display: flex; align-items: flex-start; gap: 11px; padding: 11px 0; }
+  .imp-plan__t + .imp-plan__t { border-top: 2px solid var(--line-2); }
+  .imp-plan__n {
+    flex: none; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--brand-soft); color: var(--brand-dark);
+    display: grid; place-items: center;
+    font-size: var(--fs-xs); font-weight: 900; margin-top: 1px;
+  }
+  .imp-plan__q { font-size: var(--fs-sm); font-weight: 900; color: var(--ink); line-height: 1.35; }
+  .imp-plan__pq { display: block; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-2); line-height: 1.45; margin-top: 3px; }
+
+  /* --- El material generado --- */
+  .imp-mat {
+    background: var(--card-2); border: 2px solid var(--line);
+    border-radius: var(--r-md); padding: var(--s3);
+    font-size: var(--fs-sm); font-weight: 700; color: var(--ink);
+    line-height: 1.6; text-align: left; white-space: pre-line;
+  }
+
+  /* --- Barra superior de mentira, para enseñar el ∞ --- */
+  .lab-barra {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px var(--s4);
+    background: var(--card);
+    border-bottom: 2px solid var(--line);
+  }
+</style>
+</head>
+<body>
+
+<div class="lab-cab">
+  <h1>Emprendo Impulso</h1>
+  <p>
+    Seis momentos, con la ropa de verdad de la app. Nada de esto está escrito
+    todavía: es para decidir cómo se debe sentir antes de escribirlo.
+  </p>
+  <div class="lab-mandos">
+    <button class="btn btn--ghost btn--sm" type="button" onclick="tema()">🌙 Claro / oscuro</button>
+  </div>
+</div>
+
+<div class="lab-rejilla">
+
+  <!-- ============================================================ 1 -->
+  <div class="lab-panel">
+    <div class="lab-panel__cab">
+      <div class="lab-panel__n">1</div>
+      <div class="lab-panel__t">Hoy, sin vidas</div>
+      <div class="lab-panel__p">Lo que ya existe. Fíjate en que “seguir sin vidas” ya está: nadie se queda encerrado.</div>
+    </div>
+    <div class="lab-tel lab-tel--modal">
+      <div class="lab-fondo">
+        <div class="card card--tight"><div class="small">Lección 12 · Objeciones</div></div>
+        <div class="card"><div class="p">¿Qué haces cuando te dicen “está caro”?</div></div>
+        <div class="card card--tight"><div class="small">Cuesta menos de lo que cuesta perder al cliente</div></div>
+      </div>
+      <div class="lab-capa">
+        <div class="modal">
+          <div class="mascot mascot--lg is-sad" style="margin:0 auto" data-chispa="sad"></div>
+          <h3 class="h2">Te quedaste sin vidas</h3>
+          <p class="p">Puedes recargar con monedas, esperar a que se regeneren o seguir practicando sin vidas (no ganarás XP).</p>
+          <div class="small">Siguiente vida en 24:10</div>
+          <button class="btn btn--gold" type="button">Recargar por 60 🪙</button>
+          <button class="btn btn--ghost" type="button">Seguir sin vidas</button>
+          <button class="btn btn--flat" type="button">Salir de la lección</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ 2 -->
+  <div class="lab-panel">
+    <div class="lab-panel__cab">
+      <div class="lab-panel__n">2</div>
+      <div class="lab-panel__t">El momento</div>
+      <div class="lab-panel__p">Seguir gratis pasa a ser el botón grande. Impulso entra abajo, en voz baja, y solo aquí.</div>
+    </div>
+    <div class="lab-tel lab-tel--modal">
+      <div class="lab-fondo">
+        <div class="card card--tight"><div class="small">Lección 12 · Objeciones</div></div>
+        <div class="card"><div class="p">¿Qué haces cuando te dicen “está caro”?</div></div>
+        <div class="card card--tight"><div class="small">Cuesta menos de lo que cuesta perder al cliente</div></div>
+      </div>
+      <div class="lab-capa">
+        <div class="modal">
+          <div class="mascot mascot--lg is-think" style="margin:0 auto" data-chispa="think"></div>
+          <h3 class="h2">Se acabó la energía</h3>
+          <p class="p">Sigue si quieres. La lección cuenta igual, solo que los puntos valen la mitad hasta que vuelva la energía.</p>
+          <div class="small">La siguiente llega en 24:10</div>
+          <button class="btn btn--brand btn--lg btn--shiny" type="button">Seguir aprendiendo</button>
+          <button class="btn btn--ghost" type="button">Recargar por 60 🪙</button>
+          <button class="imp-guino" type="button">
+            <span class="imp-guino__ico">⚡</span>
+            <span class="grow" style="min-width:0">
+              <span class="imp-guino__t">Con Impulso no hay esperas</span>
+              <span class="imp-guino__p">Energía sin límite · 99 pesos al mes</span>
+            </span>
+            <span class="imp-guino__ir">›</span>
+          </button>
+          <button class="btn btn--flat" type="button">Salir de la lección</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ 3 -->
+  <div class="lab-panel">
+    <div class="lab-panel__cab">
+      <div class="lab-panel__n">3</div>
+      <div class="lab-panel__t">La pantalla de Impulso</div>
+      <div class="lab-panel__p">Lo primero que se lee es que todo sigue gratis. El precio no se esconde y el “no” es digno.</div>
+    </div>
+    <div class="lab-tel lab-tel--largo">
+      <div class="lab-barra">
+        <button class="icon-btn icon-btn--plain" type="button">‹</button>
+        <div class="grow"></div>
+      </div>
+      <div class="lab-tel__scroll">
+        <div class="screen screen--center" style="gap:var(--s4)">
+
+          <div class="imp__sello">
+            <span class="imp__aura"></span>
+            <div class="mascot mascot--md is-happy" style="position:relative;z-index:1" data-chispa="happy"></div>
+          </div>
+
+          <h2 class="h2" style="margin:0">Emprendo Impulso</h2>
+
+          <div class="imp__libre">
+            <span class="imp__libre__ico">🎁</span>
+            <span class="grow" style="min-width:0">
+              <span class="imp__libre__t">Las 200 lecciones y los 50 retos son gratis</span>
+              <span class="imp__libre__p">Y lo van a seguir siendo. No te escondo ninguna.</span>
+            </span>
+          </div>
+
+          <p class="p" style="margin:0">
+            Impulso no te da más camino: te quita las pausas y me deja acompañarte más de cerca.
+          </p>
+
+          <div class="imp__lista">
+            <div class="imp__fila">
+              <span class="imp__fila__ico">⚡</span>
+              <span class="grow" style="min-width:0">
+                <span class="imp__fila__t">Energía sin límite</span>
+                <span class="imp__fila__p">Aprende hasta que tú quieras parar.</span>
+              </span>
+            </div>
+            <div class="imp__fila">
+              <span class="imp__fila__ico">🧘</span>
+              <span class="grow" style="min-width:0">
+                <span class="imp__fila__t">Sin anuncios</span>
+                <span class="imp__fila__p">Nada que te corte el paso.</span>
+              </span>
+            </div>
+            <div class="imp__fila">
+              <span class="imp__fila__ico">💬</span>
+              <span class="grow" style="min-width:0">
+                <span class="imp__fila__t">Yo, más cerca</span>
+                <span class="imp__fila__p">Más preguntas al día y respuestas más largas.</span>
+              </span>
+            </div>
+            <div class="imp__fila">
+              <span class="imp__fila__ico">🗓️</span>
+              <span class="grow" style="min-width:0">
+                <span class="imp__fila__t">Tu plan de la semana</span>
+                <span class="imp__fila__p">Te digo qué hacer primero, y por qué.</span>
+              </span>
+            </div>
+            <div class="imp__fila">
+              <span class="imp__fila__ico">✍️</span>
+              <span class="grow" style="min-width:0">
+                <span class="imp__fila__t">Material listo para usar</span>
+                <span class="imp__fila__p">Tu publicación, tu mensaje, tu cotización.</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="imp__precio">
+            <div class="imp__precio__n">99 <span>pesos al mes</span></div>
+            <div class="imp__precio__p">Cancela cuando quieras. Sin permanencia.</div>
+          </div>
+
+          <button class="btn btn--brand btn--lg btn--shiny btn--block" type="button">Activar Impulso</button>
+          <button class="btn btn--ghost btn--block" type="button">Sigo gratis, está bien</button>
+
+          <p class="imp__cierre">
+            Sin Impulso llegas al mismo final.<br>Solo tardas un poco más.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ 4 -->
+  <div class="lab-panel">
+    <div class="lab-panel__cab">
+      <div class="lab-panel__n">4</div>
+      <div class="lab-panel__t">Ya con Impulso</div>
+      <div class="lab-panel__p">El corazón se convierte en ∞ y la app no vuelve a hablar del tema. Nada de trofeos.</div>
+    </div>
+    <div class="lab-tel">
+      <div class="lab-barra">
+        <div class="stat stat--streak"><span class="stat__icon">🔥</span><span>12</span></div>
+        <div class="stat stat--gem"><span class="stat__icon">🪙</span><span>340</span></div>
+        <div class="stat stat--heart"><span class="stat__icon">❤️</span><span style="font-size:16px;line-height:1">∞</span></div>
+        <div class="grow"></div>
+        <span class="imp-sel">⚡ Impulso</span>
+      </div>
+      <div class="lab-tel__scroll">
+        <div class="screen">
+          <div class="card card--tight">
+            <div class="row" style="gap:10px">
+              <span style="font-size:24px">⚡</span>
+              <div class="grow" style="min-width:0">
+                <div class="small" style="font-weight:900;color:var(--ink)">Impulso activo</div>
+                <div class="tiny" style="text-transform:none;letter-spacing:0">Se renueva solo el 30 de septiembre</div>
+              </div>
+              <button class="btn btn--ghost btn--sm" type="button">Gestionar</button>
+            </div>
+          </div>
+
+          <h2 class="sep">Sigue por aquí</h2>
+
+          <div class="card">
+            <div class="row" style="gap:12px">
+              <div class="node" style="--node-c:var(--lv4);--node-sh:#D14E06;width:56px;height:52px;font-size:23px">🤝</div>
+              <div class="grow" style="min-width:0">
+                <div class="tiny" style="color:var(--lv4)">Vende</div>
+                <div class="h3">Cómo responder “está caro”</div>
+              </div>
+            </div>
+            <div class="row wrap" style="gap:8px;margin-top:12px">
+              <span class="chip chip--blue">⏱️ 7 min</span>
+              <span class="chip chip--gold">⚡ +25 XP</span>
+              <span class="chip">🧩 5 ejercicios</span>
+            </div>
+            <button class="btn btn--brand btn--lg btn--block btn--shiny" type="button" style="margin-top:14px">Empezar lección</button>
+          </div>
+
+          <div class="card card--tight">
+            <div class="row" style="gap:10px;align-items:flex-start">
+              <div class="mascot mascot--sm" data-chispa="happy"></div>
+              <div class="speech">
+                <div class="small">Hoy llevas cuatro seguidas. No hay prisa, pero tampoco freno.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ 5 -->
+  <div class="lab-panel">
+    <div class="lab-panel__cab">
+      <div class="lab-panel__n">5</div>
+      <div class="lab-panel__t">Tu plan de la semana</div>
+      <div class="lab-panel__p">Tres cosas, y el porqué de cada una. El porqué es lo que la hace valer 99 pesos.</div>
+    </div>
+    <div class="lab-tel">
+      <div class="lab-barra">
+        <div class="stat stat--streak"><span class="stat__icon">🔥</span><span>12</span></div>
+        <div class="grow"></div>
+        <span class="imp-sel">⚡ Impulso</span>
+      </div>
+      <div class="lab-tel__scroll">
+        <div class="screen">
+          <h2 class="sep">Tu semana</h2>
+
+          <div class="card">
+            <div class="row" style="gap:10px;align-items:flex-start">
+              <div class="mascot mascot--sm" data-chispa="think"></div>
+              <div class="speech">
+                <div class="small">Esta semana lo importante es que alguien te diga que sí. Todo lo demás puede esperar.</div>
+              </div>
+            </div>
+
+            <div style="margin-top:6px">
+              <div class="imp-plan__t">
+                <span class="imp-plan__n">1</span>
+                <span class="grow" style="min-width:0">
+                  <span class="imp-plan__q">Habla con 3 personas de tu lista</span>
+                  <span class="imp-plan__pq">Tu precio todavía no lo ha probado nadie. Hasta que no lo digas en voz alta, es una suposición.</span>
+                </span>
+              </div>
+              <div class="imp-plan__t">
+                <span class="imp-plan__n">2</span>
+                <span class="grow" style="min-width:0">
+                  <span class="imp-plan__q">Termina “Cómo responder está caro”</span>
+                  <span class="imp-plan__pq">Te va a pasar en la primera llamada. Mejor con la respuesta preparada.</span>
+                </span>
+              </div>
+              <div class="imp-plan__t">
+                <span class="imp-plan__n">3</span>
+                <span class="grow" style="min-width:0">
+                  <span class="imp-plan__q">Manda una cotización de verdad</span>
+                  <span class="imp-plan__pq">Ya tienes precio, plazo y forma de entrega. Solo falta mandarla.</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="pbar pbar--brand pbar--sm" style="margin-top:12px"><span class="pbar__fill" style="width:33%"></span></div>
+            <div class="tiny" style="text-transform:none;letter-spacing:0;margin-top:8px">
+              Se actualiza sola cuando avanzas. Si esta semana no puedes, la muevo.
+            </div>
+          </div>
+
+          <div class="card card--tight">
+            <div class="row" style="gap:10px">
+              <span style="font-size:22px">🗓️</span>
+              <div class="grow" style="min-width:0">
+                <div class="small" style="font-weight:900;color:var(--ink)">La semana pasada</div>
+                <div class="tiny" style="text-transform:none;letter-spacing:0">Hiciste 2 de 3. La que quedó, la puse arriba.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ 6 -->
+  <div class="lab-panel">
+    <div class="lab-panel__cab">
+      <div class="lab-panel__n">6</div>
+      <div class="lab-panel__t">Material listo</div>
+      <div class="lab-panel__p">Escrito con lo que ya contó. Ni un formulario, ni una pregunta repetida.</div>
+    </div>
+    <div class="lab-tel">
+      <div class="lab-barra">
+        <button class="icon-btn icon-btn--plain" type="button">‹</button>
+        <div class="grow"></div>
+        <span class="imp-sel">⚡ Impulso</span>
+      </div>
+      <div class="lab-tel__scroll">
+        <div class="screen">
+          <h2 class="h3" style="margin:0">✍️ Material listo</h2>
+          <div class="small">Lo escribo con lo que ya me contaste. No te voy a preguntar nada otra vez.</div>
+
+          <div class="row hscroll" style="gap:8px">
+            <span class="chip chip--brand">📣 Publicación</span>
+            <span class="chip chip--outline">💬 Mensaje de venta</span>
+            <span class="chip chip--outline">🎤 Pitch</span>
+            <span class="chip chip--outline">🧾 Cotización</span>
+            <span class="chip chip--outline">📞 Guion</span>
+          </div>
+
+          <div class="card">
+            <div class="tiny">Publicación · para tu grupo de Facebook</div>
+            <div class="imp-mat" style="margin-top:10px">¿Tu perro rompe un collar cada dos meses?
+
+Hago collares de cuero cosidos a mano en Toluca. Aguantan tirones de perro grande, se ajustan y no se despintan.
+
+Te lo entrego en 5 días. $450 con el nombre grabado.
+
+Escríbeme y te mando fotos de los que hice esta semana.</div>
+            <div class="row" style="gap:8px;margin-top:12px">
+              <button class="btn btn--brand grow" type="button">Copiar</button>
+              <button class="btn btn--ghost grow" type="button">Compartir</button>
+            </div>
+            <button class="btn btn--flat btn--sm btn--block" type="button" style="margin-top:8px">Escríbeme otra distinta</button>
+          </div>
+
+          <div class="card card--tight">
+            <div class="row" style="gap:10px;align-items:flex-start">
+              <div class="mascot mascot--sm" data-chispa="happy"></div>
+              <div class="speech">
+                <div class="small">Salió de tu oferta, tu cliente y tu precio. Si cambias alguno, la reescribo.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ================================================================== -->
+<div class="lab-nota">
+  <h2>Las reglas que sostienen esto</h2>
+
+  <h3>Dónde aparece la oferta</h3>
+  <ul>
+    <li>Al quedarse sin energía, <strong>debajo</strong> del botón de seguir gratis.</li>
+    <li>En Perfil, como una tarjeta que está siempre y no persigue a nadie.</li>
+    <li>Al terminar un nivel, <strong>una sola vez</strong> y nunca dos veces la misma semana.</li>
+    <li>En el plan de la semana y en el material: se ve <strong>cómo es</strong>, no un candado.</li>
+  </ul>
+
+  <h3>Dónde no aparece nunca</h3>
+  <ul>
+    <li>Dentro de una lección, de un reto o de una conversación con Chispa.</li>
+    <li>Antes de que alguien haya terminado su primera lección.</li>
+    <li>Como pantalla completa que hay que cerrar para seguir.</li>
+    <li>Con cuenta atrás, precio tachado, “solo hoy” ni nada que meta prisa.</li>
+  </ul>
+
+  <h3>Lo que no se hace, aunque se pueda</h3>
+  <ul>
+    <li>No se esconde ninguna lección ni ningún reto detrás del pago.</li>
+    <li>El botón de “no” dice <em>“Sigo gratis, está bien”</em>. Nunca “prefiero avanzar lento”.</li>
+    <li>La protección de racha no entra: castigaría faltar un día, y faltar un día pasa.</li>
+  </ul>
+</div>
+
+<!-- Chispa de verdad, del mismo archivo que la app. -->
+<script src="../js/data/brand.js"></script>
+<script src="../js/core/mascot.js"></script>
+<script src="../js/data/iconos.js"></script>
+<script src="../js/core/iconos.js"></script>
+<script>
+  // Rellena cada .mascot con el SVG real de Chispa según su data-chispa.
+  document.querySelectorAll('[data-chispa]').forEach(function (n) {
+    n.innerHTML = window.Mascot.svg(n.getAttribute('data-chispa'), { plano: true });
+  });
+  function tema() {
+    var h = document.documentElement;
+    h.setAttribute('data-theme', h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  }
+</script>
+</body>
+</html>

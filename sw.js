@@ -27,7 +27,7 @@ try { importScripts('./js/data/brand.js'); } catch (e) {
 
 var MARCA = self.BRAND || {};
 
-var VERSION = (MARCA.cachePrefijos ? MARCA.cachePrefijos[0] : 'modo-emprendedor-') + 'v1.25.0';
+var VERSION = (MARCA.cachePrefijos ? MARCA.cachePrefijos[0] : 'modo-emprendedor-') + 'v1.28.0';
 
 /* Los nombres de caché que son nuestros. Todo lo demás que viva en este origen
    —los pesos del modelo de IA local, por ejemplo, que ocupan cientos de megas—
@@ -90,6 +90,7 @@ var PRECACHE = [
   './css/components.css',
   './css/captura.css',
   './css/screens.css',
+  './css/impulso.css',
   './css/animations.css',
   './css/iconos.css',
   './css/plaza.css',
@@ -134,6 +135,10 @@ var PRECACHE = [
   './js/core/plaza.js',
   './js/core/plaza-motor.js',
   './js/core/plaza-nube.js',
+  './js/core/impulso.js',
+  './js/core/anuncios.js',
+  './js/core/ia-impulso.js',
+  './js/core/plan.js',
 
   './js/data/brand.js',
   './js/data/iconos.js',
@@ -153,6 +158,8 @@ var PRECACHE = [
   './js/data/mascota-capas.js',
   './js/data/puesto-piezas.js',
   './js/data/logros-compartibles.js',
+  './js/data/plan-semanal.js',
+  './js/data/materiales.js',
   './js/data/kb.js',
 
   './js/screens/onboarding.js',
@@ -167,6 +174,8 @@ var PRECACHE = [
   './js/screens/comparte.js',
   './js/screens/plaza.js',
   './js/screens/puesto.js',
+  './js/screens/materiales.js',
+  './js/screens/impulso.js',
   './js/screens/profile.js',
   './js/screens/league.js',
   './js/screens/shop.js',

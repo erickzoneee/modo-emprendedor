@@ -66,6 +66,7 @@ Es un sitio estático puro. Sube la carpeta completa a Netlify, Vercel, GitHub P
 | **La Plaza** | Tu puesto, con lo que ya contaste. Sale solo lo que apruebes, y nunca tus números |
 | **Decora tu puesto** | 33 piezas en 5 ranuras: el toldo, su color, el letrero, lo que hay alrededor y sobre qué está montado. Gratis desde el primer día |
 | **Iconos propios** | 60 piezas dibujadas a mano en el mismo lenguaje que Chispa. Nada de emoji del sistema: se ven igual en cualquier teléfono y se mueven |
+| **Emprendo Impulso** | La suscripción, 99 pesos al mes: energía sin límite y sin anuncios. **Ninguna lección y ningún reto se esconden detrás del pago**, y hay un verificador que lo comprueba |
 
 > **Cómo se cuentan:** el mapa tiene **58 paradas** = **50 lecciones** + **8 retos reales**.
 > Cada lección cierra con una **misión aplicada** a tu propio negocio (50 en total), y cada nivel
@@ -331,6 +332,192 @@ enseñarse.
 
 ---
 
+## Emprendo Impulso
+
+La suscripción. **99 pesos al mes** (MXN), y lo primero que hay que decir es lo que NO hace:
+
+> No esconde ni una lección ni un reto. Las 50 lecciones, los 8 retos reales, el
+> simulador, Chispa, el expediente y la Plaza siguen siendo gratis, y van a seguir
+> siéndolo. Impulso quita las pausas y añade acompañamiento.
+
+Eso no es una promesa de marketing: hay un verificador que lo comprueba.
+`tools/check-gratis.js` recorre la ruta entera con un usuario sin pagar y falla si
+alguna parada queda cerrada. El día que alguien quiera cerrar el último nivel detrás
+del pago, tendrá que borrar ese script a propósito, y eso se ve en el diff.
+
+### Qué trae
+
+| | Estado |
+|---|---|
+| ⚡ **Energía sin límite** | Listo |
+| 🧘 **Sin anuncios** | Listo |
+| 🗓️ **Tu plan de la semana** — qué hacer primero, y por qué | Listo |
+| ✍️ **Material listo para usar** — 8 plantillas con sus datos dentro | Listo |
+| 💬 **Chispa más cerca** — un modelo de pago, 40 al día y memoria de lo que hablaron | Listo |
+
+Lo que todavía no está hecho sale **apagado y con la palabra «pronto»** en la propia
+pantalla de cobro, no con un candado: un candado dice «existe y no te lo doy». Quien
+paga hoy ve exactamente lo que se lleva hoy. Vive en `CONFIG.IMPULSO.BENEFICIOS`, y
+encender uno es cambiar su `listo` a `true`.
+
+### El plan de la semana
+
+Tres cosas y **el porqué de cada una**. El porqué no es adorno: es lo único que separa
+esto de una lista de pendientes, que se pospone igual de fácil.
+
+Las 25 tareas viven en `js/data/plan-semanal.js`, cada una con `cuando` —si aplica
+ahora—, un peso y una `familia`. El motor se queda con las que aplican, reparte por
+familia para que la semana no sea tres veces lo mismo, y toma tres. **Nada es
+aleatorio:** dos personas en la misma situación ven lo mismo, y eso es una propiedad —
+el día que alguien pregunte «¿por qué me salió esto?», hay respuesta.
+
+Dos decisiones que lo sostienen:
+
+- **La elección se congela, el estado no.** Si el plan se recalculara en cada pintado,
+  cambiaría bajo los pies: terminas una lección, vuelves a la Ruta y tu semana ya es
+  otra. Se guardan solo los tres ids; si están hechos o no se calcula en vivo.
+- **Nadie marca nada a mano.** Cada tarea tiene un `hecho()` que mira el estado real.
+  Una lista que se puede tachar sin hacer nada es una lista que miente. Las seis que
+  pasan fuera de la app y no dejan rastro están declaradas a propósito en
+  `tools/check-plan.js`.
+
+### Chispa más cerca
+
+El quinto beneficio, y el único que cuesta dinero cada vez que se usa. Entra en
+la cascada de `ai.js` **por delante** del modelo local y de la IA gratuita, y
+por detrás de la clave personal — configurarla es decir «quiero ESE modelo», y
+usar otro por detrás sería tomar por alguien una decisión que ya tomó.
+
+| | Gratis | Con Impulso |
+|---|---|---|
+| Niveles 1–6 de Chispa | Ilimitados, sin red | Ilimitados, sin red |
+| Modelo | Workers AI, cuota **compartida** de Cloudflare | Un modelo de pago, **suyo** |
+| Consultas | 25/día por dispositivo | 40/día y 600/mes por cuenta |
+| Largo de la respuesta | 400 tokens | 900 |
+| Memoria de la conversación | 4 turnos | 12 |
+| Revisión de decisiones | — | Sí |
+
+Lo que de verdad cambia no es el número: es que **la cuota gratuita es
+compartida y se agota a media tarde para todos a la vez**. La de Impulso no
+compite con nadie.
+
+La operación vive en `worker-plaza/` y no en `worker/` por una razón concreta:
+para contar por persona hace falta una sesión y una base, y el Worker de la IA
+gratuita no declara ningún almacenamiento ni recibe ninguna identidad. El
+contador es el mismo `INSERT … ON CONFLICT … RETURNING` de la tabla `pedido`:
+contar y decidir en una sentencia, porque con un SELECT y luego un UPDATE
+treinta peticiones simultáneas convierten un tope de 40 en 70.
+
+**Al llegar al tope no se corta nada.** La cascada cae al escalón de abajo y,
+si tampoco puede, se enseña el motivo de arriba —«llegaste a tus 40 de hoy»— y
+no un genérico: la razón por la que cambió la respuesta es justo lo que esa
+persona necesita saber.
+
+De cada persona se guarda un número: cuántas van hoy y cuántas van este mes. Ni
+la pregunta, ni la respuesta, ni el contexto del negocio.
+
+**La revisión de decisiones** es lo único de esta pantalla que una plantilla no
+puede hacer: mirar todo lo que alguien ha decidido —precio, costo, cliente,
+oferta, etapa, progreso— y decir qué no cuadra entre sí. Los hechos los escribe
+la app y van con orden de no inventar ninguno; el modelo solo los cruza. El
+modelo nunca es la fuente de la verdad, aquí tampoco.
+
+### El material listo para usar
+
+Ocho plantillas —publicación, mensaje de venta, pitch, cotización, guion de llamada,
+respuesta a «está caro», seguimiento y el de después de vender— rellenadas con
+`Venture.terms()`, la misma fuente de la que salen los ejemplos de las lecciones.
+
+**Y la regla que lo hace sentir caro: si falta un dato, no se abre un formulario.** Un
+formulario aquí sería confesar que la app no se acordaba de nada, justo en la pantalla
+que existe para demostrar lo contrario. El material sale apagado, dice exactamente qué
+le falta a Chispa y lleva al sitio donde se cuenta.
+
+Son deterministas porque tienen que funcionar sin conexión, en el mismo teléfono desde
+el que se va a mandar el mensaje. Si hay IA, reescribe la redacción encima; nunca
+decide el contenido. Los corchetes `[así]` son huecos deliberados —el nombre, la
+fecha, el plazo—: poner ahí un invento sería peor, porque se mandaría sin revisar.
+
+### La energía, ahora que significa algo
+
+Durante meses el modal de cero vidas decía *«…o seguir practicando sin vidas (no
+ganarás XP)»* y **ningún código lo aplicaba**: los puntos se daban enteros. O sea,
+la energía no regulaba nada y el beneficio de pago ya existía gratis detrás de un
+botón.
+
+Ahora sin energía **la lección cuenta igual y los puntos valen la mitad**. Se avanza
+por la ruta exactamente igual —nadie se queda encerrado, ni dentro de una lección ni
+desde el mapa— y solo se sube más despacio de rango y de liga. Es lo único que deja
+las tres cosas ciertas a la vez: nadie bloqueado, la energía significa algo, y el
+texto de la app no miente.
+
+El factor vive en `Engine.xpMultiplier()`, junto al de XP doble y multiplicándose con
+él: quien compró XP doble y se quedó sin energía va a x1.
+
+### Cómo se sabe quién pagó
+
+El estado de la app es un JSON de localStorage, y su propio importador lo bendice: un
+respaldo editado a mano con `"plan":"impulso"` entraría tal cual. Así que lo que se
+guarda no es un valor, es una **firma**.
+
+`worker-pago/` devuelve un pase —cuenta, plan y hasta cuándo— firmado con ECDSA
+P-256. La app lo verifica con la mitad pública, **sin red y en un milisegundo**, y se
+renueva solo cada vez que hay conexión. Un pase editado no verifica; escribirse uno
+hace falta la mitad privada, que vive como secreto del Worker.
+
+Lo que esto **no** resuelve, y está aceptado: la app es JavaScript que se descarga
+entero, así que quien sepa parchearla se lo salta siempre. Lo que se cierra es el
+fraude que puede hacer cualquiera en dos minutos.
+
+Tres consecuencias que están escritas en pantalla, no en la letra pequeña:
+
+- **Para pagar hace falta un correo.** Es la misma cuenta de la Plaza: no hay dos.
+- **El respaldo `.json` no lleva Impulso.** Vive fuera del estado a propósito, porque
+  ese archivo se manda por WhatsApp. En un teléfono nuevo se recupera entrando con el
+  correo.
+- **Borrar la cuenta cancela el cobro primero**, y si eso falla no se borra nada: una
+  cuenta borrada con una suscripción viva es un cobro fantasma que ya no se puede
+  relacionar con nadie.
+
+### Los anuncios
+
+Son el **primer tercero** de este proyecto, y por eso tienen una sola puerta:
+`js/core/anuncios.js`. Las reglas están escritas ahí dentro y no repartidas por las
+pantallas:
+
+- Solo en **dos huecos**: al terminar una lección y en la Ruta. Nunca dentro de una
+  lección, de un reto ni de una conversación con Chispa.
+- Nunca antes de que alguien haya terminado su **primera** lección.
+- Nunca a pantalla completa ni con algo que haya que cerrar para seguir.
+- **Con Impulso no se carga ni el script.** Comprobado: cero peticiones a Google.
+- Nunca sin haber preguntado, y la respuesta se puede cambiar en Perfil.
+- **A la red no se le manda ni un dato del negocio.** Ni el sector, ni la etapa, ni el
+  texto de ninguna pantalla, ni el correo.
+
+Esa última regla es la que permitió cambiar la tercera promesa de `promesa.js` por
+algo que sigue siendo verdad: *«Tu idea no se la doy a nadie. Nunca.»* La anterior
+—«Emprendo no vive de tus datos»— dejó de serlo el día que entró una red publicitaria,
+y se cambió en vez de dejarla.
+
+> **En la cuenta de AdSense hay que dejar los *Auto ads* APAGADOS.** Con ellos
+> encendidos, Google coloca anuncios donde quiere —incluidos anclajes y pantallas
+> completas— y se salta las seis reglas de arriba sin que el código pueda impedirlo.
+
+Todo esto está apagado mientras `CONFIG.ANUNCIOS.editor` esté vacío, que es el estado
+de serie: sin identificador no se carga script, no se pregunta nada y no se pinta
+ningún hueco.
+
+> Puntos de entrada: `js/core/impulso.js` (el pase), `js/screens/impulso.js` (la
+> pantalla), `js/core/anuncios.js` (la puerta de la publicidad), `js/core/plan.js` y
+> `js/data/plan-semanal.js` (el plan), `js/data/materiales.js` y
+> `js/screens/materiales.js` (el material), `css/impulso.css` y `worker-pago/`
+> (Stripe). La maqueta viva está en `lab/impulso.html`, el plan completo en
+> [`docs/plan-impulso.md`](docs/plan-impulso.md), y se verifica con
+> `node tools/check-gratis.js`, `node tools/check-impulso.js` y
+> `node tools/check-plan.js`.
+
+---
+
 ## Elementos de juego
 
 Racha diaria con congeladores · XP y 10 rangos · 5 vidas que se regeneran cada 30 min · monedas y tienda · 26 insignias · 7 ligas semanales · 5 retos semanales · mapa visual de progreso · meta diaria ajustable · modo oscuro · sonido sintetizado (sin archivos) · vibración háptica.
@@ -370,10 +557,12 @@ EMPRENDO/
 │   ├── iconos.css           el alfabeto visual dibujado a mano
 │   ├── plaza.css            el lugar: cielo, horizonte, faroles y puestos
 │   ├── puesto.css           lo que el usuario le pone encima a su puesto
+│   ├── impulso.css          la pantalla de cobro y sus dos apariciones
 │   ├── temas.css            el color secundario por tipo de negocio
 │   └── splash.css           la pantalla de arranque
 ├── worker/                  IA gratuita: Worker de Cloudflare (se despliega aparte)
 ├── worker-plaza/            la Plaza: cuentas, vitrinas y conversaciones (aparte también)
+├── worker-pago/             Emprendo Impulso: Stripe y el pase firmado (aparte también)
 ├── docs/                    investigación de proveedores y de Chispa Engine
 ├── lab/                     laboratorio aislado: modelos locales, captura y la Plaza
 ├── tools/
@@ -383,7 +572,11 @@ EMPRENDO/
 │   ├── check-motor.js       las razones para acercarse a un vecino
 │   ├── check-vitrina.js     que de la vitrina no salga nada que no se dijo
 │   ├── check-puesto.js      que las tres listas de piezas no se separen
-│   └── check-plaza-worker.js  ejecuta el Worker de la Plaza contra sus reglas
+│   ├── check-plaza-worker.js  ejecuta el Worker de la Plaza contra sus reglas
+│   ├── check-gratis.js      que sin pagar se llegue del primer nodo al último
+│   ├── check-impulso.js     firma pases de verdad y comprueba que no se falsifican
+│   ├── check-plan.js        ejecuta las 25 tareas y los 8 materiales contra 7 perfiles
+│   └── nueva-llave-pase.js  genera el par de llaves del pase (no es un verificador)
 └── js/
     ├── core/
     │   ├── store.js         estado + persistencia + rachas
@@ -405,6 +598,10 @@ EMPRENDO/
     │   ├── plaza.js         la vitrina: qué se puede enseñar y qué nunca
     │   ├── plaza-motor.js   por qué te conviene acercarte a un vecino
     │   ├── plaza-nube.js    lo único que habla con un servidor sobre personas
+    │   ├── impulso.js       el pase firmado: quién pagó, comprobado sin conexión
+    │   ├── ia-impulso.js    la vía de IA de pago, contra el Worker de la Plaza
+    │   ├── anuncios.js      la única puerta por la que puede entrar publicidad
+    │   ├── plan.js          elige las tres tareas de la semana y las congela
     │   ├── puesto.js        cómo decoró su puesto, y la lista blanca que lo guarda
     │   └── mascot.js        Chispa (SVG animable, 7 estados de ánimo)
     ├── data/
@@ -415,12 +612,16 @@ EMPRENDO/
     │   ├── venture-templates.js  plantillas de desafío por tema y por oficio
     │   ├── mascota-capas.js  accesorios de Chispa, por capas
     │   ├── puesto-piezas.js  las 33 piezas con las que se decora un puesto
+    │   ├── plan-semanal.js   las 25 tareas que puede tocar en una semana
+    │   ├── materiales.js     las 8 plantillas de material listo para usar
     │   ├── sim.js           simulador: modelo y 22 eventos
     │   └── mentor-kb.js     las 26 respuestas escritas del mentor
     ├── local/               motor de la IA local — NO va en el precache
     ├── screens/             una pantalla por archivo
     │   ├── personaliza.js   "Personalizar mi experiencia": vista previa y controles
     │   ├── plaza.js         la Plaza, la vitrina y las conversaciones
+    │   ├── impulso.js       la pantalla donde se cobra
+    │   ├── materiales.js    las ocho plantillas, con los datos del negocio dentro
     │   └── puesto.js        "Decorar mi puesto": vista previa y las 5 ranuras
     └── app.js               arranque y navegación
 ```
@@ -451,6 +652,18 @@ node tools/check-puesto.js
 
 ```bash
 node tools/check-plaza-worker.js
+```
+
+```bash
+node tools/check-gratis.js
+```
+
+```bash
+node tools/check-impulso.js
+```
+
+```bash
+node tools/check-plan.js
 ```
 
 Ese carga el catálogo y el motor de verdad, y comprueba lo que no da error cuando se

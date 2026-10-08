@@ -472,10 +472,11 @@
 
   /** ¿Puede responder alguna IA ahora mismo? Es lo que debe preguntar el resto
       de la app: `isOn()` solo habla de la clave personal. */
-  function disponible() { return isOn() || hayLocal() || hayWorker(); }
+  function disponible() { return isOn() || hayImpulso() || hayLocal() || hayWorker(); }
 
   function proveedor() {
     if (isOn()) return 'clave';
+    if (hayImpulso()) return 'impulso';
     if (hayLocal()) return 'local';
     if (hayWorker()) return 'gratuita';
     return null;
@@ -493,29 +494,89 @@
       });
   }
 
-  /** Historial reciente en el formato que espera el Worker. */
-  function historialReciente() {
+  /** Historial reciente en el formato que espera el Worker.
+
+      Cuatro turnos por la vía gratuita y doce con Impulso. La diferencia no
+      es un capricho: cuatro turnos hacen que Chispa conteste cada mensaje
+      casi como si fuera el primero, y acordarse de lo que se dijo hace un
+      rato es el beneficio que más se nota y el que menos cuesta. */
+  function historialReciente(cuantos) {
     var hist = (w.Store && w.Store.state.chat) || [];
     var out = [];
-    hist.slice(-4).forEach(function (m) {
+    hist.slice(-(cuantos || 4)).forEach(function (m) {
       if (!m || !m.text) return;
       out.push({ role: m.who === 'me' ? 'user' : 'assistant', content: String(m.text) });
     });
     return out;
   }
 
+  /** El historial con los nombres que espera el Worker de la Plaza. */
+  function historialImpulso() {
+    var hist = (w.Store && w.Store.state.chat) || [];
+    var out = [];
+    hist.slice(-12).forEach(function (m) {
+      if (!m || !m.text) return;
+      out.push({ rol: m.who === 'me' ? 'yo' : 'chispa', texto: String(m.text) });
+    });
+    return out;
+  }
+
+  function hayImpulso() { return !!(w.IAImpulso && w.IAImpulso.disponible()); }
+
   function sinIA() {
     return Promise.reject(new Error('No hay ninguna IA configurada.'));
   }
 
-  /** Pregunta del chat, con el contexto del negocio y el historial reciente. */
+  /**
+   * Pregunta del chat, con el contexto del negocio y el historial reciente.
+   *
+   * EL ORDEN DE LA CASCADA, Y POR QUÉ
+   *
+   *   1. La clave personal. Va primero aunque le cueste dinero a quien la
+   *      puso: configurarla es decir «quiero ESE modelo», y usar otro por
+   *      detrás sería tomar por él una decisión que ya tomó.
+   *   2. Impulso. Lo paga Emprendo, no compite con nadie y da respuestas más
+   *      largas con más memoria. Va por delante del modelo local porque es
+   *      mejor, y por delante de la gratuita porque para eso se paga.
+   *   3. El modelo local, si se lo descargó. No gasta cuota de nadie y no
+   *      manda los datos a ningún sitio.
+   *   4. La IA gratuita de Emprendo, con su cuota compartida.
+   *   5. Nadie. Y entonces responde el mentor escrito a mano, que sigue
+   *      contestando 26 temas sin una sola petición de red.
+   *
+   * Con Impulso, si el cupo se acaba o la red falla, NO se enseña un error:
+   * se sigue por el escalón de abajo. Limitar sin bloquear.
+   */
   function ask(text) {
     if (isOn()) return call(buildMessages(text));
+
+    if (hayImpulso()) {
+      return w.IAImpulso.pedir(text, {
+        sistema: systemPrompt(),
+        historial: historialImpulso()
+      }).catch(function (e) {
+        console.warn('[ia] Impulso no pudo:', (e && e.message) || e);
+        /* Se cae al escalón de abajo. Y si ese tampoco puede, el error que
+           se enseña es el de ARRIBA, no el genérico: a quien se le acabó el
+           cupo del día hay que decirle eso, no «no hay ninguna IA
+           configurada». La razón por la que cambió la respuesta es
+           justamente lo que esa persona necesita saber. */
+        return siguienteEscalon(text).catch(function () { throw e; });
+      });
+    }
+
+    return siguienteEscalon(text);
+  }
+
+  /** Lo que había antes de Impulso, tal cual. Se usa también como red cuando
+      la vía de pago no puede: sin conexión, con el cupo agotado o si el
+      modelo devuelve un error. */
+  function siguienteEscalon(text) {
     if (hayLocal()) return pedirLocal(text, systemPrompt(), 400);
     if (hayWorker()) {
       return w.AIWorker.pedir(text, {
         sistema: systemPrompt(),
-        historial: historialReciente(),
+        historial: historialReciente(4),
         maxTokens: 400
       });
     }

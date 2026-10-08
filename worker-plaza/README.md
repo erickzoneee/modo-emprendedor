@@ -146,6 +146,44 @@ Custom domain** → `plaza.emprendo.life`.
 
 Con eso, `ORIGENES` y `APP_URL` de `wrangler.jsonc` ya apuntan a donde deben.
 
+### 7. Chispa con Impulso *(opcional)*
+
+La operación `chispa` le da a quien paga un modelo de verdad, respuestas más
+largas y memoria de la conversación. Vive aquí y no en `worker/` por una razón
+concreta: hace falta contar por **persona**, y para eso hace falta una sesión y
+una base — las dos están aquí y allí no hay ninguna.
+
+Necesita la migración `0004_ia.sql` (que crea la tabla `uso_ia`) y una clave:
+
+```bash
+npx wrangler d1 migrations apply emprendo-plaza --remote
+```
+
+```bash
+npx wrangler secret put IA_CLAVE
+```
+
+Es una clave de Anthropic (`sk-ant-…`). **Sin ella no pasa nada malo:** la
+operación responde 503 con un mensaje que se puede enseñar, la app cae sola al
+camino gratuito y nadie se queda sin Chispa. Y no se le gasta una consulta a
+nadie: el contador se toca después de comprobar que hay clave.
+
+El modelo por defecto es `claude-haiku-4-5-20251001`. Para lo que hace Chispa
+—cruzar los datos que ya tiene delante y explicar una decisión— la diferencia
+con uno más caro no se nota, y en la factura de cada mes sí. Se cambia sin
+tocar código con la variable `IA_MODELO` de `wrangler.jsonc`.
+
+**Los topes están en el código, no en la base:** 40 consultas al día y 600 al
+mes por cuenta (`IA_DIA` e `IA_MES` en `src/index.js`). Son más que las 25
+diarias del camino gratuito, y además son suyas: la IA gratuita vive de una
+cuota compartida de Cloudflare que se agota a media tarde para todos a la vez.
+Al llegar al tope no se corta nada — Chispa sigue con sus seis niveles locales
+y con la IA gratuita, y la app enseña el motivo.
+
+De cada persona se guarda un número: cuántas van hoy y cuántas van este mes.
+Ni la pregunta, ni la respuesta, ni el contexto del negocio. En esta base no
+vive ni el correo.
+
 ---
 
 ## Probarlo sin desplegar nada

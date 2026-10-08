@@ -676,6 +676,186 @@ async function correr() {
     comprueba('el campo `sobre` está recortado', !fila || fila.sobre_id.length <= 64,
       'longitud ' + (fila ? fila.sobre_id.length : 0));
   }
+
+  /* ==================================================================
+     EMPRENDO IMPULSO
+
+     Lo que se prueba aquí no es que el modelo conteste —eso lo decide un
+     servidor de otra empresa— sino las cuatro cosas que sí son nuestras:
+     que sin plan no se pasa, que el plan caduca por reloj, que el contador
+     cuenta de verdad y que el modelo NO se llega a llamar cuando alguna de
+     las anteriores dice que no. Esa última es la que cuesta dinero.
+     ================================================================== */
+
+  /* ------------------------------------ sin Impulso no hay Chispa -- */
+  {
+    const db = baseNueva();
+    let llamadas = 0;
+    const env = entornoNuevo(db, { IA_CLAVE: 'sk-de-mentira' });
+    global.fetch = async () => { llamadas++; return new Response('{}', { status: 200 }); };
+
+    const ana = await alta(worker, env, 'imp1@b.com');
+    const r = await llama(worker, env, { op: 'chispa', sesion: ana.sesion, texto: 'hola' });
+
+    comprueba('sin Impulso, `chispa` responde 403', r.status === 403, 'status ' + r.status);
+    comprueba('sin Impulso, NO se llama al modelo', llamadas === 0, llamadas + ' llamadas');
+  }
+
+  /* ----------------------------- con Impulso caducado, tampoco -- */
+  {
+    const db = baseNueva();
+    let llamadas = 0;
+    const env = entornoNuevo(db, { IA_CLAVE: 'sk-de-mentira' });
+    global.fetch = async () => { llamadas++; return new Response('{}', { status: 200 }); };
+
+    const ana = await alta(worker, env, 'imp2@b.com');
+    // Pagó, pero se le acabó ayer.
+    db.prepare("UPDATE cuenta SET plan='impulso', plan_hasta=? WHERE id=?")
+      .run(Date.now() - 86400000, ana.id);
+
+    const r = await llama(worker, env, { op: 'chispa', sesion: ana.sesion, texto: 'hola' });
+    comprueba('un Impulso caducado no da acceso al modelo', r.status === 403, 'status ' + r.status);
+    comprueba('con Impulso caducado, NO se llama al modelo', llamadas === 0, llamadas + ' llamadas');
+  }
+
+  /* --------------------------------- con Impulso vivo, contesta -- */
+  {
+    const db = baseNueva();
+    let ultimoCuerpo = null;
+    const env = entornoNuevo(db, { IA_CLAVE: 'sk-de-mentira' });
+    global.fetch = async (url, opciones) => {
+      ultimoCuerpo = JSON.parse(opciones.body);
+      return new Response(JSON.stringify({ content: [{ type: 'text', text: 'Te contesto.' }] }),
+        { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+
+    const ana = await alta(worker, env, 'imp3@b.com');
+    db.prepare("UPDATE cuenta SET plan='impulso', plan_hasta=? WHERE id=?")
+      .run(Date.now() + 30 * 86400000, ana.id);
+
+    const r = await llama(worker, env, {
+      op: 'chispa', sesion: ana.sesion, texto: '¿a cuánto vendo?',
+      historial: [
+        { rol: 'chispa', texto: 'no deberia ir primero' },
+        { rol: 'yo', texto: 'hola' },
+        { rol: 'chispa', texto: 'dime' }
+      ]
+    });
+
+    comprueba('con Impulso vivo, `chispa` contesta', r.ok === true && r.texto === 'Te contesto.', JSON.stringify(r).slice(0, 120));
+    comprueba('la respuesta dice cuántas quedan', typeof r.quedanHoy === 'number' && typeof r.quedanMes === 'number');
+    comprueba('el primer mensaje que se manda es del usuario',
+      ultimoCuerpo && ultimoCuerpo.messages[0].role === 'user',
+      ultimoCuerpo ? ultimoCuerpo.messages[0].role : 'sin cuerpo');
+    comprueba('no se mandan dos mensajes seguidos del mismo lado',
+      ultimoCuerpo && ultimoCuerpo.messages.every((m, i, a) => i === 0 || a[i - 1].role !== m.role));
+    comprueba('el último mensaje lleva la pregunta',
+      ultimoCuerpo && /a cuánto vendo/.test(ultimoCuerpo.messages[ultimoCuerpo.messages.length - 1].content));
+
+    const uso = db.prepare('SELECT hoy, mes FROM uso_ia WHERE cuenta_id = ?').get(ana.id);
+    comprueba('la consulta quedó contada', uso && uso.hoy === 1 && uso.mes === 1,
+      uso ? ('hoy ' + uso.hoy + ', mes ' + uso.mes) : 'sin fila');
+  }
+
+  /* ------------------------------- el tope del día corta de verdad -- */
+  {
+    const db = baseNueva();
+    let llamadas = 0;
+    const env = entornoNuevo(db, { IA_CLAVE: 'sk-de-mentira' });
+    global.fetch = async () => {
+      llamadas++;
+      return new Response(JSON.stringify({ content: [{ type: 'text', text: 'ok' }] }),
+        { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+
+    const ana = await alta(worker, env, 'imp4@b.com');
+    db.prepare("UPDATE cuenta SET plan='impulso', plan_hasta=? WHERE id=?")
+      .run(Date.now() + 30 * 86400000, ana.id);
+    // Se le ponen 40 gastadas hoy, dentro de la ventana.
+    db.prepare('INSERT INTO uso_ia (cuenta_id, hoy, hoy_desde, mes, mes_desde) VALUES (?,40,?,40,?)')
+      .run(ana.id, Date.now(), Date.now());
+
+    const r = await llama(worker, env, { op: 'chispa', sesion: ana.sesion, texto: 'una más' });
+    comprueba('pasado el tope del día se responde 429', r.status === 429, 'status ' + r.status);
+    comprueba('pasado el tope, NO se llama al modelo', llamadas === 0, llamadas + ' llamadas');
+    comprueba('el mensaje del tope no suena a error', /Chispa|memoria|Mañana|mañana/.test(String(r.mensaje || '')),
+      String(r.mensaje || ''));
+  }
+
+  /* -------------------------- la ventana del día se reinicia sola -- */
+  {
+    const db = baseNueva();
+    const env = entornoNuevo(db, { IA_CLAVE: 'sk-de-mentira' });
+    global.fetch = async () => new Response(JSON.stringify({ content: [{ type: 'text', text: 'ok' }] }),
+      { status: 200, headers: { 'content-type': 'application/json' } });
+
+    const ana = await alta(worker, env, 'imp5@b.com');
+    db.prepare("UPDATE cuenta SET plan='impulso', plan_hasta=? WHERE id=?")
+      .run(Date.now() + 30 * 86400000, ana.id);
+    // 40 gastadas, pero hace dos días.
+    const hace2dias = Date.now() - 2 * 86400000;
+    db.prepare('INSERT INTO uso_ia (cuenta_id, hoy, hoy_desde, mes, mes_desde) VALUES (?,40,?,40,?)')
+      .run(ana.id, hace2dias, Date.now());
+
+    const r = await llama(worker, env, { op: 'chispa', sesion: ana.sesion, texto: 'hoy es otro día' });
+    comprueba('la ventana del día se reinicia sola sin ningún disparador', r.ok === true, JSON.stringify(r).slice(0, 120));
+
+    const uso = db.prepare('SELECT hoy, mes FROM uso_ia WHERE cuenta_id = ?').get(ana.id);
+    comprueba('al reiniciarse el día, el mes NO se reinicia', uso && uso.hoy === 1 && uso.mes === 41,
+      uso ? ('hoy ' + uso.hoy + ', mes ' + uso.mes) : 'sin fila');
+  }
+
+  /* ------------------------------- sin clave, se dice y no se cobra -- */
+  {
+    const db = baseNueva();
+    const env = entornoNuevo(db);           // sin IA_CLAVE
+    const ana = await alta(worker, env, 'imp6@b.com');
+    db.prepare("UPDATE cuenta SET plan='impulso', plan_hasta=? WHERE id=?")
+      .run(Date.now() + 30 * 86400000, ana.id);
+
+    const r = await llama(worker, env, { op: 'chispa', sesion: ana.sesion, texto: 'hola' });
+    comprueba('sin clave del modelo se responde 503, no un fallo raro', r.status === 503, 'status ' + r.status);
+
+    const uso = db.prepare('SELECT hoy FROM uso_ia WHERE cuenta_id = ?').get(ana.id);
+    comprueba('sin clave NO se le gasta una consulta a nadie', !uso, uso ? ('hoy ' + uso.hoy) : 'sin fila');
+  }
+
+  /* --------------------------------------- borrarse borra el uso -- */
+  {
+    const db = baseNueva();
+    const env = entornoNuevo(db, { IA_CLAVE: 'sk-de-mentira' });
+    global.fetch = async () => new Response(JSON.stringify({ content: [{ type: 'text', text: 'ok' }] }),
+      { status: 200, headers: { 'content-type': 'application/json' } });
+
+    const ana = await alta(worker, env, 'imp7@b.com', VIT('Ana'));
+    db.prepare("UPDATE cuenta SET plan='impulso', plan_hasta=? WHERE id=?")
+      .run(Date.now() + 30 * 86400000, ana.id);
+    await llama(worker, env, { op: 'chispa', sesion: ana.sesion, texto: 'hola' });
+    await llama(worker, env, { op: 'borrarme', sesion: ana.sesion });
+
+    const quedan = db.prepare('SELECT COUNT(*) AS n FROM uso_ia').get();
+    comprueba('borrar la cuenta se lleva su contador de IA por cascada', quedan.n === 0, quedan.n + ' filas');
+  }
+
+  /* ------------------------------------- el cupo se puede consultar -- */
+  {
+    const db = baseNueva();
+    const env = entornoNuevo(db, { IA_CLAVE: 'sk-de-mentira' });
+    const ana = await alta(worker, env, 'imp8@b.com');
+
+    const sinPlan = await llama(worker, env, { op: 'cupo', sesion: ana.sesion });
+    comprueba('sin Impulso, `cupo` lo dice sin errores', sinPlan.ok === true && sinPlan.impulso === false);
+
+    db.prepare("UPDATE cuenta SET plan='impulso', plan_hasta=? WHERE id=?")
+      .run(Date.now() + 30 * 86400000, ana.id);
+    const conPlan = await llama(worker, env, { op: 'cupo', sesion: ana.sesion });
+    comprueba('con Impulso, `cupo` devuelve los dos topes',
+      conPlan.impulso === true && conPlan.quedanHoy === conPlan.topeDia && conPlan.quedanMes === conPlan.topeMes,
+      JSON.stringify(conPlan));
+
+    const uso = db.prepare('SELECT COUNT(*) AS n FROM uso_ia').get();
+    comprueba('consultar el cupo NO gasta una consulta', uso.n === 0, uso.n + ' filas');
+  }
 }
 
 /* ==================================================================

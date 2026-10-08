@@ -13,7 +13,12 @@
     C.SHOP.forEach(function (item) {
       var afford = s.coins >= item.price;
       var extra = '';
-      if (item.id === 'hearts' && s.hearts >= 5) extra = 'Ya tienes todas las vidas';
+      /* Con Impulso la recarga de vidas no se puede comprar: sería cobrar
+         monedas por algo que ya tiene. La tienda es lo único que cobra
+         primero y entrega después, así que un artículo que no cambia nada
+         sería dinero del juego tirado sin aviso. */
+      if (item.id === 'hearts' && w.Engine.energiaIlimitada()) extra = 'Ya tienes energía sin límite';
+      else if (item.id === 'hearts' && s.hearts >= C.VIDAS.max) extra = 'Ya tienes todas las vidas';
       if (item.id === 'freeze' && s.freezes >= (item.max || 3)) extra = 'Máximo alcanzado (' + s.freezes + ')';
       if (item.id === 'double' && s.boostUntil && Date.now() < s.boostUntil) extra = 'Activo ahora';
       var blocked = !!extra || !afford;

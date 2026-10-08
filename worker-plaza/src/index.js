@@ -49,6 +49,42 @@ const VIDA_SESION  = 30 * 24 * 60 * 60 * 1000;  // la sesión
 const VENTANA_MAIL = 60 * 60 * 1000;            // ventana del límite por correo
 const MAX_MAIL     = 5;                          // enlaces por correo y hora
 
+/* CHISPA CON IMPULSO — los topes.
+
+   Dos ventanas: la del día suaviza los picos, la del mes es lo que se le
+   promete en la pantalla. Los números salen de una cuenta sencilla: 600
+   consultas al mes de un modelo pequeño cuestan bastante menos de lo que
+   deja una suscripción, y casi nadie llega ni a la décima parte. El día que
+   alguien llegue, Chispa sigue funcionando con sus seis niveles locales y
+   con la IA gratuita — limitar sin bloquear, igual que todo lo demás aquí.
+
+   Son más que los 25 al día del camino gratuito, y además son SUYOS: la IA
+   gratuita vive de una cuota compartida de Cloudflare que se agota a media
+   tarde para todos a la vez. Eso es lo que de verdad cambia. */
+const IA_DIA  = 40;
+const IA_MES  = 600;
+const VENTANA_DIA = 24 * 60 * 60 * 1000;
+const VENTANA_MES = 30 * 24 * 60 * 60 * 1000;
+
+/* Cuánto puede escribir. El camino gratuito corta en 400 tokens; aquí el
+   doble largo, que es la mitad de «respuestas más profundas». La otra mitad
+   es el modelo. */
+const IA_TOKENS = 900;
+
+/* El modelo. Haiku 4.5 y no uno más caro: para lo que hace Chispa —explicar
+   una decisión de negocio con los datos que ya tiene delante— la diferencia
+   no se nota, y sí se nota en la factura de cada mes. Va como variable y no
+   escrito aquí para poder cambiarlo sin tocar código. */
+const IA_MODELO_DEFECTO = 'claude-haiku-4-5-20251001';
+const IA_ENDPOINT = 'https://api.anthropic.com/v1/messages';
+const IA_VERSION  = '2023-06-01';
+
+/* Cuántos turnos de conversación viajan. El camino gratuito manda 4; con
+   Impulso van 12, que es lo que permite que Chispa se acuerde de lo que se
+   dijo hace un rato en vez de contestar cada mensaje como si fuera el
+   primero. Es el beneficio que más se nota y el que menos cuesta. */
+const IA_TURNOS = 12;
+
 /* Los topes de cada campo publicable. Son los mismos de js/core/plaza.js: si
    allí crecen y aquí no, el servidor recorta y el usuario ve su vitrina
    cortada sin saber por qué. Van escritos otra vez, no importados, porque
@@ -259,12 +295,20 @@ async function quienEs(cuerpo, env) {
   if (token.length < 20 || token.length > 100) return null;
 
   const fila = await env.DB.prepare(
-    `SELECT c.id, c.estado, c.edad_ok
+    `SELECT c.id, c.estado, c.edad_ok, c.plan, c.plan_hasta
        FROM sesion s JOIN cuenta c ON c.id = s.cuenta_id
       WHERE s.token_hash = ? AND s.caduca > ?`
   ).bind(await sha256(token), Date.now()).first();
 
   if (!fila || fila.estado !== 'activa') return null;
+
+  /* El plan caduca AQUÍ y no en un disparador. Es el único punto por el que
+     pasa toda operación autenticada, así que una suscripción que se acabó
+     deja de valer en la siguiente petición, sin cron y sin nada que se pueda
+     olvidar de correr. `edad_ok` es el recordatorio de por qué: una columna
+     que se guarda y nunca se lee da la sensación de una barrera que no
+     existe, y ese error no se repite. */
+  fila.impulso = fila.plan === 'impulso' && Number(fila.plan_hasta || 0) > Date.now();
   return fila;
 }
 
@@ -942,8 +986,185 @@ const OPS = {
       await env.DB.prepare(`DELETE FROM sesion WHERE token_hash = ?`).bind(await sha256(token)).run();
     }
     return { ok: true };
+  },
+
+  /* ---------------------------------------------------------- chispa --
+     Chispa con Impulso: un modelo de pago, respuestas más largas y memoria
+     de la conversación.
+
+     POR QUÉ VIVE AQUÍ Y NO EN worker/
+
+     El Worker de la IA gratuita no declara ningún almacenamiento y no recibe
+     ninguna identidad: solo mira el origen y la IP. Para contar por PERSONA
+     hace falta una sesión y una base, y las dos están aquí. Mover la IA a
+     este Worker sale más barato que darle cuentas al otro.
+
+     LO QUE NO SE GUARDA
+
+     Ni la pregunta, ni la respuesta, ni el contexto del negocio. De cada
+     persona queda un número: cuántas van hoy y cuántas van este mes. En esta
+     base no vive ni el correo; menos va a vivir de qué habla la gente de su
+     negocio.
+     -------------------------------------------------------------------- */
+  async chispa(cuerpo, env) {
+    const cuenta = await quienEs(cuerpo, env);
+    if (!cuenta) return noAutorizado();
+
+    if (!cuenta.impulso) {
+      return { error: 'sin-impulso', mensaje: 'Esto es de Impulso.', status: 403 };
+    }
+    if (!env.IA_CLAVE) {
+      /* Sin clave no hay modelo, y decirlo es mejor que fallar raro: la app
+         cae sola al camino gratuito, que sigue funcionando. */
+      return { error: 'sin-ia', mensaje: 'Ahora mismo respondo con lo que sé de memoria.', status: 503 };
+    }
+
+    const pregunta = texto(cuerpo.texto, 4000);
+    if (!pregunta) return { error: 'vacio', mensaje: 'Escríbeme algo y te contesto.' };
+
+    const cupo = await apuntarUso(cuenta.id, env);
+    if (!cupo.ok) return cupo;
+
+    /* El historial. Se recorta aquí ADEMÁS de en el cliente: el cliente
+       manda lo que quiere en cuanto alguien lo modifica, y doce turnos de
+       cuatro mil caracteres cada uno es una factura, no una conversación. */
+    const previos = [];
+    if (Array.isArray(cuerpo.historial)) {
+      cuerpo.historial.slice(-IA_TURNOS).forEach(function (m) {
+        const papel = (m && m.rol === 'chispa') ? 'assistant' : 'user';
+        const t = texto(m && m.texto, 1200);
+        if (t) previos.push({ role: papel, content: t });
+      });
+    }
+
+    /* El primer mensaje tiene que ser del usuario y no puede haber dos
+       seguidos del mismo lado: la API lo rechaza, y un historial que llega
+       cortado por la mitad los produce. Se limpia en vez de confiar. */
+    const mensajes = [];
+    previos.forEach(function (m) {
+      if (!mensajes.length && m.role !== 'user') return;
+      if (mensajes.length && mensajes[mensajes.length - 1].role === m.role) {
+        mensajes[mensajes.length - 1].content += '\n\n' + m.content;
+        return;
+      }
+      mensajes.push(m);
+    });
+    if (mensajes.length && mensajes[mensajes.length - 1].role === 'user') {
+      mensajes[mensajes.length - 1].content += '\n\n' + pregunta;
+    } else {
+      mensajes.push({ role: 'user', content: pregunta });
+    }
+
+    const sistema = texto(cuerpo.sistema, 6000) ||
+      'Eres Chispa, la mentora de Emprendo. Contestas en español de México, ' +
+      'directo y sin adornos, a alguien que está montando un negocio pequeño.';
+
+    let res;
+    try {
+      res = await fetch(IA_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': env.IA_CLAVE,
+          'anthropic-version': IA_VERSION
+        },
+        body: JSON.stringify({
+          model: env.IA_MODELO || IA_MODELO_DEFECTO,
+          max_tokens: IA_TOKENS,
+          system: sistema,
+          messages: mensajes
+        })
+      });
+    } catch (e) {
+      return { error: 'fallo', mensaje: 'No pude preguntarle al modelo. Inténtalo otra vez.', status: 502 };
+    }
+
+    const respuesta = await res.json().catch(function () { return null; });
+    if (!res.ok) {
+      /* Al cliente no le llega el detalle: los errores de la API citan la
+         clave y el modelo. Al registro sí, que es donde se diagnostica. */
+      console.error('plaza: chispa ' + res.status + ' ' +
+        String((respuesta && respuesta.error && respuesta.error.message) || '').slice(0, 200));
+      return { error: 'fallo', mensaje: 'El modelo no me contestó. Inténtalo en un momento.', status: 502 };
+    }
+
+    const partes = (respuesta && respuesta.content) || [];
+    let salida = '';
+    for (const parte of partes) if (parte && parte.type === 'text') salida += parte.text;
+    salida = salida.trim();
+    if (!salida) return { error: 'fallo', mensaje: 'Me quedé en blanco. Vuelve a preguntármelo.', status: 502 };
+
+    return { ok: true, texto: salida, quedanHoy: cupo.quedanHoy, quedanMes: cupo.quedanMes };
+  },
+
+  /* ------------------------------------------------------ cupo-chispa --
+     Cuántas consultas le quedan, sin gastar ninguna. La pantalla lo enseña
+     igual que ya enseña las de la IA gratuita. */
+  async cupo(cuerpo, env) {
+    const cuenta = await quienEs(cuerpo, env);
+    if (!cuenta) return noAutorizado();
+    if (!cuenta.impulso) return { ok: true, impulso: false };
+
+    const fila = await env.DB.prepare(
+      `SELECT hoy, hoy_desde, mes, mes_desde FROM uso_ia WHERE cuenta_id = ?`
+    ).bind(cuenta.id).first();
+
+    const ahora = Date.now();
+    const hoy = (fila && fila.hoy_desde > ahora - VENTANA_DIA) ? fila.hoy : 0;
+    const mes = (fila && fila.mes_desde > ahora - VENTANA_MES) ? fila.mes : 0;
+
+    return {
+      ok: true, impulso: true,
+      quedanHoy: Math.max(0, IA_DIA - hoy),
+      quedanMes: Math.max(0, IA_MES - mes),
+      topeDia: IA_DIA, topeMes: IA_MES
+    };
   }
 };
+
+/* ==========================================================================
+   EL CONTADOR
+
+   Cuenta y decide en UNA sentencia, con el mismo molde que la tabla `pedido`
+   usa para los enlaces de acceso. Con un SELECT y luego un UPDATE, treinta
+   peticiones simultáneas leen todas «cero», todas pasan el tope y cuarenta
+   se convierten en setenta. El comentario de `pedido` lo dice desde el primer
+   día y aquí vale igual.
+
+   Se apunta ANTES de llamar al modelo. Si la llamada falla, esa consulta se
+   perdió — y es la decisión correcta: al revés, un modelo que devuelve error
+   a la mitad de las peticiones sería un grifo abierto que nadie cierra.
+   ========================================================================== */
+
+async function apuntarUso(cuentaId, env) {
+  const ahora = Date.now();
+  const cortaDia = ahora - VENTANA_DIA;
+  const cortaMes = ahora - VENTANA_MES;
+
+  const fila = await env.DB.prepare(
+    `INSERT INTO uso_ia (cuenta_id, hoy, hoy_desde, mes, mes_desde)
+     VALUES (?1, 1, ?2, 1, ?2)
+     ON CONFLICT(cuenta_id) DO UPDATE SET
+       hoy       = CASE WHEN uso_ia.hoy_desde > ?3 THEN uso_ia.hoy + 1 ELSE 1 END,
+       hoy_desde = CASE WHEN uso_ia.hoy_desde > ?3 THEN uso_ia.hoy_desde ELSE ?2 END,
+       mes       = CASE WHEN uso_ia.mes_desde > ?4 THEN uso_ia.mes + 1 ELSE 1 END,
+       mes_desde = CASE WHEN uso_ia.mes_desde > ?4 THEN uso_ia.mes_desde ELSE ?2 END
+     RETURNING hoy, mes`
+  ).bind(cuentaId, ahora, cortaDia, cortaMes).first();
+
+  if (!fila) return { error: 'fallo', mensaje: 'No pude llevar la cuenta. Inténtalo otra vez.', status: 500 };
+
+  if (fila.mes > IA_MES) {
+    return { error: 'cupo-mes', status: 429,
+      mensaje: 'Llegaste a tus ' + IA_MES + ' consultas del mes. Sigo aquí con lo que sé de memoria.' };
+  }
+  if (fila.hoy > IA_DIA) {
+    return { error: 'cupo-dia', status: 429,
+      mensaje: 'Llegaste a tus ' + IA_DIA + ' consultas de hoy. Mañana volvemos.' };
+  }
+
+  return { ok: true, quedanHoy: IA_DIA - fila.hoy, quedanMes: IA_MES - fila.mes };
+}
 
 /* ==========================================================================
    EL CORREO

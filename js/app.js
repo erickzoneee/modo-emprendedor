@@ -49,25 +49,51 @@
     // Monedas
     bar.appendChild(statBtn('stat--gem', '🪙', UI.num(s.coins), function () { w.Shop.open(); }));
 
-    // Vidas
+    /* Vidas.
+
+       Con Impulso la pastilla enseña ∞ y su hoja cuenta otra cosa. Es el
+       único sitio de la barra donde se nota la suscripción, y no lleva
+       corona, ni brillo, ni insignia: quien paga no necesita que se lo
+       recuerden cada vez que mira la pantalla. */
+    var V = C.VIDAS;
+    var infinita = w.Engine.energiaIlimitada();
     var eta = w.Engine.heartsETA();
-    bar.appendChild(statBtn('stat--heart', s.hearts > 0 ? '❤️' : '💔', String(s.hearts), function () {
-      UI.sheet([
-        el('div', { class: 'col', style: { alignItems: 'center', gap: '10px' } }, [
-          el('div', { style: { fontSize: '48px' }, text: s.hearts > 0 ? '❤️' : '💔' }),
-          el('div', { class: 'h2', text: s.hearts + ' de 5 vidas' }),
-          el('div', { class: 'small t-center', text: eta
-            ? 'Siguiente vida en ' + eta + '. Se recupera una cada 30 minutos.'
-            : 'Tienes todas tus vidas. Se pierde una por cada error en las lecciones.' })
-        ]),
-        s.hearts < 5 ? UI.btn('Recargar por 60 🪙', { variant: 'gold', onClick: function () {
-          if (w.Store.state.coins < 60) { UI.toast('No tienes suficientes monedas', 'red', '🪙'); return; }
-          w.Engine.addCoins(-60); w.Engine.refillHearts();
-          UI.closeSheet(); renderTopbar(); UI.toast('¡Vidas recargadas!', 'green', '❤️');
-        } }) : null,
-        UI.btn('Cerrar', { variant: 'ghost', onClick: UI.closeSheet })
-      ]);
-    }, s.hearts === 0));
+    var minutos = Math.round(V.regenMs / 60000);
+
+    bar.appendChild(statBtn(
+      'stat--heart',
+      infinita ? '❤️' : (s.hearts > 0 ? '❤️' : '💔'),
+      infinita ? '∞' : String(s.hearts),
+      function () {
+        UI.sheet(infinita ? [
+          el('div', { class: 'col', style: { alignItems: 'center', gap: '10px' } }, [
+            el('div', { style: { fontSize: '48px' }, text: '❤️' }),
+            el('div', { class: 'h2', text: 'Energía sin límite' }),
+            el('div', { class: 'small t-center', text: 'Con Impulso no hay esperas. Aprende hasta que tú quieras parar.' })
+          ]),
+          UI.btn('Cerrar', { variant: 'ghost', onClick: UI.closeSheet })
+        ] : [
+          el('div', { class: 'col', style: { alignItems: 'center', gap: '10px' } }, [
+            el('div', { style: { fontSize: '48px' }, text: s.hearts > 0 ? '❤️' : '💔' }),
+            el('div', { class: 'h2', text: s.hearts + ' de ' + V.max + ' vidas' }),
+            el('div', { class: 'small t-center', text: eta
+              ? 'Siguiente vida en ' + eta + '. Se recupera una cada ' + minutos + ' minutos.'
+              : 'Tienes todas tus vidas. Se pierde una por cada error en las lecciones.' }),
+            /* Sin energía no se bloquea nada: solo se avanza más despacio.
+               Decirlo aquí evita que alguien crea que se quedó fuera. */
+            s.hearts <= 0 ? el('div', { class: 'small t-center',
+              text: 'Puedes seguir aprendiendo igual. Los puntos valen la mitad hasta que vuelva.' }) : null
+          ]),
+          s.hearts < V.max ? UI.btn('Recargar por ' + V.recarga + ' 🪙', { variant: 'gold', onClick: function () {
+            if (w.Store.state.coins < V.recarga) { UI.toast('No tienes suficientes monedas', 'red', '🪙'); return; }
+            w.Engine.addCoins(-V.recarga); w.Engine.refillHearts();
+            UI.closeSheet(); renderTopbar(); UI.toast('¡Vidas recargadas!', 'green', '❤️');
+          } }) : null,
+          UI.btn('Cerrar', { variant: 'ghost', onClick: UI.closeSheet })
+        ]);
+      },
+      !infinita && s.hearts === 0
+    ));
 
     // XP doble activo
     if (s.boostUntil && Date.now() < s.boostUntil) {
@@ -291,6 +317,30 @@
 
   /* ------------------------- Accesos directos ------------------------- */
 
+  /* ------------------------- La vuelta del pago -------------------------
+
+     Stripe devuelve a ./?impulso=ok después de pagar y a ./?impulso=no si se
+     arrepintió. Llega en una PESTAÑA NUEVA —la que abrió la pantalla de
+     Impulso—, porque el router de esta app vive solo en memoria: no hay hash
+     ni History API, así que salir a otro dominio y volver no tiene forma de
+     recuperar su sitio. Esa pestaña arranca la app entera y aterriza aquí.
+
+     La pestaña original se entera por su cuenta: al recuperar el foco pide el
+     pase otra vez. Las dos acaban enseñando lo mismo sin hablar entre ellas.
+     ---------------------------------------------------------------------- */
+
+  function vueltaDelPago() {
+    var m;
+    try { m = /[?&]impulso=([a-z]+)/i.exec(location.search || ''); } catch (e) { return null; }
+    if (!m) return null;
+    var que = m[1].toLowerCase();
+    // Se limpia siempre: si no, recargar repetiría la celebración.
+    try {
+      if (w.history && w.history.replaceState) w.history.replaceState(null, '', location.pathname);
+    } catch (e) { /* da igual */ }
+    return que;
+  }
+
   /** Los accesos directos del icono instalado abren ./?go=mentor y similares. */
   function shortcutRoute() {
     try {
@@ -338,8 +388,23 @@
     UI.Router.stack = [];
     UI.Router.current = null;
 
-    // Se consulta siempre, incluso en el onboarding: así la URL queda limpia.
+    // Se consultan siempre, incluso en el onboarding: así la URL queda limpia.
     var atajo = shortcutRoute();
+    var pago = vueltaDelPago();
+
+    /* El pase, antes de pintar nada. Es asíncrono —verificar una firma lo
+       es—, pero la pantalla de arranque dura 2,45 s como mínimo y esto tarda
+       un milisegundo: cuando el usuario ve la primera pantalla, la energía ya
+       sabe si es infinita. Y si tardara, `alCambiar` repinta.
+
+       Silencioso a propósito: si falla, la app se comporta como gratis, que
+       es el estado seguro y el que ya funcionaba antes de que Impulso
+       existiera. */
+    if (w.Impulso) {
+      w.Impulso.arrancar().then(function () {
+        if (!NO_CHROME[UI.Router.current]) renderTopbar();
+      });
+    }
 
     if (!had || !s.onboarded) {
       showChrome(false);
@@ -363,6 +428,13 @@
 
       if (deEnlace) {
         try { w.PlazaScreen.revisarEnlace(); } catch (e) { console.warn('[plaza]', e); }
+      } else if (pago) {
+        /* Acaba de volver de pagar. Ni saludo ni recordatorio de respaldo:
+           encimar tres cosas a alguien que acaba de darte dinero es la peor
+           forma de recibirle. */
+        trasElArranque(function () {
+          if (w.ImpulsoScreen) w.ImpulsoScreen.vuelta(pago);
+        }, 400);
       } else {
         greet();
         // Después del saludo, para no encimar dos avisos.
@@ -425,6 +497,16 @@
       }
     }, 30000);
 
+    /* Cuando Impulso se enciende o se apaga cambia la barra —el ∞— y cambia
+       lo que enseña la pantalla que esté abierta. Se avisa desde un solo
+       sitio para que ninguna pantalla tenga que acordarse de preguntar. */
+    if (w.Impulso) {
+      w.Impulso.alCambiar(function () {
+        if (!NO_CHROME[UI.Router.current]) renderTopbar();
+        if (REPINTABLE[UI.Router.current]) UI.Router.refresh();
+      });
+    }
+
     // Refresca al volver a la pestaña y asegura el guardado al salir
     d.addEventListener('visibilitychange', function () {
       if (d.hidden) {
@@ -432,6 +514,16 @@
       } else {
         w.Store.rollDay();
         if (!NO_CHROME[UI.Router.current]) renderTopbar();
+
+        /* Volver a la pestaña es también la señal de que alguien acaba de
+           pagar en otra: la pantalla de Impulso abre Stripe en pestaña nueva
+           y esta se queda esperando. Se pide el pase, y si cambió algo,
+           `alCambiar` repinta lo que haga falta.
+
+           No fuerza en cada vuelta: `refrescar(false)` respeta su propia
+           ventana de seis horas. Lo fuerza la pantalla de Impulso, que sí
+           sabe que hay un pago en marcha. */
+        if (w.Impulso) w.Impulso.refrescar(false);
       }
     });
     w.addEventListener('pagehide', function () { w.Store.save(true); });

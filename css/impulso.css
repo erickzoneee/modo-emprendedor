@@ -1,0 +1,234 @@
+/* ==========================================================================
+   EMPRENDO IMPULSO — la pantalla de cobro y sus dos apariciones
+
+   Tres bloques, y cada uno tiene una regla que no se salta:
+
+   · `.imp__*`   la pantalla de Impulso. Lo primero que se lee es la franja
+                 verde, que dice que todo sigue gratis. El precio va entero y
+                 sin tachar, y el botón de «no» tiene el mismo tamaño que
+                 cualquier otro botón secundario de la app.
+
+   · `.imp-guino` la invitación pequeña. Es lo único que aparece fuera de la
+                 pantalla de Impulso, y está dibujada para que NUNCA pueda
+                 confundirse con la acción principal: fondo del papel, borde
+                 punteado, texto de tamaño mínimo. Si algún día alguien la
+                 quiere convertir en un botón naranja, tendrá que borrar este
+                 bloque entero, y eso se ve en el diff.
+
+   · `.imp-sel`  la marca de quien ya lo tiene. Pequeña y sin corona: quien
+                 paga no necesita que se lo recuerden.
+
+   La familia visual es la de `.promesa__*` de components.css a propósito. La
+   promesa «Tu idea es tuya» y la pantalla de Impulso son los dos momentos en
+   los que la app le pide confianza al usuario, y tienen que parecerse.
+   ========================================================================== */
+
+/* ------------------------- El sello ------------------------- */
+
+.imp__sello {
+  position: relative;
+  display: grid; place-items: center;
+  padding: 2px 0 0;
+}
+.imp__aura {
+  position: absolute;
+  width: 132px; height: 132px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 46%,
+              rgba(255,200,0,.34) 0%,
+              rgba(255,154,60,.16) 44%,
+              rgba(255,154,60,0) 72%);
+  animation: impAura 4.2s var(--ease-in-out) infinite;
+  pointer-events: none;
+}
+@keyframes impAura {
+  0%,100% { transform: scale(1);    opacity: .9 }
+  50%     { transform: scale(1.07); opacity: 1 }
+}
+.imp__chispa { position: relative; z-index: 1; }
+
+/* ------------------------- Lo que sigue siendo gratis -------------------------
+
+   Va ARRIBA del todo y en verde, y es la única cosa de esta pantalla cuya
+   posición no se negocia. Si esto baja, la pantalla se convierte en otra
+   cosa. */
+
+.imp__libre {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--green-soft);
+  border: 2px solid rgba(67,201,94,.34);
+  border-radius: var(--r-lg);
+  padding: var(--s3) var(--s4);
+  text-align: left;
+}
+.imp__libre__ico { font-size: 22px; flex: none; line-height: 1; }
+.imp__libre__t {
+  font-size: var(--fs-sm); font-weight: 900;
+  color: var(--green-dark); line-height: 1.35;
+}
+.imp__libre__p {
+  display: block;
+  font-size: var(--fs-xs); font-weight: 700;
+  color: var(--ink-2); line-height: 1.45; margin-top: 2px;
+}
+
+/* ------------------------- Lo que trae ------------------------- */
+
+.imp__lista {
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--brand-soft);
+  border: 2px solid rgba(255,107,26,.22);
+  border-radius: var(--r-lg);
+  padding: var(--s3) var(--s4);
+  text-align: left;
+}
+.imp__fila { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
+.imp__fila + .imp__fila { border-top: 2px solid rgba(255,107,26,.14); }
+.imp__fila__ico { font-size: 21px; flex: none; line-height: 1; }
+.imp__fila__t {
+  font-size: var(--fs-sm); font-weight: 900;
+  color: var(--ink); line-height: 1.35;
+}
+.imp__fila__p {
+  display: block;
+  font-size: var(--fs-xs); font-weight: 700;
+  color: var(--ink-2); line-height: 1.45; margin-top: 1px;
+}
+
+/* Lo que todavía no está hecho se pinta apagado y se dice en palabras, no
+   con un candado: un candado promete que existe y está cerrado. */
+.imp__fila--pronto { opacity: .62; }
+
+/* ------------------------- El precio -------------------------
+
+   Grande, entero y solo. Sin tachones, sin «antes 10», sin cuenta atrás y
+   sin «solo hoy». Si algún día hay un descuento, será un precio distinto
+   escrito igual de claro. */
+
+.imp__precio { text-align: center; padding: var(--s2) 0 0; }
+.imp__precio__n {
+  font-size: var(--fs-3xl); font-weight: 900; color: var(--ink);
+  letter-spacing: -1px; line-height: 1;
+}
+.imp__precio__n span {
+  font-size: var(--fs-lg); font-weight: 800;
+  color: var(--ink-2); letter-spacing: 0;
+}
+.imp__precio__p {
+  font-size: var(--fs-sm); font-weight: 700;
+  color: var(--ink-3); margin-top: 6px;
+}
+
+/* La frase que sostiene todo lo demás.
+
+   `pre-line` porque el salto de línea va escrito en el texto: la pantalla lo
+   pinta con `text:`, que es textContent, y ahí un \n no rompe línea solo.
+   Con `<br>` habría que pintarlo como HTML, y esta app no pinta HTML en
+   ningún sitio donde pueda acabar entrando texto de alguien. */
+.imp__cierre {
+  font-size: var(--fs-xs); font-weight: 700; color: var(--ink-3);
+  text-align: center; line-height: 1.55; margin-top: 2px;
+  white-space: pre-line;
+}
+
+/* ------------------------- La invitación pequeña -------------------------
+
+   Ver la nota de arriba. Esto no puede parecer un botón principal nunca. */
+
+.imp-guino {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: var(--card-2);
+  border: 2px dashed var(--line);
+  border-radius: var(--r-md);
+  padding: 10px var(--s3);
+  text-align: left; cursor: pointer;
+  font: inherit; color: inherit;
+}
+.imp-guino:active { transform: translateY(1px); }
+.imp-guino__ico { font-size: 18px; flex: none; }
+.imp-guino__t {
+  font-size: var(--fs-xs); font-weight: 900;
+  color: var(--ink-2); display: block;
+  text-transform: none; letter-spacing: 0;
+}
+.imp-guino__p {
+  font-size: var(--fs-xs); font-weight: 700;
+  color: var(--ink-3); display: block; margin-top: 1px;
+  text-transform: none; letter-spacing: 0;
+}
+.imp-guino__ir { font-size: var(--fs-sm); font-weight: 900; color: var(--brand); flex: none; }
+
+/* ------------------------- El plan de la semana -------------------------
+
+   Tres filas, cada una con su porqué debajo. Son botones —llevan al sitio
+   donde se hace la tarea— pero no se pintan como botones: dentro de una
+   tarjeta ya llena, tres botones naranjas serían un semáforo. */
+
+.imp-plan__t {
+  display: flex; align-items: flex-start; gap: 11px; width: 100%;
+  padding: 11px 0;
+  background: none; border: 0;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.imp-plan__t + .imp-plan__t { border-top: 2px solid var(--line-2); }
+.imp-plan__t:active { opacity: .7; }
+
+.imp-plan__n {
+  flex: none; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--brand-soft); color: var(--brand-dark);
+  display: grid; place-items: center;
+  font-size: var(--fs-xs); font-weight: 900; margin-top: 1px;
+}
+.imp-plan__q {
+  display: block;
+  font-size: var(--fs-sm); font-weight: 900; color: var(--ink); line-height: 1.35;
+}
+.imp-plan__pq {
+  display: block;
+  font-size: var(--fs-xs); font-weight: 700; color: var(--ink-2);
+  line-height: 1.45; margin-top: 3px;
+}
+
+/* Hecha. Se tacha el título pero NO el porqué: el porqué sigue explicando
+   para qué sirvió, y eso es lo que se quiere recordar la semana siguiente. */
+.imp-plan__t.is-hecha .imp-plan__n {
+  background: var(--green-soft); color: var(--green-dark);
+}
+.imp-plan__t.is-hecha .imp-plan__q {
+  text-decoration: line-through;
+  color: var(--ink-3);
+}
+
+/* ------------------------- El material generado -------------------------
+
+   `pre-line` porque el texto lleva sus saltos escritos dentro y se pinta con
+   `text:`, que es textContent. `user-select` explícito porque en algunos
+   navegadores móviles un bloque dentro de una tarjeta con `cursor:pointer`
+   heredado deja de poder seleccionarse, y aquí seleccionar a mano es la
+   segunda forma de copiar. */
+
+.imp-mat {
+  background: var(--card-2);
+  border: 2px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--s3);
+  font-size: var(--fs-sm); font-weight: 700; color: var(--ink);
+  line-height: 1.6; text-align: left;
+  white-space: pre-line;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ------------------------- La marca de quien lo tiene ------------------------- */
+
+.imp-sel {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: linear-gradient(135deg, var(--gold), var(--brand-2));
+  color: #3A2313;
+  border-radius: var(--r-full);
+  padding: 3px 9px;
+  font-size: var(--fs-xs); font-weight: 900; letter-spacing: .2px;
+  /* El texto va sobre un degradado fijo que no cambia con el tema: el color
+     se escribe a mano y no se hereda, o en modo oscuro quedaría claro sobre
+     claro. */
+  text-transform: none;
+}

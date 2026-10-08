@@ -51,6 +51,30 @@
       el('span', { style: { flex: 'none', fontSize: '18px' }, text: '›' })
     ]));
 
+    /* La puerta al material listo. Va delante de compartir y de la Plaza
+       porque es lo que más se usa: aquello es para enseñar lo que ya hiciste,
+       esto es para hacerlo.
+
+       Solo con Impulso, y `MaterialesScreen.hay()` es la única comprobación
+       —la misma que usa la pantalla— para que no haya dos sitios que puedan
+       decir cosas distintas. A quien no lo tiene no se le pinta una puerta
+       cerrada: la invitación vive en la Ruta, en su sitio. */
+    if (w.MaterialesScreen && w.MaterialesScreen.hay()) {
+      root.appendChild(el('button', {
+        class: 'card card--tight', type: 'button',
+        style: { display: 'flex', gap: '10px', alignItems: 'center', textAlign: 'left', width: '100%' },
+        onclick: function () { w.Sound.tap(); UI.Router.go('materiales'); }
+      }, [
+        el('span', { style: { fontSize: '22px', flex: 'none' }, text: '✍️' }),
+        el('span', { class: 'grow', style: { minWidth: '0' } }, [
+          el('span', { class: 'small', style: { display: 'block', fontWeight: '900' }, text: 'Material listo para usar' }),
+          el('span', { class: 'tiny', style: { display: 'block', textTransform: 'none', letterSpacing: '0' },
+            text: 'Tu publicación, tu mensaje de venta, tu cotización' })
+        ]),
+        el('span', { style: { flex: 'none', fontSize: '18px' }, text: '›' })
+      ]));
+    }
+
     /* La puerta permanente a compartir un avance. El ofrecimiento automático
        sale una vez y quien dice «ahora no» no debería perder los diseños para
        siempre. Solo se pinta si de verdad hay algo publicable: una entrada que
