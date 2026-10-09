@@ -120,6 +120,12 @@ html[data-theme="dark"] .stage__glow { opacity: .3; }
 /* ------------------------- Viewport ------------------------- */
 
 .viewport {
+  /* La fila del medio, la de 1fr, siempre. Sin esto, en una lección —con la
+     barra de arriba en display:none— la colocación automática del grid la
+     subía a la primera fila, la de `auto`, que mide lo que mide el contenido:
+     en una pantalla corta, «Continuar» quedaba a media altura con un hueco
+     vacío debajo. */
+  grid-row: 2;
   position: relative;
   min-width: 0;
   min-height: 0;
