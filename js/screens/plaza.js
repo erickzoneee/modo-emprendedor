@@ -143,7 +143,7 @@
       el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
         el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg('explicando') }),
         el('div', { class: 'speech' }, [
-          el('div', { class: 'small', text: 'Te mando un enlace. Con eso entras, sin contraseñas.' })
+          el('div', { class: 'small', text: 'Te mando un código a tu correo. Con eso entras, sin contraseñas.' })
         ])
       ]),
       input,
@@ -165,7 +165,7 @@
         href: 'privacidad.html', target: '_blank', rel: 'noopener',
         text: 'Ver el aviso de privacidad'
       }),
-      UI.btn('Mándame el enlace', { variant: 'brand', size: 'lg', onClick: function () {
+      UI.btn('Mándame el código', { variant: 'brand', size: 'lg', onClick: function () {
         var correo = (input.value || '').trim();
         if (correo.indexOf('@') < 1 || correo.indexOf('.') < 0 || correo.length < 6) {
           aviso.style.display = '';
@@ -176,8 +176,7 @@
         UI.toast('Mandando…', 'blue', '📣');
         w.PlazaNube.entrar(correo, true).then(function (r) {
           if (r && r.ok) {
-            revisaTuCorreo(correo);
-            if (typeof alEntrar === 'function') alEntrar();
+            setTimeout(function () { pedirCodigo(correo, alEntrar); }, 320);
           } else {
             UI.toast(w.PlazaNube.excusa(r), 'red', '🕯️');
           }
@@ -187,21 +186,125 @@
     ]);
   }
 
-  function revisaTuCorreo(correo) {
-    UI.queueModal(function () {
-      UI.modal([
-        el('div', { class: 'col', style: { alignItems: 'center', gap: '10px', textAlign: 'center' } }, [
-          el('div', { class: 'mascot mascot--lg is-happy', html: w.Mascot.svg('happy', { plano: true }) }),
-          el('h2', { class: 'h3', text: 'Te mandé un enlace' }),
-          el('div', { class: 'small', text: 'Míralo en ' + correo + '. Con tocarlo, entras.' }),
-          /* Se dice lo del spam porque el dominio es nuevo y de verdad pasa.
-             Callarlo es dejar a alguien pensando que la app no funciona. */
-          el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0' },
-            text: 'Si no aparece en unos minutos, mira en spam. El correo caduca en 15 minutos.' })
-        ]),
-        UI.btn('Entendido', { variant: 'brand', onClick: UI.closeModal })
-      ]);
+  /* ==================================================================
+     EL CÓDIGO DEL CORREO
+
+     La forma de entrar que funciona en todas partes. El enlace abre el
+     navegador, y en la app de iPhone —o en la web instalada en un iPhone,
+     que guarda en otro sitio que Safari— la sesión se quedaba donde no
+     estaba la persona. Seis números escritos a mano acaban justo aquí.
+
+     Es UN campo de verdad, transparente, encima de seis cajas pintadas. Con
+     seis campos separados se rompen pegar, borrar hacia atrás y la
+     sugerencia que el iPhone pone encima del teclado al ver un código en
+     Mail (`autocomplete="one-time-code"`).
+     ================================================================== */
+
+  function pedirCodigo(correo, alEntrar) {
+    var cajas = [];
+    for (var i = 0; i < 6; i++) cajas.push(el('span', { class: 'cod__caja' }));
+
+    var campo = el('input', {
+      class: 'cod__campo', type: 'text', inputmode: 'numeric', maxlength: '7',
+      autocomplete: 'one-time-code', 'aria-label': 'Código de seis números'
     });
+    var caja = el('div', { class: 'cod' }, cajas.concat([campo]));
+
+    var AVISO = 'Si no aparece en unos minutos, mira en spam. Caduca en 15 minutos.';
+    var aviso = el('div', { class: 'tiny cod__aviso', text: AVISO });
+    var mandando = false;
+
+    function pinta() {
+      var v = campo.value.replace(/\D/g, '').slice(0, 6);
+      if (campo.value !== v) campo.value = v;
+      caja.classList.remove('is-mal');
+      cajas.forEach(function (c, i) {
+        c.textContent = v[i] || '';
+        c.classList.toggle('is-lleno', i < v.length);
+        c.classList.toggle('is-actual', i === Math.min(v.length, 5) && d.activeElement === campo);
+      });
+      if (v.length < 6) {
+        aviso.textContent = AVISO;
+        aviso.classList.remove('is-mal');
+        return;
+      }
+      if (!mandando) canjear(v);
+    }
+
+    function canjear(v) {
+      mandando = true;
+      campo.blur();
+      w.PlazaNube.codigo(correo, v, true).then(function (r) {
+        mandando = false;
+        if (r && r.ok) {
+          caja.classList.add('is-bien');
+          setTimeout(function () { UI.closeSheet(); yaDentro(alEntrar); }, 380);
+          return;
+        }
+        w.Sound.wrong();
+        void caja.offsetWidth;            // para que la sacudida se repita
+        caja.classList.add('is-mal');
+        aviso.textContent = w.PlazaNube.excusa(r);
+        aviso.classList.add('is-mal');
+        /* Gastado o caducado: no tiene sentido seguir escribiendo en este. Se
+           manda otro al momento, que es lo que la frase acaba de prometer. */
+        if (r && r.error === 'codigo-viejo') otraVez(true);
+        else { campo.value = ''; setTimeout(function () { campo.focus(); }, 60); }
+      });
+    }
+
+    function otraVez(callado) {
+      w.PlazaNube.entrar(correo, true).then(function (r) {
+        campo.value = '';
+        pinta();
+        if (!callado) UI.toast(r && r.ok ? 'Te mandé otro' : w.PlazaNube.excusa(r),
+          r && r.ok ? 'blue' : 'red', '📣');
+      });
+    }
+
+    campo.addEventListener('input', pinta);
+    campo.addEventListener('focus', pinta);
+    campo.addEventListener('blur', pinta);
+
+    UI.sheet([
+      el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+        el('div', { class: 'mascot mascot--sm', html: w.Mascot.svg('happy', { plano: true }) }),
+        el('div', { class: 'speech' }, [
+          el('div', { class: 'small', text: 'Te lo mandé a ' + correo + '. Son seis números.' })
+        ])
+      ]),
+      caja,
+      /* Se dice lo del spam porque el dominio es nuevo y de verdad pasa.
+         Callarlo es dejar a alguien pensando que la app no funciona. */
+      aviso,
+      el('div', { class: 'row', style: { justifyContent: 'center', gap: '6px' } }, [
+        UI.btn('Mándamelo otra vez', { variant: 'flat', size: 'sm', block: false,
+          onClick: function () { otraVez(false); } }),
+        UI.btn('Cambiar de correo', { variant: 'flat', size: 'sm', block: false,
+          onClick: function () {
+            UI.closeSheet();
+            setTimeout(function () { conectar(alEntrar); }, 320);
+          } })
+      ])
+    ]);
+    pinta();
+    setTimeout(function () { try { campo.focus(); } catch (e) {} }, 420);
+  }
+
+  /** Lo que pasa al entrar, venga del enlace o del código. */
+  function yaDentro(alEntrar) {
+    w.Sound.coin();
+    UI.toast('Ya estás dentro', 'green', '🤝');
+    /* Si ya tenía puesto aprobado, se publica solo: aprobarlo fue su
+       decisión y no hay que volver a pedírsela por haber cambiado de
+       teléfono. */
+    var v = P().vitrina();
+    if (v) w.PlazaNube.publicar(v);
+    /* Con cuenta, Impulso puede ser otro: el de esa cuenta, o —en el
+       iPhone— la compra de Apple, que ahora se ata a ella. */
+    if (w.Impulso) w.Impulso.refrescar(true);
+    if (typeof alEntrar === 'function') alEntrar();
+    else UI.Router.go('plaza');
   }
 
   /**
@@ -225,14 +328,7 @@
     UI.toast('Entrando…', 'blue', '🕯️');
     w.PlazaNube.confirmar(token, true).then(function (r) {
       if (r && r.ok) {
-        w.Sound.coin();
-        UI.toast('Ya estás dentro', 'green', '🤝');
-        /* Si ya tenía puesto aprobado, se publica solo: aprobarlo fue su
-           decisión y no hay que volver a pedírsela por haber cambiado de
-           teléfono. */
-        var v = P().vitrina();
-        if (v) w.PlazaNube.publicar(v);
-        UI.Router.go('plaza');
+        yaDentro();
       } else {
         UI.toast(w.PlazaNube.excusa(r), 'red', '🕯️');
       }

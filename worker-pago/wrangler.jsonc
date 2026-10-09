@@ -71,7 +71,25 @@
     //
     // Igual que en la Plaza, NO se pone localhost: aquí la sesión viaja
     // dentro del cuerpo. Para desarrollo, `wrangler dev`.
-    "ORIGENES": "https://app.emprendo.life,https://erickzoneee.github.io/modo-emprendedor"
+    //
+    // `capacitor://localhost` es la app de iPhone. Ningún navegador sirve una
+    // web con ese esquema; solo lo produce la WebView de una app nativa.
+    "ORIGENES": "https://app.emprendo.life,https://erickzoneee.github.io/modo-emprendedor,capacitor://localhost",
+
+    // EL COBRO DE APPLE (la app de iPhone). Lo público va aquí; la llave, como
+    // secreto. Las tres salen de App Store Connect › Usuarios y acceso ›
+    // Integraciones › Compras dentro de la app (In-App Purchase):
+    //
+    //   npx wrangler secret put APPLE_IAP_KEY     -> el contenido entero del .p8
+    //   npx wrangler secret put APPLE_IAP_KEY_ID  -> el ID de esa llave
+    //   npx wrangler secret put APPLE_ISSUER_ID   -> el Issuer ID de arriba de la lista
+    //
+    // Sin las tres, la operación `apple` responde «todavía no está abierto» y
+    // la ruta /apple, 503. Los avisos de Apple (App Store Server
+    // Notifications, versión 2) apuntan a https://pago.emprendo.life/apple,
+    // tanto el de producción como el de pruebas.
+    "APPLE_BUNDLE": "life.emprendo.app",
+    "APPLE_PRODUCTO": "life.emprendo.app.impulso.mensual"
   },
 
   // Encendida. Es lo único que va a contar qué pasó cuando un cobro falle, y

@@ -311,6 +311,73 @@
     ]);
   }
 
+  /* ------------------------- La cuenta -------------------------
+
+     Solo existe si entró con su correo: sin cuenta no hay nada que borrar
+     ni de dónde salir, y enseñar la tarjeta sería hablarle de algo que no
+     tiene. Con cuenta, las dos salidas, a la vista y sin rodeos. Borrar está
+     prometido en el aviso de privacidad y Apple lo exige a toda app que deje
+     crear una cuenta; esconderlo detrás de un correo sería cumplir de palabra.
+
+     Si lo que paga lo cobra Apple, borrar no lo cancela —solo la persona
+     puede, en sus suscripciones— y eso se dice ANTES, con el botón a mano. */
+
+  function cuentaCard() {
+    if (!w.PlazaNube || !w.PlazaNube.hay() || !w.Plaza || !w.Plaza.conectado()) return null;
+
+    return el('div', { class: 'card card--tight' }, [
+      el('div', { class: 'small', style: { fontWeight: '900' }, text: 'Tu cuenta' }),
+      el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', marginTop: '3px' },
+        text: 'Entraste con tu correo. Es lo que te lleva a la Plaza y te sigue si cambias de teléfono.' }),
+      el('div', { class: 'row', style: { gap: '6px', marginTop: '8px', flexWrap: 'wrap' } }, [
+        UI.btn('Salir', { variant: 'flat', size: 'sm', block: false, onClick: function () {
+          w.PlazaNube.salir().then(function () {
+            UI.toast('Saliste de tu cuenta', 'blue', '👋');
+            UI.Router.refresh();
+          });
+        } }),
+        UI.btn('Borrar mi cuenta', { variant: 'flat', size: 'sm', block: false, onClick: borrarCuenta })
+      ])
+    ]);
+  }
+
+  function borrarCuenta() {
+    if (w.Impulso && w.Impulso.activo() && w.Impulso.origen() === 'apple') {
+      UI.modal([
+        el('div', { class: 'mascot mascot--lg', style: { margin: '0 auto' }, html: w.Mascot.svg('think') }),
+        el('h3', { class: 'h3', text: 'Antes de irte: tu Impulso' }),
+        el('p', { class: 'p', text: 'Lo cobra Apple, y borrar tu cuenta no lo cancela. Cancélalo en tus suscripciones y luego vuelve aquí.' }),
+        UI.btn('Abrir mis suscripciones', { variant: 'brand', onClick: function () { w.Impulso.gestionarApple(); } }),
+        UI.btn('Ya lo cancelé, borra mi cuenta', { variant: 'ghost', onClick: function () {
+          UI.closeModal();
+          setTimeout(confirmarBorrado, 320);
+        } }),
+        UI.btn('Mejor no', { variant: 'flat', onClick: UI.closeModal })
+      ]);
+      return;
+    }
+    confirmarBorrado();
+  }
+
+  function confirmarBorrado() {
+    UI.confirm({
+      title: '¿Borro tu cuenta?',
+      text: 'Se van tu puesto, tus conversaciones y todo lo de la Plaza. Tu ruta y tu progreso se quedan en este teléfono. **No se puede deshacer.**',
+      ok: 'Sí, borrar mi cuenta', danger: true, mood: 'sad'
+    }).then(function (si) {
+      if (!si) return;
+      UI.toast('Borrando…', 'blue', '🕯️');
+      w.PlazaNube.borrarme().then(function (r) {
+        if (r && r.ok) {
+          UI.toast('Listo. Tu cuenta ya no existe.', 'green', '👋', 3400);
+          UI.Router.refresh();
+        } else {
+          UI.toast(w.PlazaNube.excusa(r), 'red', '🕯️', 4200);
+        }
+      });
+    });
+  }
+
   /* ------------------------- Anuncios -------------------------
 
      Solo aparece si hay red configurada y si esta persona ya contestó. Con
@@ -344,6 +411,7 @@
       puede llegar después de que esta pantalla ya se haya dibujado. */
   function installCard() {
     if (w.App.isStandalone()) return null;      // ya está instalada
+    if (w.Nativo && w.Nativo.es) return null;   // es la app de la App Store
     installBox = el('div');
     if (!installHooked) {
       installHooked = true;
@@ -1127,6 +1195,9 @@
     // la cuenta, no un ajuste que se toca todos los días.
     var imp = impulsoCard();
     if (imp) col.appendChild(imp);
+
+    var cuenta = cuentaCard();
+    if (cuenta) col.appendChild(cuenta);
 
     // Anuncios: solo se enseña el interruptor si de verdad hay anuncios.
     var anun = anunciosCard();

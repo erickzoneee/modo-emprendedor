@@ -1,0 +1,5 @@
+# El proyecto de Xcode se genera y se edita desde Windows y se compila en una
+# Mac de GitHub. Con CRLF, el .pbxproj y los .plist siguen abriendo, pero los
+# scripts de compilación de Xcode no: se fuerza LF en todo ios/.
+ios/** text eol=lf
+*.sh text eol=lf

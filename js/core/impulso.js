@@ -211,20 +211,87 @@
     return (w.BRAND && w.BRAND.dominios && w.BRAND.dominios.pago) || '';
   }
 
-  /** ¿Existe Impulso? Hacen falta las dos mitades: el servidor que cobra y
-      la llave con la que se comprueba lo que firma. Con una sola, la app
-      enseñaría un precio que no lleva a ningún sitio. */
-  function disponible() {
+  /** ¿Puede existir un pase? Hacen falta las dos mitades: el servidor que
+      firma y la llave con la que se comprueba lo que firma. */
+  function existe() {
     return !!url() && LLAVES.length > 0;
   }
 
-  function pide(op, datos) {
-    if (!disponible()) return Promise.resolve({ error: 'sin-servidor' });
+  /* ==================================================================
+     APPLE
 
-    var s = (w.Plaza && w.Plaza.sesion) ? w.Plaza.sesion() : '';
-    if (!s) return Promise.resolve({ error: 'sin-sesion' });
+     En la app de iPhone se cobra con Apple: Apple no deja otro cobro para
+     algo digital. La compra la hace StoreKit; este archivo solo le pasa al
+     Worker el número de compra, y el Worker se lo pregunta a Apple y firma el
+     MISMO pase de siempre. Lo que viene después —verificar, guardar,
+     `activo()`— no sabe de dónde salió el dinero.
 
-    var cuerpo = { op: op, sesion: s };
+     Sin correo: Apple no deja pedir una cuenta antes de comprar algo que no
+     vive en la cuenta (regla 5.1.1). Si hay sesión, la compra se ata a ella;
+     si no, el pase sale a nombre de la compra.
+     ================================================================== */
+
+  function compras() {
+    return (w.Nativo && w.Nativo.es) ? w.Nativo.plugin('NativePurchases') : null;
+  }
+
+  function producto() {
+    return (w.CONFIG && w.CONFIG.IMPULSO && w.CONFIG.IMPULSO.productoApple) || '';
+  }
+
+  /** ¿Se puede comprar AQUÍ? En el iPhone, con Apple. En la web, con Stripe,
+      y solo cuando Stripe esté montado: hasta entonces no se enseña un precio
+      que no lleva a ningún sitio. */
+  function disponible() {
+    if (!existe()) return false;
+    if (compras()) return !!producto();
+    return !!(w.CONFIG && w.CONFIG.IMPULSO && w.CONFIG.IMPULSO.cobroWeb);
+  }
+
+  var precioApple = '';
+
+  /** El precio tal como lo pone Apple, en la moneda de quien mira: «$99.00».
+      Vacío mientras no ha llegado. Apple exige que el precio que se enseña
+      sea ese, y no uno escrito a mano. */
+  function precio() { return precioApple; }
+
+  function cargarPrecio() {
+    var NP = compras();
+    if (!NP || !producto()) return Promise.resolve('');
+    return NP.getProducts({ productIdentifiers: [producto()], productType: 'subs' }).then(function (r) {
+      var p = r && r.products && r.products[0];
+      precioApple = (p && p.priceString) || '';
+      return precioApple;
+    }).catch(function () { return ''; });
+  }
+
+  /** La compra viva de Impulso en el Apple ID de este iPhone: su número, null
+      si NO hay ninguna, o undefined si no se pudo saber. Las dos últimas no
+      son lo mismo: sin saber no se le quita nada a nadie. */
+  function compraApple() {
+    var NP = compras();
+    if (!NP) return Promise.resolve(undefined);
+    return NP.getPurchases({ onlyCurrentEntitlements: true }).then(function (r) {
+      var l = (r && r.purchases) || [];
+      for (var i = 0; i < l.length; i++) {
+        if (l[i].productIdentifier === producto() && !l[i].revocationDate) return String(l[i].transactionId);
+      }
+      return null;
+    }).catch(function () { return undefined; });
+  }
+
+  function sesion() {
+    return (w.Plaza && w.Plaza.sesion) ? (w.Plaza.sesion() || '') : '';
+  }
+
+  function pide(op, datos, sesionOpcional) {
+    if (!existe()) return Promise.resolve({ error: 'sin-servidor' });
+
+    var s = sesion();
+    if (!s && !sesionOpcional) return Promise.resolve({ error: 'sin-sesion' });
+
+    var cuerpo = { op: op };
+    if (s) cuerpo.sesion = s;
     for (var k in (datos || {})) {
       if (Object.prototype.hasOwnProperty.call(datos, k)) cuerpo[k] = datos[k];
     }
@@ -292,26 +359,45 @@
        no es lo mismo que no tener Impulso. Quien está sin conexión sigue
        teniéndolo hasta que su pase caduque, y quien llame a esto esperando un
        sí o un no tiene que recibir el estado de verdad. */
-    if (!disponible()) return Promise.resolve(activo());
-    if (!w.Plaza || !w.Plaza.sesion || !w.Plaza.sesion()) return Promise.resolve(activo());
+    if (!existe()) return Promise.resolve(activo());
 
     if (!forzar && verificado && verificado.e && (Date.now() - verificado.e) < REFRESCO) {
       return Promise.resolve(activo());
     }
 
-    return pide('pase', {}).then(function (r) {
-      if (!r || !r.ok || !r.pase) return activo();
+    /* En el iPhone, lo primero es preguntarle a StoreKit: es quien sabe si
+       este Apple ID tiene Impulso, con cuenta o sin ella. */
+    if (compras()) {
+      return compraApple().then(function (tx) {
+        if (tx) return pedirPase('apple', { transaccion: tx }).then(function () { return activo(); });
+        /* Ya no hay compra en este Apple ID. Un pase que salió de Apple y no
+           de una cuenta no tiene a quién más preguntarle: se acabó. */
+        if (tx === null && verificado && verificado.o === 'apple' && !sesion()) olvidar();
+        if (!sesion()) return activo();
+        return pedirPase('pase', {}).then(function () { return activo(); });
+      });
+    }
+
+    if (!sesion()) return Promise.resolve(activo());
+    return pedirPase('pase', {}).then(function () { return activo(); });
+  }
+
+  /** Pide un pase al Worker, lo verifica y lo guarda. Devuelve la respuesta
+      del Worker, para quien necesite saber por qué no llegó. */
+  function pedirPase(op, datos) {
+    return pide(op, datos, op === 'apple').then(function (r) {
+      if (!r || !r.ok || !r.pase) return r || { error: 'fallo' };
       /* Se verifica ANTES de guardarlo. Si algún día el servidor devolviera
          algo que no cuadra —una llave rotada a medias, por ejemplo—, es
          mejor quedarse con el pase viejo que sigue siendo válido que
          guardar uno que no verifica y dejar a alguien sin Impulso. */
       return verificar(r.pase).then(function (datos) {
-        if (!datos) return activo();
+        if (!datos) return { error: 'fallo' };
         var antes = activo();
         guardarPase(r.pase);
         verificado = (datos.p === 'impulso') ? datos : false;
         anunciar(antes);
-        return activo();
+        return r;
       });
     });
   }
@@ -320,6 +406,14 @@
       toca, pide uno nuevo. Las dos cosas son silenciosas: si fallan, la app
       se comporta como gratis, que es el estado seguro. */
   function arrancar() {
+    var NP = compras();
+    if (NP) {
+      cargarPrecio();
+      /* Compras que llegan sin pasar por el botón: una renovación, un «pedir
+         permiso para comprar» que un padre aprueba horas después, una oferta
+         canjeada en la App Store. */
+      try { NP.addListener('transactionUpdated', function () { refrescar(true); }); } catch (e) {}
+    }
     return comprobar().then(function () {
       return refrescar(false);
     }).catch(function () { return activo(); });
@@ -356,6 +450,10 @@
       instante en que todavía no se ha verificado nada. */
   function sabido() { return verificado !== null; }
 
+  /** Quién cobra lo que tiene: 'apple', 'web' o ''. De eso depende dónde se
+      gestiona y si borrar la cuenta puede cancelarlo. */
+  function origen() { return activo() ? String(verificado.o || '') : ''; }
+
   /* ==================================================================
      COMPRAR, GESTIONAR Y CANCELAR
      ================================================================== */
@@ -369,6 +467,53 @@
    * nueva, y al recuperar el foco se pide el pase otra vez.
    */
   function comprar() { return pide('checkout', {}); }
+
+  /**
+   * Compra con Apple, en el iPhone. Devuelve { ok } cuando el pase ya está
+   * guardado y dice 'impulso', o { error } con lo que pasó:
+   *   'cancelado'  cerró la hoja de Apple. No es un fallo.
+   *   'pendiente'  «pedir permiso para comprar»: llega cuando lo aprueben.
+   *   'sin-confirmar'  Apple cobró pero no se pudo confirmar aquí todavía.
+   *                Se confirma solo en el siguiente arranque con red.
+   */
+  function comprarApple() {
+    var NP = compras();
+    if (!NP) return Promise.resolve({ error: 'sin-servidor' });
+    return NP.purchaseProduct({ productIdentifier: producto(), productType: 'subs' }).then(function (tx) {
+      if (!tx || !tx.transactionId) return { error: 'pendiente' };
+      return pedirPase('apple', { transaccion: String(tx.transactionId) }).then(function (r) {
+        if (activo()) return { ok: true };
+        /* Apple ya cobró. Lo que haya fallado es de este lado —la red, el
+           Worker—, así que no se dice «no se pudo»: se dice que llega. */
+        return { error: 'sin-confirmar' };
+      });
+    }, function (e) {
+      var m = String((e && (e.message || e.code)) || e || '');
+      if (/cancel/i.test(m)) return { error: 'cancelado' };
+      if (/pend|defer/i.test(m)) return { error: 'pendiente' };
+      return { error: 'apple' };
+    });
+  }
+
+  /** «Ya lo tenía»: le pide a Apple que sincronice las compras de este Apple
+      ID y vuelve a pedir el pase. Apple exige que este botón exista. */
+  function restaurar() {
+    var NP = compras();
+    if (!NP) return Promise.resolve(activo());
+    return NP.restorePurchases().catch(function () {}).then(function () { return refrescar(true); });
+  }
+
+  /** Donde se cambia o se cancela lo que cobra Apple: su propia hoja dentro
+      de la app en el iPhone, su página en cualquier otro sitio. */
+  function gestionarApple() {
+    var NP = compras();
+    if (NP) return NP.manageSubscriptions().catch(function () {
+      return w.Nativo.abrir('https://apps.apple.com/account/subscriptions');
+    });
+    if (w.Nativo) return w.Nativo.abrir('https://apps.apple.com/account/subscriptions');
+    w.open('https://apps.apple.com/account/subscriptions', '_blank', 'noopener');
+    return Promise.resolve();
+  }
 
   /** La página de Stripe donde se cancela, se cambia la tarjeta y se ven los
       recibos. Escribir eso aquí sería reimplementar una facturación entera
@@ -386,6 +531,9 @@
    * falla no se borra nada.
    */
   function cancelarAntesDeBorrar() {
+    /* Lo que cobra Apple no se cancela desde aquí. La pantalla de borrar ya
+       se lo dijo a la persona y le dio el botón; no hay nada más que hacer. */
+    if (origen() === 'apple') return Promise.resolve({ ok: true, apple: true });
     return pide('cancelar', {}).then(function (r) {
       if (r && r.ok) olvidar();
       return r;
@@ -407,7 +555,10 @@
     'ya-tiene':     'Ya tienes Impulso.',
     'sin-pago':     'Todavía no hay ningún cobro que gestionar.',
     'limite':       'Vas muy rápido. Espera un momento.',
-    'sin-base':     'Esto no está disponible ahora mismo.'
+    'sin-base':     'Esto no está disponible ahora mismo.',
+    'pendiente':    'Tu compra está esperando permiso. Te aviso en cuanto llegue.',
+    'sin-confirmar': 'Ya quedó pagado. En cuanto haya conexión, lo activo.',
+    'apple':        'Apple no pudo terminar la compra. No se te cobró nada.'
   };
 
   function excusa(r) {
@@ -420,11 +571,18 @@
     activo: activo,
     hasta: hasta,
     sabido: sabido,
+    origen: origen,
+    existe: existe,
     disponible: disponible,
+    conApple: function () { return !!compras(); },
+    precio: precio,
     arrancar: arrancar,
     refrescar: refrescar,
     olvidar: olvidar,
     comprar: comprar,
+    comprarApple: comprarApple,
+    restaurar: restaurar,
+    gestionarApple: gestionarApple,
     portal: portal,
     cancelarAntesDeBorrar: cancelarAntesDeBorrar,
     alCambiar: alCambiar,

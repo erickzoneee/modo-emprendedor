@@ -232,3 +232,23 @@
      claro. */
   text-transform: none;
 }
+
+/* ------------------------- Lo que Apple pide que se lea -------------------------
+
+   Solo en la app de iPhone. Apple exige que el cobro diga quién lo hace, que
+   se renueva y cómo se cancela, con los términos y la privacidad a un toque, y
+   una forma de recuperar lo que ya se pagó. Va debajo de los botones, en voz
+   de Chispa y pequeño, pero entero: no es letra pequeña escondida, es la
+   verdad dicha corta. */
+
+.imp-apple {
+  display: flex; flex-direction: column; gap: 8px;
+  text-align: center;
+  font-size: var(--fs-xs); font-weight: 700; color: var(--ink-2); line-height: 1.5;
+}
+.imp-apple__links { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 14px; }
+.imp-apple__links a,
+.imp-apple__links button {
+  color: var(--brand); font-weight: 800; text-decoration: none;
+  background: none; border: 0; padding: 0; font: inherit; cursor: pointer;
+}

@@ -141,6 +141,21 @@
   /** Vibración háptica (móvil). */
   Sound.buzz = function (pattern) {
     if (!w.Store || !w.Store.state.settings.haptics) return;
+    /* En la app de iPhone, el motor de vibración de verdad. Safari no tiene
+       navigator.vibrate, así que hasta ahora en el iPhone esto no hacía nada.
+       Un patrón largo o con pausas es un error o un aviso; uno corto, un
+       toque. */
+    var Haptics = w.Nativo && w.Nativo.plugin('Haptics');
+    if (Haptics) {
+      var largo = Array.isArray(pattern) ? pattern.length > 1 : Number(pattern) > 60;
+      try {
+        var p = largo
+          ? Haptics.notification({ type: 'WARNING' })
+          : Haptics.impact({ style: Number(pattern) > 25 ? 'MEDIUM' : 'LIGHT' });
+        if (p && p.catch) p.catch(function () {});
+      } catch (e) {}
+      return;
+    }
     if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
   };
 

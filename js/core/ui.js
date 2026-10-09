@@ -470,6 +470,14 @@
   }
 
   function download(filename, text) {
+    /* Dentro de la app de iPhone un <a download> no hace nada, ni siquiera
+       fallar. Sale por la hoja de compartir: «Guardar en Archivos» está ahí. */
+    if (w.Nativo && w.Nativo.es) {
+      w.Nativo.guardar(filename, text).then(function (r) {
+        if (r === 'fallo') toast('No pude guardarlo. Prueba a copiarlo.', 'red', '📄');
+      });
+      return;
+    }
     var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     var a = d.createElement('a');
     a.href = URL.createObjectURL(blob);

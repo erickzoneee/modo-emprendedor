@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Lo que Apple llama "manifiesto de privacidad". Desde mayo de 2024 una app que
+  usa ciertas funciones del sistema tiene que decir para qué, o App Store
+  Connect rechaza el paquete al subirlo.
+
+  - No rastrea a nadie ni recoge datos desde el código nativo. Lo que la app
+    manda a sus servidores (la Plaza, la IA) se declara en App Store Connect,
+    en las respuestas de privacidad: no aquí.
+  - @capacitor/filesystem lee la fecha de los archivos que escribe en su propia
+    caché (el respaldo y las imágenes que se comparten). Eso es C617.1: fechas
+    de archivos dentro del contenedor de la app.
+  Capacitor trae su propio manifiesto para lo suyo.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

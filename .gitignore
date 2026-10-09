@@ -1,6 +1,10 @@
-# Dependencias (la app no usa ninguna, pero por si acaso)
+# Dependencias. La web no usa ninguna; package.json es solo para armar la app
+# de iPhone. package-lock.json SÍ va al repositorio: la compilación en la nube
+# hace npm ci, y sin él cada compilación podría traer versiones distintas.
 node_modules/
-package-lock.json
+
+# Lo que arma tools/armar-www.js. Se regenera en cada compilación.
+www/
 
 # Sistema
 .DS_Store

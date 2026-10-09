@@ -343,6 +343,145 @@ async function correr() {
     }
   }
 
+  /* ------------------------------------------ el código de seis números --
+
+     La puerta de la app de iPhone. Seis números se adivinan, así que lo que
+     se prueba aquí es sobre todo que NO se dejen adivinar. */
+  {
+    const codigoDe = m => (String(m.subject).match(/^(\d{6}) /) || [])[1];
+
+    const db = baseNueva();
+    const env = entornoNuevo(db);
+    correosMandados.length = 0;
+    await llama(worker, env, { op: 'entrar', correo: 'k@b.com' });
+    const correo = correosMandados[0];
+    const cod = codigoDe(correo);
+    comprueba('el correo lleva el código en el asunto', /^\d{6}$/.test(cod || ''), correo.subject);
+    comprueba('y en el cuerpo, separado en dos para leerlo',
+      cod && correo.text.indexOf(cod.slice(0, 3) + ' ' + cod.slice(3)) >= 0, correo.text.slice(0, 120));
+
+    const filas = db.prepare('SELECT codigo_hash FROM enlace').all();
+    comprueba('el código no se guarda en claro',
+      filas.length === 1 && filas[0].codigo_hash && filas[0].codigo_hash.indexOf(cod) < 0);
+
+    const otro = await llama(worker, env, { op: 'codigo', correo: 'otra@b.com', codigo: cod });
+    comprueba('el código de un correo no abre otro', !otro.ok, JSON.stringify(otro));
+
+    const bueno = await llama(worker, env, { op: 'codigo', correo: 'K@b.com', codigo: cod.slice(0, 3) + ' ' + cod.slice(3), edadOk: true });
+    comprueba('el código bueno abre sesión (con espacio y mayúsculas en el correo)',
+      bueno.ok === true && typeof bueno.sesion === 'string' && bueno.sesion.length > 20, JSON.stringify(bueno));
+
+    const otraVez = await llama(worker, env, { op: 'codigo', correo: 'k@b.com', codigo: cod });
+    comprueba('el código sirve una sola vez', !otraVez.ok, JSON.stringify(otraVez));
+
+    const token = decodeURIComponent(correo.text.match(/#plaza=([^\s]+)/)[1]);
+    const enlace = await llama(worker, env, { op: 'confirmar', token });
+    comprueba('canjear el código gasta también el enlace del mismo correo', !enlace.ok, JSON.stringify(enlace));
+
+    /* El enlace y el código del mismo correo llevan a la MISMA cuenta. */
+    correosMandados.length = 0;
+    await llama(worker, env, { op: 'entrar', correo: 'k@b.com' });
+    const t2 = decodeURIComponent(correosMandados[0].text.match(/#plaza=([^\s]+)/)[1]);
+    const porEnlace = await llama(worker, env, { op: 'confirmar', token: t2 });
+    comprueba('código y enlace llevan a la misma cuenta', porEnlace.id === bueno.id,
+      porEnlace.id + ' frente a ' + bueno.id);
+  }
+
+  {
+    const db = baseNueva();
+    const env = entornoNuevo(db);
+    correosMandados.length = 0;
+    await llama(worker, env, { op: 'entrar', correo: 'm@b.com' });
+    const cod = String(correosMandados[0].subject).slice(0, 6);
+    const malo = cod === '000000' ? '111111' : '000000';
+
+    const r1 = await llama(worker, env, { op: 'codigo', correo: 'm@b.com', codigo: malo });
+    comprueba('un código equivocado dice que no es', r1.error === 'codigo' && r1.status === 400, JSON.stringify(r1));
+
+    /* Treinta a la vez. Si el intento se sumara después de comparar, pasarían
+       todos la comprobación antes de que el primero sumara. */
+    await Promise.all(Array.from({ length: 30 }, () =>
+      llama(worker, env, { op: 'codigo', correo: 'm@b.com', codigo: malo })));
+    const fila = db.prepare('SELECT intentos FROM enlace').get();
+    comprueba('nunca se cuentan más de cinco intentos', fila.intentos === 5, 'intentos = ' + fila.intentos);
+
+    const tarde = await llama(worker, env, { op: 'codigo', correo: 'm@b.com', codigo: cod });
+    comprueba('tras cinco intentos, ni el código bueno sirve',
+      !tarde.ok && tarde.error === 'codigo-viejo', JSON.stringify(tarde));
+
+    for (const raro of [null, 123, [], {}, '12345', '1234567', 'abcdef']) {
+      const r = await llama(worker, env, { op: 'codigo', correo: 'm@b.com', codigo: raro });
+      comprueba('rechaza un código raro (' + JSON.stringify(raro) + ')', !r.ok && r.status === 400, JSON.stringify(r));
+    }
+  }
+
+  {
+    const db = baseNueva();
+    const env = entornoNuevo(db);
+    correosMandados.length = 0;
+    await llama(worker, env, { op: 'entrar', correo: 'n@b.com' });
+    const cod = String(correosMandados[0].subject).slice(0, 6);
+    db.prepare('UPDATE enlace SET caduca = ?').run(Date.now() - 1);
+    const r = await llama(worker, env, { op: 'codigo', correo: 'n@b.com', codigo: cod });
+    comprueba('un código caducado no sirve', !r.ok && r.error === 'codigo-viejo', JSON.stringify(r));
+  }
+
+  /* ------------------------------------ la cuenta del revisor de Apple -- */
+  {
+    const db = baseNueva();
+    const env = entornoNuevo(db, { REVISION_CORREO: 'Revision@Emprendo.life', REVISION_CODIGO: '246810' });
+    correosMandados.length = 0;
+    await llama(worker, env, { op: 'entrar', correo: 'revision@emprendo.life' });
+    comprueba('al correo del revisor no se le manda nada', correosMandados.length === 0);
+
+    const mal = await llama(worker, env, { op: 'codigo', correo: 'revision@emprendo.life', codigo: '111111' });
+    const bien = await llama(worker, env, { op: 'codigo', correo: 'revision@emprendo.life', codigo: '246810' });
+    comprueba('el revisor entra con su código fijo', !mal.ok && bien.ok === true, JSON.stringify(bien));
+
+    /* Y no se deja adivinar más deprisa que cualquier otro. */
+    await llama(worker, env, { op: 'entrar', correo: 'revision@emprendo.life' });
+    for (let i = 0; i < 5; i++) await llama(worker, env, { op: 'codigo', correo: 'revision@emprendo.life', codigo: '000000' });
+    const tarde = await llama(worker, env, { op: 'codigo', correo: 'revision@emprendo.life', codigo: '246810' });
+    comprueba('el código del revisor también se agota a los cinco intentos', !tarde.ok, JSON.stringify(tarde));
+
+    const sinSecreto = entornoNuevo(baseNueva(), { REVISION_CORREO: 'revision@emprendo.life', REVISION_CODIGO: 'abc' });
+    correosMandados.length = 0;
+    await llama(worker, sinSecreto, { op: 'entrar', correo: 'revision@emprendo.life' });
+    comprueba('con un código fijo mal puesto, es un correo más (se le manda el suyo)', correosMandados.length === 1);
+  }
+
+  /* ----------------------------------------------- la app de iPhone --
+
+     Su WebView manda `Origin: capacitor://localhost`. `new URL()` le da a
+     ese esquema el origen "null", así que con la comparación de antes la app
+     entera se quedaba en 403 sin que nada lo dijera. */
+  {
+    const NATIVO = 'capacitor://localhost';
+    const db = baseNueva();
+    const env = entornoNuevo(db, { ORIGENES: ORIGEN + ',' + BASE_CARPETA + ',' + NATIVO });
+
+    const res = await worker.fetch(peticion({ op: 'entrar', correo: 'p@b.com' }, NATIVO), env);
+    comprueba('la app de iPhone pasa la lista blanca', res.status === 200, 'devolvió ' + res.status);
+    comprueba('y el CORS le contesta con su origen exacto',
+      res.headers.get('Access-Control-Allow-Origin') === NATIVO,
+      String(res.headers.get('Access-Control-Allow-Origin')));
+
+    correosMandados.length = 0;
+    await llama(worker, env, { op: 'entrar', correo: 'p2@b.com' }, NATIVO);
+    comprueba('al iPhone le llega el código y ningún enlace',
+      /^\d{6} /.test(correosMandados[0].subject) &&
+      correosMandados[0].text.indexOf('#plaza=') < 0 &&
+      correosMandados[0].html.indexOf('#plaza=') < 0, correosMandados[0].text.slice(0, 160));
+
+    /* Un iframe con sandbox manda literalmente `Origin: null`. Que ninguna
+       entrada de la lista se convierta en esa cadena. */
+    const nulo = await llama(worker, env, { op: 'entrar', correo: 'q@b.com' }, 'null');
+    comprueba('el origen "null" sigue fuera', nulo.status === 403, 'devolvió ' + nulo.status);
+
+    const sinLista = await llama(worker, entornoNuevo(baseNueva()), { op: 'entrar', correo: 'r@b.com' }, NATIVO);
+    comprueba('sin estar en la lista, el iPhone tampoco entra', sinLista.status === 403, 'devolvió ' + sinLista.status);
+  }
+
   /* ------------------------------- REGLA 3 · lista blanca en el servidor -- */
   {
     const db = baseNueva();
