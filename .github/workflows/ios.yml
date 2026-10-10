@@ -1,0 +1,179 @@
+# ==========================================================================
+# LA APP DE IPHONE, COMPILADA EN UNA MAC DE GITHUB
+#
+# No hay Mac en este proyecto: la compilación y la subida a App Store Connect
+# pasan aquí. Dos trabajos:
+#
+#   compilar  Cada vez que cambia algo de la app, en cualquier rama. Compila para el
+#             simulador, sin firmar y sin secretos. Sirve para enterarse de
+#             que algo se rompió el mismo día y no el día de subir.
+#
+#   subir     Solo a mano: Actions › App de iPhone › Run workflow, con
+#             «Subir a TestFlight» marcado. Se puede lanzar desde la app de
+#             GitHub en el iPhone. Firma con el certificado de distribución y
+#             sube a App Store Connect; a los pocos minutos aparece en
+#             TestFlight.
+#
+# Los secretos que necesita `subir` (Settings › Secrets › Actions) los pone
+# tools/ios-certificado.sh, paso «secretos». Ver docs/app-store.md.
+#
+# macos-26 con Xcode 26.6: desde el 28 de abril de 2026 Apple solo acepta
+# apps compiladas con Xcode 26 y el SDK de iOS 26. Capacitor 8 también lo pide.
+# ==========================================================================
+name: App de iPhone
+
+# En main, solo a mano. El codigo de la app todavia vive en la rama ios:
+# al lanzarlo, elegir esa rama en «Use workflow from». Cuando ios se junte
+# con main, este archivo se reemplaza por el de ios, que compila en cada cambio.
+on:
+  workflow_dispatch:
+    inputs:
+      subir:
+        description: 'Subir a TestFlight'
+        type: boolean
+        default: true
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  XCODE: /Applications/Xcode_26.6.app
+
+jobs:
+  compilar:
+    if: github.event_name == 'push' || !inputs.subir
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo xcode-select -s "$XCODE"
+      - run: npm ci
+      - name: Comprobar el precache y armar www/
+        run: node tools/check-precache.js && npm run ios
+      - name: Compilar para el simulador, sin firmar
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGNING_ALLOWED=NO build | tail -40
+          test "${PIPESTATUS[0]}" -eq 0
+
+  subir:
+    if: github.event_name == 'workflow_dispatch' && inputs.subir
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo xcode-select -s "$XCODE"
+      - run: npm ci
+      - name: Armar www/ y sincronizar
+        run: node tools/check-precache.js && npm run ios
+
+      - name: Comprobar que están los secretos
+        env:
+          IOS_P12: ${{ secrets.IOS_P12 }}
+          IOS_P12_CLAVE: ${{ secrets.IOS_P12_CLAVE }}
+          IOS_PERFIL: ${{ secrets.IOS_PERFIL }}
+          ASC_KEY: ${{ secrets.ASC_KEY }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          falta=0
+          for v in IOS_P12 IOS_P12_CLAVE IOS_PERFIL ASC_KEY ASC_KEY_ID ASC_ISSUER_ID; do
+            if [ -z "${!v}" ]; then echo "::error::Falta el secreto $v. Ver docs/app-store.md"; falta=1; fi
+          done
+          exit $falta
+
+      - name: Instalar el certificado y el perfil
+        env:
+          IOS_P12: ${{ secrets.IOS_P12 }}
+          IOS_P12_CLAVE: ${{ secrets.IOS_P12_CLAVE }}
+          IOS_PERFIL: ${{ secrets.IOS_PERFIL }}
+        run: |
+          LLAVERO="$RUNNER_TEMP/firma.keychain-db"
+          CLAVE_LLAVERO="$(openssl rand -hex 24)"
+          echo -n "$IOS_P12" | base64 --decode -o "$RUNNER_TEMP/firma.p12"
+          echo -n "$IOS_PERFIL" | base64 --decode -o "$RUNNER_TEMP/perfil.mobileprovision"
+
+          security create-keychain -p "$CLAVE_LLAVERO" "$LLAVERO"
+          security set-keychain-settings -lut 21600 "$LLAVERO"
+          security unlock-keychain -p "$CLAVE_LLAVERO" "$LLAVERO"
+          security import "$RUNNER_TEMP/firma.p12" -P "$IOS_P12_CLAVE" -A -t cert -f pkcs12 -k "$LLAVERO"
+          security set-key-partition-list -S apple-tool:,apple: -k "$CLAVE_LLAVERO" "$LLAVERO" > /dev/null
+          security list-keychain -d user -s "$LLAVERO"
+
+          security cms -D -i "$RUNNER_TEMP/perfil.mobileprovision" > "$RUNNER_TEMP/perfil.plist"
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/perfil.plist")
+          NOMBRE=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/perfil.plist")
+          EQUIPO=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$RUNNER_TEMP/perfil.plist")
+          # Xcode 16 en adelante los busca en UserData; las versiones viejas, en MobileDevice.
+          for d in "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" "$HOME/Library/MobileDevice/Provisioning Profiles"; do
+            mkdir -p "$d" && cp "$RUNNER_TEMP/perfil.mobileprovision" "$d/$UUID.mobileprovision"
+          done
+          echo "PERFIL=$NOMBRE" >> "$GITHUB_ENV"
+          echo "EQUIPO=$EQUIPO" >> "$GITHUB_ENV"
+          echo "Perfil: $NOMBRE · equipo $EQUIPO"
+
+      - name: Firma manual, solo en el objetivo App
+        # En la línea de órdenes de xcodebuild, PROVISIONING_PROFILE_SPECIFIER
+        # llega también a los paquetes de Swift, y ahí falla. Por eso se
+        # escribe en el proyecto, en el Release del objetivo App y en ningún
+        # otro sitio.
+        run: node tools/ios-firma.js "$EQUIPO" "$PERFIL"
+
+      - name: Archivar
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            archive | tail -60
+          test "${PIPESTATUS[0]}" -eq 0
+
+      - name: Firmar y subir a App Store Connect
+        env:
+          ASC_KEY: ${{ secrets.ASC_KEY }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          printf '%s' "$ASC_KEY" > "$RUNNER_TEMP/AuthKey.p8"
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$EQUIPO</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key><dict><key>life.emprendo.app</key><string>$PERFIL</string></dict>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/salida" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          echo "::notice::Subida la compilación ${{ github.run_number }}. En unos minutos aparece en TestFlight."
+
+      - name: Limpiar
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/firma.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/firma.p12" "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/perfil.mobileprovision"
