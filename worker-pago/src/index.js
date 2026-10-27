@@ -95,6 +95,20 @@ export default {
       return webhook(request, env);
     }
 
+    /* ------------------------------------------- los avisos de Apple --
+       Mismo caso que el de Stripe: lo manda un servidor, sin Origin. Aquí no
+       hay firma propia que comprobar, y no hace falta: el aviso solo se usa
+       para saber DE QUÉ compra habla. Lo que se escribe en la base sale
+       siempre de preguntarle a Apple con nuestra llave. Un aviso inventado
+       cuesta una consulta y no cambia nada. */
+    if (url.pathname === '/apple') {
+      if (!appleListo(env)) {
+        console.error('pago: faltan las llaves de Apple');
+        return new Response('sin llave', { status: 503 });
+      }
+      return avisoApple(request, env);
+    }
+
     /* ---------------------------------------------------- la app --- */
     const permitido = origenPermitido(request.headers.get('Origin') || '', env);
     if (!permitido) {
@@ -243,7 +257,11 @@ async function firmarPase(cuenta, env) {
     h: activo ? Math.min(pagadoHasta + GRACIA, ahora + VIDA_PASE) : ahora,
     // Hasta cuándo está pagado. Es lo que la app enseña; `h` es interno.
     f: pagadoHasta,
-    e: ahora
+    e: ahora,
+    /* Quién cobra: 'apple' o 'web'. La app lo necesita para dos cosas que
+       cambian según quién: dónde se gestiona, y si borrar la cuenta puede
+       cancelar el cobro o tiene que pedir que lo cancele él. */
+    o: origenDelCobro(cuenta)
   };
 
   const texto = b64urlTexto(JSON.stringify(datos));
@@ -253,6 +271,187 @@ async function firmarPase(cuenta, env) {
     new TextEncoder().encode(texto)
   );
   return texto + '.' + b64url(firma);
+}
+
+function origenDelCobro(cuenta) {
+  const c = String((cuenta && cuenta.pago_cliente) || '');
+  if (c.indexOf('apple:') === 0) return 'apple';
+  return c ? 'web' : '';
+}
+
+/* ==========================================================================
+   APPLE
+
+   En la app de iPhone se cobra con Apple, porque Apple no deja otro cobro
+   para algo digital. Lo demás no cambia: el pase es el mismo, firmado con la
+   misma llave, y la app no sabe ni le importa de dónde salió el dinero.
+
+   CÓMO SE SABE QUE ALGUIEN PAGÓ
+
+   La app manda el número de la compra que le dio StoreKit, y este Worker se
+   lo pregunta a Apple con una llave propia (App Store Server API). Se cree
+   lo que diga Apple por TLS, no lo que diga la app. Por eso no hace falta
+   comprobar la cadena de certificados de lo que firma Apple: no se lee nada
+   firmado que haya pasado por el teléfono.
+
+   SIN CORREO
+
+   Apple no deja exigir una cuenta antes de comprar algo que no depende de la
+   cuenta (regla 5.1.1). Así que aquí se puede comprar sin correo: el pase
+   sale a nombre de la compra —'apple:<id original>'— y no de una cuenta.
+   Si además hay sesión, la compra se ata a esa cuenta, y entonces lo que sí
+   vive en la cuenta —«Yo, más cerca» cuenta por cuenta— también lo nota.
+
+   PRODUCCIÓN Y PRUEBAS
+
+   TestFlight y la revisión de Apple compran en el entorno de pruebas
+   (sandbox) aunque la app esté firmada para la tienda. Se pregunta primero a
+   producción y, si Apple dice que no conoce esa compra (4040010), a pruebas.
+   ========================================================================== */
+
+const APPLE_API = {
+  produccion: 'https://api.storekit.apple.com',
+  pruebas: 'https://api.storekit-sandbox.apple.com'
+};
+
+/* 1 activa, 4 en periodo de gracia por un cobro fallido. La 3 —reintento de
+   cobro sin gracia— no: ahí Apple ya le quitó el acceso al usuario, y dárselo
+   aquí sería contradecir a quien cobra. */
+const APPLE_VIVAS = [1, 4];
+
+function appleListo(env) {
+  return !!(env.APPLE_IAP_KEY && env.APPLE_IAP_KEY_ID && env.APPLE_ISSUER_ID &&
+            env.APPLE_BUNDLE && env.APPLE_PRODUCTO);
+}
+
+let llaveApple = null;
+
+async function jwtApple(env) {
+  if (!llaveApple) {
+    const pem = String(env.APPLE_IAP_KEY)
+      .replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
+    const der = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
+    llaveApple = await crypto.subtle.importKey(
+      'pkcs8', der, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  }
+  const ahora = Math.floor(Date.now() / 1000);
+  const cab = b64urlTexto(JSON.stringify({ alg: 'ES256', kid: env.APPLE_IAP_KEY_ID, typ: 'JWT' }));
+  const cuerpo = b64urlTexto(JSON.stringify({
+    iss: env.APPLE_ISSUER_ID, iat: ahora, exp: ahora + 20 * 60,
+    aud: 'appstoreconnect-v1', bid: env.APPLE_BUNDLE
+  }));
+  /* WebCrypto devuelve la firma ECDSA como r||s de 64 bytes, que es justo el
+     formato que pide JWS. No hay DER que convertir. */
+  const firma = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' }, llaveApple,
+    new TextEncoder().encode(cab + '.' + cuerpo));
+  return cab + '.' + cuerpo + '.' + b64url(firma);
+}
+
+/** El cuerpo de un JWS de Apple, sin comprobar la firma. Solo se usa con lo
+    que llega directamente de Apple, o para sacar un número que luego se le
+    vuelve a preguntar a Apple. */
+function cuerpoJws(jws) {
+  const trozo = String(jws || '').split('.')[1];
+  if (!trozo) return null;
+  try {
+    const t = trozo.replace(/-/g, '+').replace(/_/g, '/');
+    const bytes = Uint8Array.from(atob(t + '='.repeat((4 - t.length % 4) % 4)), c => c.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch (e) { return null; }
+}
+
+/**
+ * Lo que dice Apple, ahora, de la suscripción a la que pertenece esa compra.
+ * Devuelve null si Apple no la conoce en ninguno de los dos entornos.
+ */
+async function estadoApple(env, transaccion) {
+  const token = await jwtApple(env);
+  for (const entorno of ['produccion', 'pruebas']) {
+    const res = await fetch(APPLE_API[entorno] + '/inApps/v1/subscriptions/' + encodeURIComponent(transaccion), {
+      headers: { authorization: 'Bearer ' + token }
+    });
+    if (res.status === 404) continue;   // 4040010: no es de este entorno
+    if (!res.ok) throw new Error('apple-' + res.status);
+    const j = await res.json();
+
+    let mejor = null;
+    for (const grupo of (j.data || [])) {
+      for (const ultima of (grupo.lastTransactions || [])) {
+        const t = cuerpoJws(ultima.signedTransactionInfo);
+        if (!t || t.productId !== env.APPLE_PRODUCTO) continue;
+        const r = cuerpoJws(ultima.signedRenewalInfo) || {};
+        const viva = APPLE_VIVAS.indexOf(Number(ultima.status)) >= 0 && !t.revocationDate;
+        const fin = Math.max(Number(t.expiresDate || 0), Number(r.gracePeriodExpiresDate || 0));
+        const este = {
+          entorno, viva, fin,
+          bundle: j.bundleId || t.bundleId,
+          original: String(t.originalTransactionId || ultima.originalTransactionId || ''),
+          estado: Number(ultima.status)
+        };
+        if (!mejor || (este.viva && !mejor.viva) || este.fin > mejor.fin) mejor = este;
+      }
+    }
+    return mejor || { entorno, viva: false, fin: 0, bundle: j.bundleId, original: '', estado: 0 };
+  }
+  return null;
+}
+
+/** Escribe en la cuenta lo que dice Apple. Lo mismo que `anotar()` hace con
+    Stripe: un solo sitio que decide, y todos los caminos pasan por él. */
+async function anotarApple(env, cuentaId, est) {
+  await env.DB.prepare(
+    `UPDATE cuenta SET plan = ?, plan_hasta = ?, pago_cliente = ?, pago_sub = ? WHERE id = ?`
+  ).bind(
+    est.viva ? 'impulso' : 'gratis',
+    est.viva ? est.fin : 0,
+    'apple:' + est.original,
+    est.original,
+    cuentaId
+  ).run();
+}
+
+/** El aviso de Apple. Ver la nota de la puerta /apple en fetch(). */
+async function avisoApple(request, env) {
+  const texto = await request.text();
+  if (texto.length > 262144) return new Response('grande', { status: 413 });
+
+  let aviso;
+  try { aviso = cuerpoJws(JSON.parse(texto).signedPayload); } catch (e) { aviso = null; }
+  const datos = aviso && aviso.data;
+  if (!datos || datos.bundleId !== env.APPLE_BUNDLE) return new Response('ok', { status: 200 });
+
+  const t = cuerpoJws(datos.signedTransactionInfo);
+  const original = t && String(t.originalTransactionId || '');
+  if (!/^\d{1,30}$/.test(original || '')) return new Response('ok', { status: 200 });
+
+  const fila = await env.DB.prepare(`SELECT id FROM cuenta WHERE pago_cliente = ?`)
+    .bind('apple:' + original).first();
+  /* Una compra sin cuenta no tiene nada que anotar: su pase se renueva
+     preguntándole a Apple cada vez que la app tiene red. */
+  if (!fila) return new Response('ok', { status: 200 });
+
+  try {
+    const est = await estadoApple(env, original);
+    if (est && est.original) await anotarApple(env, fila.id, est);
+    console.log('pago: apple ' + String(aviso.notificationType || '?') + ' -> ' + (est ? est.estado : '?'));
+  } catch (e) {
+    /* Aquí sí se devuelve un error: si lo que falló fue preguntarle a Apple,
+       que Apple reintente es justo lo que lo arregla. */
+    console.error('pago: aviso apple: ' + String((e && e.message) || e));
+    return new Response('reintenta', { status: 503 });
+  }
+  return new Response('ok', { status: 200 });
+}
+
+/** El pase de una compra de Apple que no está atada a ninguna cuenta. */
+function cuentaDeCompra(est) {
+  return {
+    id: 'apple:' + est.original,
+    plan: est.viva ? 'impulso' : 'gratis',
+    plan_hasta: est.viva ? est.fin : 0,
+    pago_cliente: 'apple:' + est.original
+  };
 }
 
 /* ==========================================================================
@@ -448,9 +647,78 @@ const OPS = {
      red. Devuelve el pase firmado y nada más: ni correo, ni tarjeta, ni
      identificadores de Stripe. */
   async pase(cuerpo, env) {
-    const cuenta = await quienEs(cuerpo, env);
+    let cuenta = await quienEs(cuerpo, env);
     if (!cuenta) return noAutorizado();
+
+    /* Una cuenta pagada con Apple cuya fecha está por vencer: se le pregunta
+       a Apple antes de firmar. Los avisos de renovación pueden llegar tarde o
+       no llegar, y sin esto quien pagó con el iPhone y abre la web el día de
+       la renovación vería Impulso apagado. */
+    const porVencer = Number(cuenta.plan_hasta || 0) < Date.now() + 24 * 60 * 60 * 1000;
+    if (origenDelCobro(cuenta) === 'apple' && porVencer && cuenta.pago_sub && appleListo(env)) {
+      try {
+        const est = await estadoApple(env, cuenta.pago_sub);
+        if (est && est.original) {
+          await anotarApple(env, cuenta.id, est);
+          cuenta = await quienEs(cuerpo, env);
+        }
+      } catch (e) {
+        console.error('pago: pase apple: ' + String((e && e.message) || e));
+      }
+    }
     return { ok: true, pase: await firmarPase(cuenta, env) };
+  },
+
+  /* ----------------------------------------------------------- apple --
+     La compra de la app de iPhone. La sesión es OPCIONAL: ver «SIN CORREO»
+     en la cabecera de APPLE. Con sesión, la compra queda atada a la cuenta;
+     sin ella, el pase sale a nombre de la compra.
+
+     También es como se renueva el pase en el iPhone: la app manda la última
+     compra que le enseña StoreKit cada vez que arranca con red. */
+  async apple(cuerpo, env) {
+    if (!appleListo(env)) {
+      return { error: 'sin-cobro', mensaje: 'Impulso todavía no está abierto.', status: 503 };
+    }
+    /* Texto o número, y nada más: String([1]) es "1", y un arreglo no es un
+       número de compra. */
+    const t = cuerpo.transaccion;
+    const transaccion = (typeof t === 'string' || typeof t === 'number') ? String(t) : '';
+    if (!/^\d{1,30}$/.test(transaccion)) {
+      return { error: 'apple', mensaje: 'No encuentro esa compra.', status: 400 };
+    }
+
+    const est = await estadoApple(env, transaccion);
+    if (!est || !est.original) {
+      return { error: 'apple', mensaje: 'No encuentro esa compra.', status: 404 };
+    }
+    if (est.bundle !== env.APPLE_BUNDLE) {
+      return { error: 'apple', mensaje: 'Esa compra no es de esta app.', status: 400 };
+    }
+
+    const cuenta = cuerpo.sesion ? await quienEs(cuerpo, env) : null;
+    if (!cuenta) {
+      return { ok: true, vinculada: false, pase: await firmarPase(cuentaDeCompra(est), env) };
+    }
+
+    /* Una cuenta que ya paga en la web no se toca: su cobro lo lleva Stripe y
+       pisarlo dejaría un cobro vivo sin ninguna fila que lo nombre. Su pase
+       ya dice 'impulso' por ese lado. */
+    const pagaEnWeb = origenDelCobro(cuenta) === 'web' &&
+      cuenta.plan === 'impulso' && Number(cuenta.plan_hasta || 0) > Date.now();
+    if (!pagaEnWeb) {
+      /* Una compra de Apple es de UNA cuenta. Si estaba atada a otra —entró
+         con otro correo en este mismo iPhone—, pasa a esta, que es la de quien
+         la está usando ahora. */
+      await env.DB.prepare(
+        `UPDATE cuenta SET plan = 'gratis', plan_hasta = 0, pago_cliente = '', pago_sub = ''
+          WHERE pago_cliente = ? AND id <> ?`
+      ).bind('apple:' + est.original, cuenta.id).run();
+      await anotarApple(env, cuenta.id, est);
+    }
+
+    const fresca = await quienEs(cuerpo, env);
+    return { ok: true, vinculada: true, pase: await firmarPase(fresca || cuenta, env) };
   },
 
   /* -------------------------------------------------------- checkout --
@@ -529,6 +797,11 @@ const OPS = {
     const cuenta = await quienEs(cuerpo, env);
     if (!cuenta) return noAutorizado();
 
+    /* Lo que cobra Apple no se puede cancelar desde aquí: solo la persona,
+       en sus suscripciones. La app ya se lo dijo antes de llegar a borrar,
+       así que esto responde que se puede seguir, y lo dice. */
+    if (origenDelCobro(cuenta) === 'apple') return { ok: true, apple: true };
+
     if (cuenta.pago_sub) {
       try {
         await stripe(env, 'subscriptions/' + encodeURIComponent(cuenta.pago_sub), null, 'DELETE');
@@ -560,17 +833,24 @@ function baseDelOrigen(origen, env) {
   if (!origen) return null;
   const lista = String(env.ORIGENES || '').split(',').map(s => s.trim()).filter(Boolean);
   for (let i = 0; i < lista.length; i++) {
-    try {
-      if (new URL(lista[i]).origin === origen) return lista[i].replace(/\/+$/, '');
-    } catch (e) { /* una entrada mal escrita no puede tumbar la comprobación */ }
+    if (origenDe(lista[i]) === origen) return lista[i].replace(/\/+$/, '');
   }
   return null;
 }
 
 function origenPermitido(origen, env) {
   const base = baseDelOrigen(origen, env);
-  if (!base) return null;
-  try { return new URL(base).origin; } catch (e) { return null; }
+  return base ? origenDe(base) : null;
+}
+
+/* Copia de la Plaza. `new URL(x).origin` devuelve "null" para la app de
+   iPhone (capacitor://localhost), y con eso el pase no llegaba nunca. */
+function origenDe(entrada) {
+  try {
+    const u = new URL(entrada);
+    if (u.origin && u.origin !== 'null') return u.origin;
+    return u.host ? u.protocol + '//' + u.host : null;
+  } catch (e) { return null; }   // una entrada mal escrita no puede tumbar la comprobación
 }
 
 function cors(origen) {

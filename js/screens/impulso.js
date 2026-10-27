@@ -43,7 +43,14 @@
 
   /** El precio en una línea, para las invitaciones pequeñas de otras
       pantallas. Sale de CONFIG para que solo haya un sitio donde cambiarlo. */
-  function precioCorto() { return C().corto; }
+  function precioCorto() {
+    /* En el iPhone, el que pone Apple. Mientras no llega, ninguno: mejor no
+       decir precio un segundo que decir uno que no es. */
+    if (conApple()) return w.Impulso.precio() ? w.Impulso.precio() + ' al mes' : 'cada mes';
+    return C().corto;
+  }
+
+  function conApple() { return !!(w.Impulso && w.Impulso.conApple && w.Impulso.conApple()); }
 
   /* ==================================================================
      ¿SE PUEDE ENSEÑAR ESTA PANTALLA?
@@ -55,7 +62,9 @@
      cuando no hay Worker configurado.
      ================================================================== */
 
-  function hay() { return !!(w.Impulso && w.Impulso.disponible()); }
+  /* O que ya lo tenga: quien pagó con el iPhone y abre la web, donde todavía
+     no se cobra, tiene que poder ver lo suyo y dónde se gestiona. */
+  function hay() { return !!(w.Impulso && (w.Impulso.disponible() || w.Impulso.activo())); }
 
   /* ==================================================================
      LA PANTALLA
@@ -119,10 +128,33 @@
         el('div', { class: 'grow', style: { minWidth: '0' } }, [
           el('div', { class: 'small', style: { fontWeight: '900', color: 'var(--ink)' }, text: 'Si cambias de teléfono' }),
           el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', marginTop: '3px' },
-            text: 'Entra con tu correo y vuelve solo. El archivo de respaldo guarda tu progreso, pero no Impulso.' })
+            text: (w.Impulso.origen() === 'apple'
+              ? 'Con el mismo Apple ID, toca «Ya lo tenía: recuperarlo» y vuelve solo.'
+              : 'Entra con tu correo y vuelve solo.') +
+              ' El archivo de respaldo guarda tu progreso, pero no Impulso.' })
         ])
       ])
     ]));
+
+    /* Compró en el iPhone sin correo. Todo funciona menos una cosa, que vive
+       en la cuenta porque se cuenta por persona: «Yo, más cerca». Se dice,
+       y se ofrece; no se exige (Apple no deja exigirlo, y además no hace
+       falta para nada más). */
+    if (w.PlazaNube && w.PlazaNube.hay() && !(w.Plaza && w.Plaza.conectado())) {
+      root.appendChild(el('div', { class: 'card card--tight' }, [
+        el('div', { class: 'row', style: { gap: '10px', alignItems: 'flex-start' } }, [
+          el('span', { style: { fontSize: '20px' }, text: '💬' }),
+          el('div', { class: 'grow', style: { minWidth: '0' } }, [
+            el('div', { class: 'small', style: { fontWeight: '900', color: 'var(--ink)' }, text: 'Para que te acompañe más de cerca' }),
+            el('div', { class: 'tiny', style: { textTransform: 'none', letterSpacing: '0', marginTop: '3px' },
+              text: 'Necesito saber quién eres: así llevo la cuenta de tus preguntas. Con tu correo basta.' })
+          ])
+        ]),
+        UI.btn('Entrar con mi correo', { variant: 'ghost', size: 'sm', onClick: function () {
+          w.PlazaScreen.conectar(function () { UI.Router.go('impulso', {}, 'none'); });
+        } })
+      ]));
+    }
 
     /* Lo que ya puede usar, a un toque. Quien acaba de pagar entra aquí a ver
        qué se llevó, y salir sin nada que tocar es la peor primera impresión
@@ -135,10 +167,22 @@
       }));
     }
 
-    root.appendChild(UI.btn('Gestionar o cancelar', {
-      variant: 'ghost',
-      onClick: function () { abrirPortal(); }
-    }));
+    /* Se gestiona donde se cobra. Y una excepción: lo que se pagó en la web
+       NO lleva botón dentro de la app de iPhone. Apple no deja que la app
+       mande a pagar ni a gestionar pagos fuera de su tienda; decir dónde se
+       hace sí se puede, y es lo que se hace. */
+    var origen = w.Impulso.origen();
+    if (origen === 'web' && conApple()) {
+      root.appendChild(el('p', { class: 'imp__cierre', text: 'Lo pagaste en la web: desde ahí se gestiona.' }));
+    } else {
+      root.appendChild(UI.btn('Gestionar o cancelar', {
+        variant: 'ghost',
+        onClick: function () {
+          if (origen === 'apple') w.Impulso.gestionarApple();
+          else abrirPortal();
+        }
+      }));
+    }
 
     root.appendChild(el('p', { class: 'imp__cierre',
       text: 'Si cancelas, Impulso sigue hasta el día que ya pagaste.' }));
@@ -173,13 +217,26 @@
 
     root.appendChild(lista());
 
+    /* En el iPhone, el número es el de Apple —«$99.00»— y llega un instante
+       después de arrancar. Si aún no está, se espera un poco en vez de pintar
+       el de config.js: Apple revisa que el precio enseñado sea el que cobra. */
+    var numero = el('span', { style: { fontSize: 'inherit', color: 'inherit', fontWeight: 'inherit' },
+      text: conApple() ? (w.Impulso.precio() || '…') + ' ' : c.precio + ' ' });
     root.appendChild(el('div', { class: 'imp__precio' }, [
       el('div', { class: 'imp__precio__n' }, [
-        el('span', { text: c.precio + ' ', style: { fontSize: 'inherit', color: 'inherit', fontWeight: 'inherit' } }),
-        el('span', { text: c.unidad })
+        numero,
+        el('span', { text: conApple() ? 'al mes' : c.unidad })
       ]),
       el('div', { class: 'imp__precio__p', text: 'Cancela cuando quieras. Sin permanencia.' })
     ]));
+    if (conApple() && !w.Impulso.precio()) {
+      (function espera(n) {
+        setTimeout(function () {
+          if (w.Impulso.precio()) numero.textContent = w.Impulso.precio() + ' ';
+          else if (n > 0 && numero.isConnected) espera(n - 1);
+        }, 500);
+      })(10);
+    }
 
     root.appendChild(UI.btn('Activar Impulso', {
       variant: 'brand', size: 'lg', shiny: true,
@@ -193,6 +250,8 @@
         UI.Router.back(params.desde === 'energia' ? 'home' : 'home');
       }
     }));
+
+    if (conApple()) root.appendChild(loQueDiceApple());
 
     root.appendChild(el('p', { class: 'imp__cierre',
       text: 'Sin Impulso llegas al mismo final.\nSolo tardas un poco más.' }));
@@ -215,6 +274,8 @@
     var caja = el('div', { class: 'imp__lista' });
 
     C().BENEFICIOS.forEach(function (b) {
+      /* «Sin anuncios» solo donde hay anuncios que quitar. */
+      if (b.si === 'anuncios' && !(w.Anuncios && w.Anuncios.hayRed())) return;
       caja.appendChild(el('div', { class: 'imp__fila' + (b.listo ? '' : ' imp__fila--pronto') }, [
         el('span', { class: 'imp__fila__ico', text: b.icon }),
         el('span', { class: 'grow', style: { minWidth: '0' } }, [
@@ -234,6 +295,31 @@
     } catch (e) { return ''; }
   }
 
+  /* Lo que Apple exige que se lea antes de pagar: quién cobra, que se
+     renueva, cómo se cancela, los términos y la privacidad a un toque, y una
+     forma de recuperar lo que ya se pagó. Dicho por Chispa y corto, pero
+     entero. Los términos son los de Apple (su licencia estándar). */
+  var TERMINOS_APPLE = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+
+  function loQueDiceApple() {
+    return el('div', { class: 'imp-apple' }, [
+      el('div', { text: 'Lo cobra Apple, a tu cuenta de siempre. Se renueva solo cada mes hasta que lo canceles, y lo cancelas desde Ajustes cuando quieras.' }),
+      el('div', { class: 'imp-apple__links' }, [
+        el('button', { type: 'button', text: 'Ya lo tenía: recuperarlo', onclick: recuperar }),
+        el('a', { href: TERMINOS_APPLE, target: '_blank', rel: 'noopener', text: 'Términos de uso' }),
+        el('a', { href: 'privacidad.html', target: '_blank', rel: 'noopener', text: 'Privacidad' })
+      ])
+    ]);
+  }
+
+  function recuperar() {
+    UI.toast('Busco tu compra…', 'blue', '⚡');
+    w.Impulso.restaurar().then(function (activo) {
+      if (activo) { celebrar(); return; }
+      UI.toast('No encuentro Impulso en este Apple ID.', 'blue', '🕯️', 3400);
+    });
+  }
+
   /* ==================================================================
      ACTIVARLO
 
@@ -247,7 +333,18 @@
      ================================================================== */
 
   function activar() {
-    if (!hay()) { UI.toast('Impulso todavía no está abierto', 'blue', '⚡'); return; }
+    if (!w.Impulso || !w.Impulso.disponible()) { UI.toast('Impulso todavía no está abierto', 'blue', '⚡'); return; }
+
+    /* En el iPhone, sin correo: la hoja de Apple y listo. Apple no deja
+       pedir una cuenta antes de comprar algo que no vive en la cuenta. */
+    if (conApple()) {
+      w.Impulso.comprarApple().then(function (r) {
+        if (r && r.ok) { celebrar(); return; }
+        if (r && r.error === 'cancelado') return;     // cambió de idea: nada que decir
+        UI.toast(w.Impulso.excusa(r), r && r.error === 'pendiente' ? 'blue' : 'red', '⚡', 4200);
+      });
+      return;
+    }
 
     if (!w.Plaza || !w.Plaza.conectado()) { pedirCorreo(); return; }
 
@@ -403,11 +500,9 @@
         onClick: function () {
           UI.closeSheet();
           setTimeout(function () {
-            w.PlazaScreen.conectar(function () {
-              /* Se manda el enlace y ahí se corta: entrar exige abrir el
-                 correo, y eso arranca la app otra vez. Decírselo es mejor
-                 que dejarle esperando en una pantalla que no va a cambiar. */
-            });
+            /* Con el código del correo, la sesión llega aquí mismo: en
+               cuanto entra, se sigue con el pago sin volver a pedírselo. */
+            w.PlazaScreen.conectar(function () { activar(); });
           }, 320);
         }
       }),

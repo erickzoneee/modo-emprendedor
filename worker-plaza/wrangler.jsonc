@@ -76,7 +76,12 @@
     // IA, pero aquí viaja la sesión dentro del cuerpo, y cualquier página
     // servida en ese puerto podría llamar a esta API. Para desarrollo se usa
     // `wrangler dev`, que trae su propio origen.
-    "ORIGENES": "https://app.emprendo.life,https://erickzoneee.github.io/modo-emprendedor",
+    //
+    // `capacitor://localhost` es la app de iPhone, y ese sí va. No es un
+    // puerto que cualquier página pueda ocupar: ningún navegador sirve una
+    // web con ese esquema, solo lo produce la WebView de una app nativa. A
+    // ese origen no se le manda enlace en el correo, solo el código.
+    "ORIGENES": "https://app.emprendo.life,https://erickzoneee.github.io/modo-emprendedor,capacitor://localhost",
     "APP_URL": "https://app.emprendo.life",
     "CORREO_DESDE": "hola@emprendo.life",
 

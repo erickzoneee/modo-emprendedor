@@ -22,10 +22,21 @@
 # ==========================================================================
 name: App de iPhone
 
-# En main, solo a mano. El codigo de la app todavia vive en la rama ios:
-# al lanzarlo, elegir esa rama en «Use workflow from». Cuando ios se junte
-# con main, este archivo se reemplaza por el de ios, que compila en cada cambio.
 on:
+  push:
+    branches: ['**']
+    paths:
+      - 'index.html'
+      - 'css/**'
+      - 'js/**'
+      - 'assets/**'
+      - 'sw.js'
+      - 'ios/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.json'
+      - 'tools/armar-www.js'
+      - '.github/workflows/ios.yml'
   workflow_dispatch:
     inputs:
       subir:

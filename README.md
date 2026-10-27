@@ -43,6 +43,10 @@ Es un sitio estático puro. Sube la carpeta completa a Netlify, Vercel, GitHub P
 
 > Si la publicas **en una subcarpeta** (como hace GitHub Pages), no hay nada que tocar: el manifest, el service worker y todas las rutas son relativas a propósito.
 
+**Opción 5 — la app de iPhone**
+
+La misma app, empaquetada con Capacitor y compilada en una Mac de GitHub (no hace falta Mac). Lo que cambia dentro del iPhone vive en `js/core/nativo.js`: Impulso se cobra con Apple, no hay anuncios ni IA local, y los archivos salen por la hoja de compartir. Cómo se compila, se firma, se sube y qué poner en App Store Connect está en [`docs/app-store.md`](docs/app-store.md).
+
 ---
 
 ## Qué incluye

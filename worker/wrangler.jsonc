@@ -22,7 +22,8 @@
   "vars": {
     // Cambia ORIGENES por tu dominio antes de desplegar. Con "*" cualquier
     // web podría colgar su chat de tu cuota.
-    "ORIGENES": "https://erickzoneee.github.io,http://localhost:4321",
+    // capacitor://localhost es la app de iPhone: su WebView manda ese origen.
+    "ORIGENES": "https://erickzoneee.github.io,http://localhost:4321,capacitor://localhost",
 
     // Qwen3-30B es el más eficiente por neuron del catálogo y el más fuerte en
     // instrucciones multilingües: ~104 usuarios/día dentro de la cuota gratuita

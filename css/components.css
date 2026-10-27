@@ -442,6 +442,44 @@
 }
 .textarea { min-height: 108px; resize: vertical; line-height: 1.5; font-size: var(--fs-md); }
 
+/* --- El código del correo: seis cajas encima de un solo campo ---
+
+   Un <input> de verdad, transparente, por encima de las seis cajas. Así
+   funcionan pegar, borrar, el teclado numérico y la sugerencia de iOS
+   («Desde Mail»), que con seis campos separados se rompen todas. Lo pinta
+   js/screens/plaza.js · pedirCodigo(). */
+.cod { position: relative; display: flex; gap: 8px; justify-content: center; }
+.cod__caja {
+  width: 44px; height: 56px;
+  border-radius: var(--r-md);
+  border: 2px solid var(--line);
+  background: var(--card);
+  display: grid; place-items: center;
+  font-size: 26px; font-weight: 900; color: var(--ink);
+  transition: border-color .15s, background .15s;
+}
+.cod__caja:nth-child(3) { margin-right: 8px; }   /* 482 · 913 */
+.cod__caja.is-actual { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(28,176,246,.16); }
+.cod__caja.is-lleno { border-color: var(--ink-3); }
+.cod.is-mal .cod__caja { border-color: var(--red); }
+.cod.is-mal { animation: codMal .38s var(--ease-out); }
+.cod.is-bien .cod__caja { border-color: var(--green); background: rgba(67,201,94,.08); }
+.cod__campo {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  opacity: 0;
+  font-size: 16px;      /* 16px: con menos, iOS hace zoom al enfocar */
+  caret-color: transparent;
+}
+.cod__aviso { text-transform: none; letter-spacing: 0; text-align: center; min-height: 1.5em; }
+.cod__aviso.is-mal { color: var(--red); }
+@keyframes codMal {
+  0%,100% { transform: translateX(0) }
+  20% { transform: translateX(-7px) } 40% { transform: translateX(6px) }
+  60% { transform: translateX(-4px) } 80% { transform: translateX(3px) }
+}
+@media (prefers-reduced-motion: reduce) { .cod.is-mal { animation: none; } }
+
 .range {
   -webkit-appearance: none; appearance: none;
   width: 100%; height: 12px;

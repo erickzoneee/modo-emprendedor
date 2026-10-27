@@ -48,6 +48,7 @@ const VIDA_ENLACE  = 15 * 60 * 1000;            // el enlace de entrada
 const VIDA_SESION  = 30 * 24 * 60 * 60 * 1000;  // la sesión
 const VENTANA_MAIL = 60 * 60 * 1000;            // ventana del límite por correo
 const MAX_MAIL     = 5;                          // enlaces por correo y hora
+const MAX_INTENTOS = 5;                          // códigos tecleados por enlace
 
 /* CHISPA CON IMPULSO — los topes.
 
@@ -220,6 +221,30 @@ function nuevoId() {
   return crypto.randomUUID();
 }
 
+/** Seis números, todos igual de probables. El módulo a secas sobre un
+    número de 32 bits favorece un poco a los primeros; descartar lo que cae
+    en la cola quita ese sesgo. */
+function nuevoCodigo() {
+  const tope = Math.floor(0x100000000 / 1000000) * 1000000;
+  const b = new Uint32Array(1);
+  do { crypto.getRandomValues(b); } while (b[0] >= tope);
+  return String(b[0] % 1000000).padStart(6, '0');
+}
+
+function huellaCodigo(correoHash, codigo) {
+  return sha256(correoHash + ':' + codigo);
+}
+
+/** ¿Es el correo de la cuenta de prueba que se le da a Apple para revisar?
+    Hacen falta los dos secretos, y el código tiene que ser de seis números:
+    la app no deja escribir otra cosa. Para cerrarla después de la revisión,
+    basta con borrar cualquiera de los dos. */
+function esRevision(correo, env) {
+  const c = String(env.REVISION_CORREO || '').trim().toLowerCase();
+  return !!c && /^\d{6}$/.test(String(env.REVISION_CODIGO || '')) &&
+    String(correo || '').trim().toLowerCase() === c;
+}
+
 async function sha256(texto) {
   const datos = new TextEncoder().encode(texto);
   const buf = await crypto.subtle.digest('SHA-256', datos);
@@ -286,6 +311,34 @@ async function huellaCorreo(correo, env) {
 function pareceCorreo(s) {
   const v = String(s || '').trim();
   return v.length >= 6 && v.length <= 254 && /^[^\s@]+@[^\s@.]+\.[^\s@]{2,}$/.test(v);
+}
+
+/** La cuenta de esa huella —la crea si no existe— y una sesión nueva para
+    ella. Es lo que hay al final del enlace y al final del código: dos
+    puertas, una sola forma de entrar. */
+async function abrirSesion(correoHash, edadOk, env) {
+  const ahora = Date.now();
+
+  /* Un solo INSERT con ON CONFLICT, no comprobar-y-luego-insertar. Abrir el
+     correo casi a la vez en el móvil y en el portátil bastaba para que los
+     dos vieran «no existe» y el segundo reventara contra el UNIQUE: la
+     persona que estrena la app se quedaba fuera en su primer intento. */
+  const cuenta = await env.DB.prepare(
+    `INSERT INTO cuenta (id, correo_hash, creada, ultima, edad_ok) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(correo_hash) DO UPDATE SET ultima = excluded.ultima
+     RETURNING id, estado`
+  ).bind(nuevoId(), correoHash, ahora, ahora, edadOk ? 1 : 0).first();
+
+  if (!cuenta || cuenta.estado !== 'activa') {
+    return { error: 'suspendida', mensaje: 'Esta cuenta está suspendida.', status: 403 };
+  }
+
+  const sesion = nuevoToken();
+  await env.DB.prepare(
+    `INSERT INTO sesion (token_hash, cuenta_id, creada, caduca) VALUES (?, ?, ?, ?)`
+  ).bind(await sha256(sesion), cuenta.id, ahora, ahora + VIDA_SESION).run();
+
+  return { ok: true, sesion, id: cuenta.id };
 }
 
 /** La cuenta detrás de una sesión, o null. Toda operación que toque datos
@@ -419,7 +472,7 @@ const OPS = {
      averiguar quién está en la Plaza. */
   async entrar(cuerpo, env, peticion) {
     const correo = String(cuerpo.correo || '').trim();
-    const respuestaUnica = { ok: true, mensaje: 'Si ese correo es correcto, te llegará un enlace.' };
+    const respuestaUnica = { ok: true, mensaje: 'Si ese correo es correcto, te llegará un código.' };
 
     if (!pareceCorreo(correo)) return respuestaUnica;
 
@@ -442,23 +495,39 @@ const OPS = {
 
     if (!p || p.cuantos > MAX_MAIL) return respuestaUnica;   // se calla y no manda nada
 
+    /* Dos llaves en la misma fila: el enlace, para quien abre el correo en
+       el mismo navegador donde usa la app, y el código, para todos los demás.
+       Canjear una gasta la fila entera. */
     const token = nuevoToken();
+    /* La cuenta del revisor de Apple: a su correo no llega nada, así que su
+       código es fijo y vive como secreto. Pasa por la misma fila, el mismo
+       tope de intentos y el mismo tope por hora que cualquier otro: un código
+       fijo de seis números no se puede dejar adivinar más deprisa. */
+    const revision = esRevision(correo, env);
+    const codigo = revision ? String(env.REVISION_CODIGO) : nuevoCodigo();
     await env.DB.prepare(
-      `INSERT INTO enlace (token_hash, correo_hash, caduca, usado) VALUES (?, ?, ?, NULL)`
-    ).bind(await sha256(token), hash, ahora + VIDA_ENLACE).run();
+      `INSERT INTO enlace (token_hash, correo_hash, caduca, usado, codigo_hash)
+       VALUES (?, ?, ?, NULL, ?)`
+    ).bind(await sha256(token), hash, ahora + VIDA_ENLACE, await huellaCodigo(hash, codigo)).run();
 
     /* El enlace vuelve al origen DESDE EL QUE SE PIDIÓ. Con APP_URL fijo,
        quien usa la app en GitHub Pages recibía un enlace a app.emprendo.life:
        otro origen, otro almacenamiento, otra instalación. El origen ya pasó
-       por la lista blanca, así que esto no abre una redirección libre. */
+       por la lista blanca, así que esto no abre una redirección libre.
+
+       Si se pidió desde la app de iPhone, no hay enlace que valga: su origen
+       es capacitor://localhost, que fuera del teléfono no es ninguna
+       dirección. Ese correo lleva solo el código. */
     const base = baseDelOrigen(peticion.headers.get('Origin') || '', env);
+    const web = base && /^https?:\/\//.test(base) ? base : null;
 
     /* Si el envío falla, `entrar` TIENE que seguir respondiendo lo mismo. Sin
        este try, un correo rebotado devuelve 500 y uno bueno 200: eso es un
        detector de direcciones válidas montado sobre este servidor, que es
        justo lo que la respuesta única viene a evitar. */
+    if (revision) return respuestaUnica;
     try {
-      await mandarEnlace(correo, token, env, base);
+      await mandarEnlace(correo, token, codigo, env, web, !web && !!base);
     } catch (e) {
       console.error('plaza: correo no enviado', String((e && e.code) || (e && e.name) || 'error'));
     }
@@ -491,26 +560,50 @@ const OPS = {
       `SELECT correo_hash FROM enlace WHERE token_hash = ?`
     ).bind(hash).first();
 
-    /* Un solo INSERT con ON CONFLICT, no comprobar-y-luego-insertar. Abrir el
-       correo casi a la vez en el móvil y en el portátil bastaba para que los
-       dos vieran «no existe» y el segundo reventara contra el UNIQUE: la
-       persona que estrena la app se quedaba fuera en su primer intento. */
-    const cuenta = await env.DB.prepare(
-      `INSERT INTO cuenta (id, correo_hash, creada, ultima, edad_ok) VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(correo_hash) DO UPDATE SET ultima = excluded.ultima
-       RETURNING id, estado`
-    ).bind(nuevoId(), enlace.correo_hash, ahora, ahora, cuerpo.edadOk ? 1 : 0).first();
+    return abrirSesion(enlace.correo_hash, cuerpo.edadOk, env);
+  },
 
-    if (!cuenta || cuenta.estado !== 'activa') {
-      return { error: 'suspendida', mensaje: 'Esta cuenta está suspendida.', status: 403 };
+  /* ----------------------------------------------------------- codigo --
+     Lo mismo que `confirmar`, con los seis números del correo en vez del
+     enlace. Es la forma de entrar desde la app de iPhone, y desde cualquier
+     sitio donde el enlace abriría otro navegador.
+
+     Seis números son un millón de combinaciones: se adivinan. Lo que lo
+     impide es el orden de las dos sentencias. PRIMERO se gasta un intento
+     —en todos los códigos vivos de ese correo— y solo si quedaba alguno se
+     compara. Sumar después de comparar dejaría que treinta peticiones a la
+     vez pasaran todas la comprobación antes de que la primera sumara. */
+  async codigo(cuerpo, env) {
+    const correo = String(cuerpo.correo || '').trim();
+    const codigo = String(cuerpo.codigo || '').replace(/\D/g, '');
+    const viejo = { error: 'codigo-viejo', mensaje: 'Ese código ya no sirve. Te mando otro.', status: 400 };
+
+    if (!pareceCorreo(correo) || codigo.length !== 6) {
+      return { error: 'codigo', mensaje: 'Son seis números. Míralos otra vez.', status: 400 };
     }
 
-    const sesion = nuevoToken();
-    await env.DB.prepare(
-      `INSERT INTO sesion (token_hash, cuenta_id, creada, caduca) VALUES (?, ?, ?, ?)`
-    ).bind(await sha256(sesion), cuenta.id, ahora, ahora + VIDA_SESION).run();
+    const hash = await huellaCorreo(correo, env);
+    const ahora = Date.now();
 
-    return { ok: true, sesion, id: cuenta.id };
+    const gastado = await env.DB.prepare(
+      `UPDATE enlace SET intentos = intentos + 1
+        WHERE correo_hash = ? AND usado IS NULL AND caduca > ?
+          AND codigo_hash IS NOT NULL AND intentos < ?`
+    ).bind(hash, ahora, MAX_INTENTOS).run();
+
+    if (!gastado.meta || gastado.meta.changes < 1) return viejo;
+
+    const marcado = await env.DB.prepare(
+      `UPDATE enlace SET usado = ?
+        WHERE correo_hash = ? AND codigo_hash = ? AND usado IS NULL AND caduca > ?
+          AND intentos <= ?`
+    ).bind(ahora, hash, await huellaCodigo(hash, codigo), ahora, MAX_INTENTOS).run();
+
+    if (!marcado.meta || marcado.meta.changes !== 1) {
+      return { error: 'codigo', mensaje: 'Ese código no es. Revísalo.', status: 400 };
+    }
+
+    return abrirSesion(hash, cuerpo.edadOk, env);
   },
 
   /* --------------------------------------------------------- publicar -- */
@@ -1174,7 +1267,10 @@ async function apuntarUso(cuentaId, env) {
    con un servicio externo, la clave es un secreto del Worker.
    ========================================================================== */
 
-async function mandarEnlace(correo, token, env, origen) {
+/* `soloCodigo` es para la app de iPhone: su origen no es una dirección a la
+   que se pueda volver desde un correo, así que mandarle un enlace sería
+   mandarle uno que abre otra cosa. Le llega el código y nada más. */
+async function mandarEnlace(correo, token, codigo, env, origen, soloCodigo) {
   const base = origen || env.APP_URL || 'https://app.emprendo.life';
   /* En el fragmento (#) y no en la query (?). El token es acceso completo a
      la cuenta durante quince minutos, y una query string acaba en el
@@ -1182,21 +1278,28 @@ async function mandarEnlace(correo, token, env, origen) {
      sirve la app, y en la cabecera Referer de cualquier recurso externo que
      cargue la página. El fragmento no sale nunca del navegador.
      El cliente lo lee y llama enseguida a history.replaceState. */
-  const enlace = `${base}/#plaza=${encodeURIComponent(token)}`;
+  const enlace = soloCodigo ? '' : `${base}/#plaza=${encodeURIComponent(token)}`;
   const desde = env.CORREO_DESDE || 'hola@emprendo.life';
 
-  const asunto = 'Tu entrada a la Plaza';
+  /* El código va también en el asunto. Es lo que se ve en la notificación
+     sin abrir el correo, y lo que el iPhone ofrece pegar solo encima del
+     teclado. */
+  const separado = codigo.slice(0, 3) + ' ' + codigo.slice(3);
+  const asunto = codigo + ' es tu código para la Plaza';
   const plano =
     'Hola.\n\n' +
-    'Toca este enlace para entrar a la Plaza:\n' + enlace + '\n\n' +
-    'Sirve una sola vez y caduca en 15 minutos.\n' +
-    'Si no lo pediste tú, no hace falta que hagas nada.\n';
+    'Tu código para entrar a la Plaza:\n\n' + separado + '\n\n' +
+    'Escríbelo en la app. Sirve una sola vez y caduca en 15 minutos.\n' +
+    (enlace ? '\nO toca este enlace, si estás en el mismo navegador:\n' + enlace + '\n' : '') +
+    '\nSi no lo pediste tú, no hace falta que hagas nada.\n';
 
   const html =
     '<p>Hola.</p>' +
-    '<p><a href="' + enlace + '">Toca aquí para entrar a la Plaza</a></p>' +
-    '<p>Sirve una sola vez y caduca en 15 minutos.<br>' +
-    'Si no lo pediste tú, no hace falta que hagas nada.</p>';
+    '<p>Tu código para entrar a la Plaza:</p>' +
+    '<p style="font-size:32px;font-weight:800;letter-spacing:6px;margin:8px 0 16px">' + separado + '</p>' +
+    '<p>Escríbelo en la app. Sirve una sola vez y caduca en 15 minutos.</p>' +
+    (enlace ? '<p><a href="' + enlace + '">O toca aquí, si estás en el mismo navegador</a></p>' : '') +
+    '<p>Si no lo pediste tú, no hace falta que hagas nada.</p>';
 
   if (env.EMAIL && typeof env.EMAIL.send === 'function') {
     await env.EMAIL.send({
@@ -1252,9 +1355,7 @@ function baseDelOrigen(origen, env) {
   if (!origen) return null;
   const lista = String(env.ORIGENES || '').split(',').map(s => s.trim()).filter(Boolean);
   for (let i = 0; i < lista.length; i++) {
-    try {
-      if (new URL(lista[i]).origin === origen) return lista[i].replace(/\/+$/, '');
-    } catch (e) { /* una entrada mal escrita no puede tumbar la comprobación */ }
+    if (origenDe(lista[i]) === origen) return lista[i].replace(/\/+$/, '');
   }
   return null;
 }
@@ -1262,8 +1363,21 @@ function baseDelOrigen(origen, env) {
 /** El valor de Access-Control-Allow-Origin, o null si no está en la lista. */
 function origenPermitido(origen, env) {
   const base = baseDelOrigen(origen, env);
-  if (!base) return null;
-  try { return new URL(base).origin; } catch (e) { return null; }
+  return base ? origenDe(base) : null;
+}
+
+/* El origen de una entrada de la lista, tal como lo manda el navegador.
+
+   `new URL(x).origin` no sirve para la app de iPhone: para un esquema que no
+   es http ni https devuelve la cadena "null", y la WebView manda
+   `capacitor://localhost` tal cual. Para esos se arma a mano con el esquema
+   y el host, que es exactamente lo que viaja en la cabecera. */
+function origenDe(entrada) {
+  try {
+    const u = new URL(entrada);
+    if (u.origin && u.origin !== 'null') return u.origin;
+    return u.host ? u.protocol + '//' + u.host : null;
+  } catch (e) { return null; }   // una entrada mal escrita no puede tumbar la comprobación
 }
 
 function cors(origen) {

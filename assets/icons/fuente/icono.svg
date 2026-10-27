@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="1024" height="1024">
+  <!-- El icono de Emprendo, redibujado en vectores a partir de
+       assets/icons/icon-maskable-512.png para poder sacarlo a 1024 (App Store)
+       sin agrandar un PNG. Lo usa tools/ios-imagenes.js. -->
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF8630"/>
+      <stop offset=".5" stop-color="#FF6E1D"/>
+      <stop offset="1" stop-color="#E2560A"/>
+    </linearGradient>
+    <linearGradient id="luz" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".30"/>
+      <stop offset="1" stop-color="#fff" stop-opacity=".12"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#fondo)"/>
+  <circle cx="152" cy="98" r="208" fill="url(#luz)"/>
+  <!-- aletas -->
+  <path d="M215 276 L183 312 Q178 318 178 326 L178 340 Q178 348 186 344 L215 322 Z" fill="#FDE3D5"/>
+  <path d="M297 276 L329 312 Q334 318 334 326 L334 340 Q334 348 326 344 L297 322 Z" fill="#FDE3D5"/>
+  <!-- llama -->
+  <path d="M237 340 L275 340 Q275 362 256 364 Q237 362 237 340 Z" fill="#FFD84D"/>
+  <!-- cuerpo -->
+  <path d="M256 155 Q300 196 300 258 L300 328 Q300 342 286 342 L226 342 Q212 342 212 328 L212 258 Q212 196 256 155 Z" fill="#fff"/>
+  <!-- ventana -->
+  <circle cx="256" cy="236" r="22" fill="#F47B37"/>
+</svg>

@@ -1,0 +1,17 @@
+{
+  "appId": "life.emprendo.app",
+  "appName": "Emprendo",
+  "webDir": "www",
+  "backgroundColor": "#FF6B1A",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "limitsNavigationsToAppBoundDomains": false,
+    "preferredContentMode": "mobile"
+  },
+  "plugins": {
+    "NativePurchases": {
+      "autoFinishTransactions": true
+    }
+  }
+}

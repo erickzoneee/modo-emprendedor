@@ -1,0 +1,26 @@
+{
+  "name": "emprendo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "La app de iPhone de Emprendo. La web no necesita nada de esto: es un sitio estático y se publica tal cual. Esto solo arma el paquete para la App Store.",
+  "scripts": {
+    "www": "node tools/armar-www.js",
+    "ios": "node tools/armar-www.js && npx cap sync ios"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@capacitor/app": "8.1.2",
+    "@capacitor/browser": "8.0.5",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/filesystem": "8.1.4",
+    "@capacitor/haptics": "8.0.2",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/share": "8.0.3",
+    "@capgo/native-purchases": "8.9.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}

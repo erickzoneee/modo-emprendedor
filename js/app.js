@@ -303,6 +303,10 @@
   /* ------------------------- Service worker ------------------------- */
 
   function registerSW() {
+    /* En la app de iPhone todo viaja dentro del paquete: no hay nada que
+       precargar, y capacitor://localhost cuenta como «local» para la
+       comprobación de abajo. */
+    if (w.Nativo && w.Nativo.es) return;
     if (!('serviceWorker' in w.navigator)) return;
     // file:// no admite service workers y https es obligatorio salvo en local.
     var esLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';

@@ -266,7 +266,9 @@
   var motor = null;         // módulo js/local/motor.mjs ya cargado
   var cargado = null;       // id del modelo en memoria
 
-  function soportado() { return !!importar; }
+  /* En la app de iPhone, no: el motor se descarga de internet al usarse, y
+     Apple no deja que una app baje código que cambie lo que hace. */
+  function soportado() { return !!importar && !(w.Nativo && w.Nativo.es); }
 
   function abrirMotor() {
     if (motor) return Promise.resolve(motor);

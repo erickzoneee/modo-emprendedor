@@ -184,6 +184,48 @@ De cada persona se guarda un número: cuántas van hoy y cuántas van este mes.
 Ni la pregunta, ni la respuesta, ni el contexto del negocio. En esta base no
 vive ni el correo.
 
+### 8. El código de seis números y la app de iPhone
+
+El correo de entrada trae ahora un **código de seis números**, además del enlace.
+El enlace abre el navegador, y en la app de iPhone —o en la web instalada en un
+iPhone, que guarda en otro sitio que Safari— la sesión se quedaba donde no estaba
+la persona. La operación `codigo` canjea esos seis números igual que `confirmar`
+canjea el enlace, y gastar uno gasta el otro.
+
+Seis números se adivinan, así que el límite no está en el número: cada correo
+admite **cinco intentos** en total, y el intento se cuenta *antes* de comparar,
+para que treinta peticiones a la vez sigan siendo cinco.
+
+Necesita la migración `0005_codigo.sql`, **antes** de desplegar:
+
+```bash
+npx wrangler d1 migrations apply emprendo-plaza --remote
+npx wrangler deploy
+```
+
+La app de iPhone llama con `Origin: capacitor://localhost`, que ya está en
+`ORIGENES`. A ese origen no se le manda enlace en el correo, solo el código.
+
+### 9. La cuenta del revisor de Apple *(solo mientras revisan)*
+
+Apple pide una cuenta de prueba para entrar a todo lo que va detrás de un login,
+y al revisor no le llega nuestro correo. Así que hay un correo cuyo código es
+**fijo**, guardado como secreto:
+
+```bash
+npx wrangler secret put REVISION_CORREO   # p. ej. revision@emprendo.life
+npx wrangler secret put REVISION_CODIGO   # seis números que solo sepas tú
+```
+
+A ese correo no se le manda nada. Su código pasa por la misma fila, el mismo
+tope de cinco intentos y el mismo tope de cinco pedidos por hora que cualquier
+otro, así que no se deja adivinar más deprisa. **Cuando Apple apruebe la app, se
+borra cualquiera de los dos** y la cuenta de revisión deja de existir:
+
+```bash
+npx wrangler secret delete REVISION_CODIGO
+```
+
 ---
 
 ## Probarlo sin desplegar nada

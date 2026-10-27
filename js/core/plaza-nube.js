@@ -126,6 +126,19 @@
     });
   }
 
+  /** Lo mismo con los seis números del correo. Es la puerta de la app de
+      iPhone, donde el enlace abriría Safari y la sesión se quedaría allí. */
+  function codigo(correo, cod, edadOk) {
+    return pide('codigo', {
+      correo: String(correo || '').trim(),
+      codigo: String(cod || '').replace(/\D/g, ''),
+      edadOk: !!edadOk
+    }, false).then(function (r) {
+      if (r && r.ok && r.sesion) w.Plaza.entrar(r.sesion, r.id);
+      return r;
+    });
+  }
+
   function salir() {
     /* Se avisa al servidor para que borre la sesión de verdad, pero no se
        espera: el usuario ya pulsó salir y su llave local se va igual. */
@@ -135,7 +148,12 @@
     /* Y el pase de Impulso con ella. Sin cuenta no hay a quién pertenezca, y
        en un teléfono prestado dejarlo puesto sería regalarle Impulso al
        siguiente. Vuelve solo al entrar otra vez con el correo. */
-    if (w.Impulso) w.Impulso.olvidar();
+    if (w.Impulso) {
+      w.Impulso.olvidar();
+      /* En el iPhone, lo que pagó con su Apple ID sigue siendo suyo aunque
+         salga de la cuenta: se vuelve a pedir, ya a nombre de la compra. */
+      w.Impulso.refrescar(true);
+    }
     return Promise.resolve({ ok: true });
   }
 
@@ -225,7 +243,9 @@
       return pide('borrarme', {}).then(function (r) {
         if (r && r.ok) {
           w.Plaza.salir();
-          if (w.Impulso) w.Impulso.olvidar();
+          /* Si seguía pagando con Apple, lo sigue teniendo: es su Apple ID el
+             que paga, no la cuenta que se acaba de borrar. */
+          if (w.Impulso) { w.Impulso.olvidar(); w.Impulso.refrescar(true); }
         }
         return r;
       });
@@ -252,7 +272,9 @@
     'no-existe':    'Ese puesto ya no está.',
     'cobro-vivo':   'Antes tengo que cancelar tu Impulso. Inténtalo en un momento.',
     'incompleta':   'Falta qué haces o para quién.',
-    'grande':       'Eso es demasiado largo.'
+    'grande':       'Eso es demasiado largo.',
+    'codigo':       'Ese código no es. Revísalo.',
+    'codigo-viejo': 'Ese código ya no sirve. Te mando otro.'
   };
 
   /** El texto que se le enseña a una persona por una respuesta con error.
@@ -268,6 +290,7 @@
     hay: hay,
     entrar: entrar,
     confirmar: confirmar,
+    codigo: codigo,
     salir: salir,
     publicar: publicar,
     retirar: retirar,

@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emprendo en el iPhone · propuesta visual</title>
+
+<!--
+  LA APP DE IPHONE — lo que cambia antes de escribirlo
+
+  Maqueta, no pantalla de verdad. La ropa sí es la de la app —tokens,
+  componentes, impulso.css— y Chispa sale del mismo js/core/mascot.js.
+
+  Seis momentos:
+
+    1  Entrar a la Plaza: ahora llega un código, no un enlace.
+    2  Escribir el código. Se puede probar: escribe seis números.
+    3  El correo, tal como llega.
+    4  Impulso en el iPhone: lo cobra Apple.
+    5  Impulso activo: se gestiona donde lo cobra Apple.
+    6  Borrar la cuenta teniendo Impulso de Apple.
+
+  Las clases que empiezan por .cod- y .imp-apple son nuevas y viven aquí
+  abajo. Si la propuesta se aprueba, se mudan a css/ tal cual están.
+-->
+
+<link rel="stylesheet" href="../css/fonts.css">
+<link rel="stylesheet" href="../css/tokens.css">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/components.css">
+<link rel="stylesheet" href="../css/screens.css">
+<link rel="stylesheet" href="../css/impulso.css">
+<link rel="stylesheet" href="../css/animations.css">
+<link rel="stylesheet" href="../css/temas.css">
+
+<style>
+  /* ---------- el laboratorio, no la app ---------- */
+  html, body { height: auto; overflow: visible; }
+  body { background: var(--bg-2); padding: 26px 16px 80px; }
+
+  .lab-cab { max-width: 900px; margin: 0 auto 26px; text-align: center; }
+  .lab-cab h1 { font-size: var(--fs-3xl); font-weight: 900; letter-spacing: -.6px; margin-bottom: 10px; }
+  .lab-cab p { color: var(--ink-2); font-size: var(--fs-md); font-weight: 700; line-height: 1.6; }
+  .lab-cab .lab-mandos { margin-top: 18px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+  .lab-rejilla {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+    gap: 34px 26px;
+    max-width: 1520px;
+    margin: 0 auto;
+    align-items: start;
+  }
+  .lab-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .lab-panel__cab { text-align: center; padding: 0 6px; }
+  .lab-panel__n {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--ink); color: var(--bg);
+    font-size: var(--fs-sm); font-weight: 900; margin-bottom: 8px;
+  }
+  .lab-panel__t { font-size: var(--fs-lg); font-weight: 900; color: var(--ink); }
+  .lab-panel__p { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-2); line-height: 1.5; margin-top: 4px; }
+
+  .lab-tel {
+    position: relative;
+    width: 100%; max-width: 390px; margin: 0 auto;
+    height: 700px;
+    background: var(--bg);
+    border-radius: 30px;
+    box-shadow: var(--sh-3);
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .lab-tel--largo { height: 1010px; }
+  .lab-tel__scroll { height: 100%; overflow-y: auto; }
+
+  .lab-fondo {
+    position: absolute; inset: 0;
+    background: var(--bg);
+    padding: var(--s5);
+    display: flex; flex-direction: column; gap: var(--s4);
+    filter: blur(2px); opacity: .5;
+  }
+  .lab-capa {
+    position: absolute; inset: 0;
+    background: rgba(16,32,58,.42);
+    display: flex; flex-direction: column; justify-content: flex-end;
+  }
+  .lab-capa--centro { justify-content: center; align-items: center; padding: var(--s4); }
+  .lab-capa .sheet, .lab-capa .modal { max-height: none; animation: none; }
+
+  .lab-barra {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px var(--s4);
+    background: var(--card);
+    border-bottom: 2px solid var(--line);
+  }
+
+  /* La franja que el iPhone pone encima del teclado cuando ve un código en
+     Mail. No la pintamos nosotros: la pinta iOS. Está aquí para que se vea
+     el momento entero. */
+  .lab-teclado {
+    background: #D1D4DB;
+    padding: 8px 8px 10px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .lab-teclado__sug {
+    align-self: center;
+    background: #fff; color: #111;
+    border-radius: 8px; padding: 7px 14px;
+    font: 600 14px/1.2 -apple-system, system-ui, sans-serif;
+    box-shadow: 0 1px 0 rgba(0,0,0,.25);
+    cursor: pointer;
+  }
+  .lab-teclado__sug small { display: block; font-weight: 500; font-size: 11px; color: #666; text-align: center; }
+  .lab-teclado__filas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .lab-teclado__t {
+    background: #fff; border-radius: 6px; height: 38px;
+    display: grid; place-items: center;
+    font: 500 20px -apple-system, system-ui, sans-serif; color: #111;
+    box-shadow: 0 1px 0 rgba(0,0,0,.25);
+  }
+
+  /* El correo, con ropa de cliente de correo genérico. */
+  .lab-mail { background: #fff; color: #1d1d1f; height: 100%; font-family: -apple-system, system-ui, sans-serif; }
+  .lab-mail__cab { padding: 18px 18px 12px; border-bottom: 1px solid #e5e5ea; }
+  .lab-mail__de { font-size: 15px; font-weight: 700; }
+  .lab-mail__para { font-size: 13px; color: #8e8e93; margin-top: 2px; }
+  .lab-mail__asunto { font-size: 19px; font-weight: 700; margin-top: 12px; line-height: 1.25; }
+  .lab-mail__cuerpo { padding: 18px; font-size: 16px; line-height: 1.5; }
+  .lab-mail__cuerpo p { margin: 0 0 12px; }
+  .lab-mail__cod { font-size: 32px; font-weight: 800; letter-spacing: 6px; margin: 8px 0 16px; }
+
+  .lab-nota {
+    max-width: 900px; margin: 40px auto 0;
+    background: var(--card); border: 2px solid var(--line);
+    border-radius: var(--r-lg); padding: var(--s5) var(--s6);
+  }
+  .lab-nota h2 { font-size: var(--fs-xl); font-weight: 900; margin-bottom: 10px; }
+  .lab-nota h3 { font-size: var(--fs-md); font-weight: 900; margin: 18px 0 6px; }
+  .lab-nota p, .lab-nota li { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-2); line-height: 1.6; }
+  .lab-nota ul { padding-left: 22px; margin: 6px 0; list-style: disc; }
+  .lab-nota li { margin: 3px 0; }
+  .lab-nota strong { color: var(--ink); }
+
+  /* ======================================================================
+     LO QUE SERÍA NUEVO EN css/
+     ====================================================================== */
+
+  /* --- El código: seis cajas encima de un solo campo ---
+
+     Un <input> de verdad, transparente, por encima de las seis cajas. Así
+     funcionan pegar, borrar, el teclado numérico y la sugerencia de iOS
+     («Desde Mail»), que con seis campos separados se rompen todas. */
+  .cod { position: relative; display: flex; gap: 8px; justify-content: center; }
+  .cod__caja {
+    width: 44px; height: 56px;
+    border-radius: var(--r-md);
+    border: 2px solid var(--line);
+    background: var(--card);
+    display: grid; place-items: center;
+    font-size: 26px; font-weight: 900; color: var(--ink);
+    transition: border-color .15s, transform .15s;
+  }
+  .cod__caja:nth-child(3) { margin-right: 8px; }   /* 482 · 913 */
+  .cod__caja.is-actual { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(28,176,246,.16); }
+  .cod__caja.is-lleno { border-color: var(--ink-3); }
+  .cod.is-mal .cod__caja { border-color: var(--red); }
+  .cod.is-mal { animation: codMal .38s var(--ease-out); }
+  .cod.is-bien .cod__caja { border-color: var(--green); background: rgba(67,201,94,.08); }
+  .cod__campo {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    opacity: 0; font-size: 16px;      /* 16px: menos y iOS hace zoom al enfocar */
+    caret-color: transparent;
+  }
+  @keyframes codMal {
+    0%,100% { transform: translateX(0) }
+    20% { transform: translateX(-7px) } 40% { transform: translateX(6px) }
+    60% { transform: translateX(-4px) } 80% { transform: translateX(3px) }
+  }
+  @media (prefers-reduced-motion: reduce) { .cod.is-mal { animation: none; } }
+
+  /* --- Lo que Apple pide que se lea antes de pagar ---
+
+     Apple exige que el cobro diga quién lo hace, que se renueva y cómo se
+     cancela, con los términos y la privacidad a un toque. Va debajo de los
+     botones, en tono de Chispa y pequeño, pero entero: no es letra pequeña
+     escondida, es la verdad dicha corta. */
+  .imp-apple {
+    display: flex; flex-direction: column; gap: 8px;
+    text-align: center;
+    font-size: var(--fs-xs); font-weight: 700; color: var(--ink-2); line-height: 1.5;
+  }
+  .imp-apple__links { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 14px; }
+  .imp-apple__links a { color: var(--brand); font-weight: 800; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="lab-cab">
+  <h1>Emprendo en el iPhone</h1>
+  <p>
+    Lo que cambia en la app de iPhone, con la ropa de verdad. Todo lo demás —las
+    lecciones, los retos, Chispa, la Plaza— se ve exactamente igual que en la web.
+  </p>
+  <div class="lab-mandos">
+    <button class="btn btn--ghost btn--sm" type="button" onclick="tema()">🌙 Claro / oscuro</button>
+  </div>
+</div>
+
+<div class="lab-rejilla">
+
+  <!-- ============================================================ 1 -->
+  <div class="lab-panel">
+    <div class="lab-panel__cab">
+      <div class="lab-panel__n">1</div>
+      <div class="lab-panel__t">Entrar a la Plaza</div>
+      <div class="lab-panel__p">Igual que hoy, pero llega un código. El enlace abría Safari, y la sesión se quedaba ahí y no en la app.</div>
+    </div>
+    <div class="lab-tel">
+      <div class="lab-fondo">
+        <div class="card card--tight"><div class="small">La Plaza</div></div>
+        <div class="card"><div class="p">Tu puesto está listo. Dime tu correo y te enseño quién más está aquí.</div></div>
+      </div>
+      <div class="lab-capa">
+        <div class="sheet">
+          <div class="sheet__grip"></div>
+          <div class="row" style="gap:10px;align-items:flex-start">
+            <div class="mascot mascot--sm" data-chispa="explicando"></div>
+            <div class="speech"><div class="small">Te mando un código a tu correo. Con eso entras, sin contraseñas.</div></div>
+          </div>
+          <input class="input" type="email" placeholder="tucorreo@ejemplo.com" value="ana.lopez@gmail.com">
+          <div class="tiny" style="text-transform:none;letter-spacing:0">Tu correo solo sirve para que puedas volver a entrar. No lo enseño a nadie.</div>
+          <a class="tiny" style="text-transform:none;letter-spacing:0;color:var(--brand);display:block" href="#">Ver el aviso de privacidad</a>
+          <button class="btn btn--brand btn--lg btn--block" type="button">Mándame el código</button>
+          <button class="btn btn--flat btn--block" type="button">Ahora no</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ 2 -->
+  <div class="lab-panel">
+    <div class="lab-panel__cab">
+      <div class="lab-panel__n">2</div>
+      <div class="lab-panel__t">Escribir el código</div>
+      <div class="lab-panel__p">Pruébalo: toca las cajas y escribe. Con <strong>482913</strong> entra; con cualquier otro, tiembla. El iPhone ofrece pegarlo solo, encima del teclado.</div>
+    </div>
+    <div class="lab-tel">
+      <div class="lab-fondo">
+        <div class="card card--tight"><div class="small">La Plaza</div></div>
+      </div>
+      <div class="lab-capa">
+        <div class="sheet" style="padding-bottom:var(--s4)">
+          <div class="sheet__grip"></div>
+          <div class="row" style="gap:10px;align-items:flex-start">
+            <div class="mascot mascot--sm" data-chispa="happy" id="cod-chispa"></div>
+            <div class="speech"><div class="small" id="cod-dice">Te lo mandé a ana.lopez@gmail.com. Son seis números.</div></div>
+          </div>
+
+          <div class="cod" id="cod">
+            <span class="cod__caja is-actual"></span><span class="cod__caja"></span><span class="cod__caja"></span>
+            <span class="cod__caja"></span><span class="cod__caja"></span><span class="cod__caja"></span>
+            <input class="cod__campo" id="cod-campo" type="text" inputmode="numeric" autocomplete="one-time-code"
+                   maxlength="7" aria-label="Código de seis números">
+          </div>
+          <div class="tiny" id="cod-aviso" style="text-transform:none;letter-spacing:0;text-align:center;min-height:1.5em">Si no aparece en unos minutos, mira en spam. Caduca en 15 minutos.</div>
+
+          <div class="row" style="justify-content:center;gap:6px">
+            <button class="btn btn--flat btn--sm" type="button" style="width:auto">Mándamelo otra vez</button>
+            <button class="btn btn--flat btn--sm" type="button" style="width:auto">Cambiar de correo</button>
+          </div>
+        </div>
+        <div class="lab-teclado">
+          <div class="lab-teclado__sug" id="cod-sug"><small>Desde Mail</small>482913</div>
+          <div class="lab-teclado__filas">
+            <span class="lab-teclado__t">1</span><span class="lab-teclado__t">2</span><span class="lab-teclado__t">3</span>
+            <span class="lab-teclado__t">4</span><span class="lab-teclado__t">5</span><span class="lab-teclado__t">6</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ 3 -->
+  <div class="lab-panel">
+    <div class="lab-panel__cab">
+      <div class="lab-panel__n">3</div>
+      <div class="lab-panel__t">El correo</div>
+      <div class="lab-panel__p">El código va también en el asunto: se lee en la notificación sin abrir nada. Si se pidió desde la web, abajo sigue el enlace de siempre.</div>
+    </div>
+    <div class="lab-tel">
+      <div class="lab-mail">
+        <div class="lab-mail__cab">
+          <div class="lab-mail__de">Emprendo</div>
+          <div class="lab-mail__para">Para: ana.lopez@gmail.com</div>
+          <div class="lab-mail__asunto">482913 es tu código para la Plaza</div>
+        </div>
+        <div class="lab-mail__cuerpo">
+          <p>Hola.</p>
+          <p>Tu código para entrar a la Plaza:</p>
+          <div class="lab-mail__cod">482 913</div>
+          <p>Escríbelo en la app. Sirve una sola vez y caduca en 15 minutos.</p>
+          <p style="color:#8e8e93">Si no lo pediste tú, no hace falta que hagas nada.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ 4 -->
+  <div class="lab-panel">
+    <div class="lab-panel__cab">
+      <div class="lab-panel__n">4</div>
+      <div class="lab-panel__t">Impulso, cobrado por Apple</div>
+      <div class="lab-panel__p">La misma pantalla. Cambian tres cosas: el precio lo pone Apple, desaparece «Sin anuncios» —en el iPhone no hay—, y abajo va lo que Apple exige que se lea.</div>
+    </div>
+    <div class="lab-tel lab-tel--largo">
+      <div class="lab-barra">
+        <button class="icon-btn icon-btn--plain" type="button">‹</button>
+        <div class="grow"></div>
+      </div>
+      <div class="lab-tel__scroll" style="height:calc(100% - 58px)">
+        <div class="screen" style="gap:var(--s4)">
+          <div class="col" style="align-items:center;gap:12px;text-align:center">
+            <div class="imp__sello">
+              <span class="imp__aura"></span>
+              <div class="mascot mascot--md is-happy imp__chispa" data-chispa="happy"></div>
+            </div>
+            <h1 class="h2" style="margin:0">Emprendo Impulso</h1>
+          </div>
+
+          <div class="imp__libre">
+            <span class="imp__libre__ico">🎁</span>
+            <span class="grow" style="min-width:0">
+              <span class="imp__libre__t">Las 50 lecciones y los 8 retos son gratis</span>
+              <span class="imp__libre__p">Y lo van a seguir siendo. No te escondo ninguna.</span>
+            </span>
+          </div>
+
+          <p class="p" style="margin:0;text-align:center">Impulso no te da más camino: te quita las pausas y me deja acompañarte más de cerca.</p>
+
+          <div class="imp__lista">
+            <div class="imp__fila"><span class="imp__fila__ico">⚡</span><span class="grow" style="min-width:0"><span class="imp__fila__t">Energía sin límite</span><span class="imp__fila__p">Aprende hasta que tú quieras parar.</span></span></div>
+            <div class="imp__fila"><span class="imp__fila__ico">💬</span><span class="grow" style="min-width:0"><span class="imp__fila__t">Yo, más cerca</span><span class="imp__fila__p">Más preguntas al día y respuestas más largas.</span></span></div>
+            <div class="imp__fila"><span class="imp__fila__ico">🗓️</span><span class="grow" style="min-width:0"><span class="imp__fila__t">Tu plan de la semana</span><span class="imp__fila__p">Te digo qué hacer primero, y por qué.</span></span></div>
+            <div class="imp__fila"><span class="imp__fila__ico">✍️</span><span class="grow" style="min-width:0"><span class="imp__fila__t">Material listo para usar</span><span class="imp__fila__p">Tu publicación, tu mensaje, tu cotización.</span></span></div>
+          </div>
+
+          <div class="imp__precio">
+            <div class="imp__precio__n">$99 <span>al mes</span></div>
+            <div class="imp__precio__p">Cancela cuando quieras. Sin permanencia.</div>
+          </div>
+
+          <button class="btn btn--brand btn--lg btn--shiny btn--block" type="button">Activar Impulso</button>
+          <button class="btn btn--ghost btn--block" type="button">Sigo gratis, está bien</button>
+
+          <div class="imp-apple">
+            <div>Lo cobra Apple, a tu cuenta de siempre. Se renueva solo cada mes hasta que lo canceles, y lo cancelas desde Ajustes cuando quieras.</div>
+            <div class="imp-apple__links">
+              <a href="#">Ya lo tenía: recuperarlo</a>
+              <a href="#">Términos de uso</a>
+              <a href="#">Privacidad</a>
+            </div>
+          </div>
+
+          <p class="imp__cierre">Sin Impulso llegas al mismo final.<br>Solo tardas un poco más.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ 5 -->
+  <div class="lab-panel">
+    <div class="lab-panel__cab">
+      <div class="lab-panel__n">5</div>
+      <div class="lab-panel__t">Ya con Impulso</div>
+      <div class="lab-panel__p">«Gestionar o cancelar» abre la hoja de suscripciones de Apple, sin salir de la app. Y si cambia de teléfono, basta su Apple ID.</div>
+    </div>
+    <div class="lab-tel">
+      <div class="lab-barra">
+        <button class="icon-btn icon-btn--plain" type="button">‹</button>
+        <div class="grow"></div>
+      </div>
+      <div class="screen" style="gap:var(--s4)">
+        <div class="col" style="align-items:center;gap:12px;text-align:center">
+          <div class="imp__sello">
+            <span class="imp__aura"></span>
+            <div class="mascot mascot--md is-happy imp__chispa" data-chispa="happy"></div>
+          </div>
+          <h1 class="h2">Impulso activo</h1>
+          <p class="p">Se renueva solo el 8 de noviembre.</p>
+        </div>
+
+        <div class="card card--tight">
+          <div class="row" style="gap:10px;align-items:flex-start">
+            <span style="font-size:20px">📱</span>
+            <div class="grow" style="min-width:0">
+              <div class="small" style="font-weight:900;color:var(--ink)">Si cambias de teléfono</div>
+              <div class="tiny" style="text-transform:none;letter-spacing:0;margin-top:3px">Con el mismo Apple ID, toca «Recuperar» y vuelve solo. El archivo de respaldo guarda tu progreso, pero no Impulso.</div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn--brand btn--lg btn--block" type="button">Ver mi material listo</button>
+        <button class="btn btn--ghost btn--block" type="button">Gestionar o cancelar</button>
+        <p class="imp__cierre">Si cancelas, Impulso sigue hasta el día que ya pagaste.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ 6 -->
+  <div class="lab-panel">
+    <div class="lab-panel__cab">
+      <div class="lab-panel__n">6</div>
+      <div class="lab-panel__t">Borrar la cuenta con Impulso de Apple</div>
+      <div class="lab-panel__p">En la web, borrar cancela el cobro primero. Con Apple no se puede: el cobro es suyo. Así que se dice, y se deja el botón a mano.</div>
+    </div>
+    <div class="lab-tel">
+      <div class="lab-fondo">
+        <div class="card card--tight"><div class="small">Perfil · Ajustes</div></div>
+        <div class="card"><div class="p">Borrar mi cuenta de la Plaza</div></div>
+      </div>
+      <div class="lab-capa lab-capa--centro">
+        <div class="modal">
+          <div class="mascot mascot--lg" style="margin:0 auto" data-chispa="think"></div>
+          <h3 class="h3">Antes de irte: tu Impulso</h3>
+          <p class="p">Lo cobra Apple, y borrar tu cuenta no lo cancela. Cancélalo en tus suscripciones y luego vuelve aquí.</p>
+          <button class="btn btn--brand btn--block" type="button">Abrir mis suscripciones</button>
+          <button class="btn btn--ghost btn--block" type="button">Ya lo cancelé, borra mi cuenta</button>
+          <button class="btn btn--flat btn--block" type="button">Mejor no</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ================================================================== -->
+<div class="lab-nota">
+  <h2>Lo que también cambia en el iPhone, y no se ve aquí</h2>
+
+  <h3>Lo que desaparece</h3>
+  <ul>
+    <li><strong>«Instalar la app»</strong> en Perfil. Ya está instalada.</li>
+    <li><strong>La IA local de Chispa.</strong> Descarga un programa de internet al usarse, y Apple no lo deja. La IA gratuita y la de Impulso siguen.</li>
+    <li><strong>Los anuncios.</strong> Google no permite AdSense dentro de una app. En el iPhone no hay, con o sin Impulso.</li>
+  </ul>
+
+  <h3>Lo que funciona distinto</h3>
+  <ul>
+    <li><strong>El respaldo y los archivos</strong> se guardan con la hoja de compartir del iPhone: «Guardar en Archivos», WhatsApp o donde quiera. Descargar a secas no existe dentro de una app.</li>
+    <li><strong>El aviso de privacidad</strong> se abre en una ventanita de Safari encima de la app, sin sacarle de ella.</li>
+    <li><strong>Funciona sin conexión desde el primer arranque</strong>: todo viaja dentro de la app, no hay que esperar a que se guarde nada.</li>
+  </ul>
+
+  <h3>En la web, también</h3>
+  <ul>
+    <li>El código del correo funciona igual en la web. Arregla de paso a quien instaló la web en su iPhone: ahí el enlace abría Safari y la sesión tampoco llegaba.</li>
+  </ul>
+</div>
+
+<script src="../js/data/brand.js"></script>
+<script src="../js/core/mascot.js"></script>
+<script>
+  /* El SVG de Chispa sale de js/core/mascot.js, el mismo de la app. */
+  function ponChispa(n, cara) {
+    n.replaceChildren(document.createRange().createContextualFragment(
+      window.Mascot.svg(cara, { plano: true })));
+  }
+  document.querySelectorAll('[data-chispa]').forEach(function (n) {
+    ponChispa(n, n.getAttribute('data-chispa'));
+  });
+  function tema() {
+    var h = document.documentElement;
+    h.setAttribute('data-theme', h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  }
+
+  /* El código del panel 2, de verdad: un campo y seis cajas. */
+  (function () {
+    var caja = document.getElementById('cod');
+    var campo = document.getElementById('cod-campo');
+    var cajas = caja.querySelectorAll('.cod__caja');
+    var aviso = document.getElementById('cod-aviso');
+    var dice = document.getElementById('cod-dice');
+    var chispa = document.getElementById('cod-chispa');
+    var texto0 = aviso.textContent;
+
+    function pinta() {
+      var v = campo.value.replace(/\D/g, '').slice(0, 6);
+      campo.value = v;
+      caja.classList.remove('is-mal', 'is-bien');
+      cajas.forEach(function (c, i) {
+        c.textContent = v[i] || '';
+        c.classList.toggle('is-lleno', i < v.length);
+        c.classList.toggle('is-actual', i === Math.min(v.length, 5) && document.activeElement === campo);
+      });
+      if (v.length < 6) { aviso.textContent = texto0; aviso.style.color = ''; return; }
+      if (v === '482913') {
+        caja.classList.add('is-bien');
+        dice.textContent = 'Listo, ya estás dentro.';
+        ponChispa(chispa, 'celebrate');
+        aviso.textContent = '';
+      } else {
+        void caja.offsetWidth;
+        caja.classList.add('is-mal');
+        aviso.textContent = 'Ese código no es. Revísalo.';
+        aviso.style.color = 'var(--red)';
+      }
+    }
+    campo.addEventListener('input', pinta);
+    campo.addEventListener('focus', pinta);
+    campo.addEventListener('blur', pinta);
+    document.getElementById('cod-sug').addEventListener('click', function () {
+      campo.value = '482913'; pinta();
+    });
+  })();
+</script>
+</body>
+</html>

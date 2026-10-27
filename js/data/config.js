@@ -291,10 +291,24 @@
     unidad: 'pesos al mes',
     corto: '99 pesos al mes',
 
+    /* EN LA APP DE IPHONE el precio NO sale de aquí: lo pone Apple, en la
+       moneda de quien mira, y Apple exige que sea ese el que se enseña. Este
+       es el producto que se le pide, y tiene que existir con el mismo nombre
+       en App Store Connect › Suscripciones. */
+    productoApple: 'life.emprendo.app.impulso.mensual',
+
+    /* El cobro con Stripe, en la web. Apagado hasta que estén puestas las
+       claves de Stripe en worker-pago: encenderlo antes enseñaría un botón de
+       pagar que contesta «todavía no está abierto». Quien ya tiene Impulso
+       lo sigue viendo en la web aunque esto esté apagado. */
+    cobroWeb: false,
+
     BENEFICIOS: [
       { icon: '⚡',  listo: true,
         t: 'Energía sin límite',      p: 'Aprende hasta que tú quieras parar.' },
-      { icon: '🧘',  listo: true,
+      /* Solo se promete donde HAY anuncios que quitar: en la app de iPhone no
+         hay ninguno, y en la web no los hay hasta que se ponga AdSense. */
+      { icon: '🧘',  listo: true, si: 'anuncios',
         t: 'Sin anuncios',            p: 'Nada que te corte el paso.' },
       { icon: '💬',  listo: true,
         t: 'Yo, más cerca',           p: 'Más preguntas al día y respuestas más largas.' },

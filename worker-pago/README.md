@@ -128,6 +128,39 @@ pantalla de cobro, nadie ve un precio y ninguna otra pantalla pinta su invitaci�
 
 Después, subir `VERSION` en `sw.js` y `git push origin main`.
 
+En la **web**, además, el botón de pagar sigue apagado hasta que
+`CONFIG.IMPULSO.cobroWeb` esté en `true` (`js/data/config.js`). Va aparte porque
+la app de iPhone cobra con Apple y puede abrir antes que Stripe.
+
+### 6 · Apple (la app de iPhone)
+
+En el iPhone se cobra con Apple: Apple no deja otro cobro para algo digital. La
+app hace la compra con StoreKit y le manda a este Worker el número de compra; el
+Worker se lo pregunta a Apple con su propia llave (App Store Server API) y firma
+**el mismo pase de siempre**. Sin correo: Apple no deja exigir una cuenta antes
+de comprar algo que no vive en la cuenta, así que sin sesión el pase sale a
+nombre de la compra, y con sesión la compra se ata a la cuenta.
+
+Tres secretos, que salen de App Store Connect › Usuarios y acceso › Integraciones
+› **Compras dentro de la app** (no la llave de la API, que es otra):
+
+```bash
+npx wrangler secret put APPLE_IAP_KEY      # el contenido entero del .p8
+npx wrangler secret put APPLE_IAP_KEY_ID
+npx wrangler secret put APPLE_ISSUER_ID
+```
+
+Y los avisos de Apple —renovaciones, cancelaciones, reembolsos— apuntan a
+`https://pago.emprendo.life/apple`, versión 2, en producción y en pruebas. El
+aviso solo se usa para saber **de qué compra** habla: lo que se escribe en la base
+sale siempre de volver a preguntarle a Apple. Un aviso inventado cuesta una
+consulta y no cambia nada.
+
+Con TestFlight y durante la revisión de Apple se compra en el entorno de pruebas;
+el Worker pregunta primero a producción y, si Apple no conoce la compra, a
+pruebas. Se comprueba con `node tools/check-pago-apple.js`, que ejecuta este
+Worker contra un Apple de mentira que además verifica cada JWT.
+
 ---
 
 ## Las dos puertas
@@ -135,13 +168,15 @@ Después, subir `VERSION` en `sw.js` y `git push origin main`.
 | Ruta | Quién llama | Cómo se autentica |
 |---|---|---|
 | `POST /webhook` | Stripe | Firma HMAC del cuerpo (`Stripe-Signature`), con tolerancia de 5 minutos |
+| `POST /apple` | Apple | Nada que comprobar: solo da el número de compra, y se le vuelve a preguntar a Apple |
 | `POST /` | La app | `Origin` en lista blanca + sesión de la Plaza dentro del cuerpo |
 
-### Las cuatro operaciones
+### Las cinco operaciones
 
 | `op` | Qué hace |
 |---|---|
 | `pase` | Devuelve el pase firmado. La llama la app sola en cada arranque con red |
+| `apple` | La compra del iPhone: pregunta a Apple y firma el pase. La sesión es opcional |
 | `checkout` | Devuelve la dirección de Stripe donde se paga |
 | `portal` | Devuelve la página de Stripe donde se cancela y se cambia la tarjeta |
 | `cancelar` | Cancela de verdad y al momento. Es el paso previo a borrar la cuenta |

@@ -58,8 +58,10 @@
      ¿HAY ANUNCIOS?
      ================================================================== */
 
-  /** ¿Está montada la red? Sin identificador de editor, no. */
+  /** ¿Está montada la red? Sin identificador de editor, no. Y en la app de
+      iPhone tampoco: Google no permite AdSense dentro de una app. */
   function hayRed() {
+    if (w.Nativo && w.Nativo.es) return false;
     var c = C();
     return !!(c.editor && String(c.editor).indexOf('ca-pub-') === 0);
   }

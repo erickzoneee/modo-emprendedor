@@ -583,6 +583,14 @@
       descargó algo, se dice que hace falta el botón de descargar. */
   function salir(blob, prop, formato) {
     var nombre = nombreArchivo(prop, formato);
+    /* En la app de iPhone, la hoja de compartir de verdad, la del sistema.
+       No depende de la activación del gesto, así que aquí no hay
+       'sin-permiso' posible. */
+    if (w.Nativo && w.Nativo.es) {
+      return w.Nativo.guardar(nombre, blob).then(function (r) {
+        return r === 'fallo' ? 'sin-permiso' : r;
+      });
+    }
     if (!puedeCompartirArchivos()) {
       descargar(blob, nombre);
       return Promise.resolve('descargado');
@@ -603,6 +611,7 @@
     var nombre = typeof nombreOProp === 'string'
       ? nombreOProp
       : nombreArchivo(nombreOProp, formato);
+    if (w.Nativo && w.Nativo.es) { w.Nativo.guardar(nombre, blob); return; }
     var url = URL.createObjectURL(blob);
     var a = d.createElement('a');
     a.href = url; a.download = nombre;
