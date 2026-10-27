@@ -137,7 +137,7 @@
        Va aparte de `plaza` aunque compartan base de datos: son dos Workers
        distintos con dos despliegues distintos, y el de pago tiene una puerta
        —el webhook— que la Plaza no puede tener. */
-    pago: ''
+    pago: 'https://pago.emprendo.life'
   };
 
   raiz.BRAND = {

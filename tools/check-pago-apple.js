@@ -94,6 +94,7 @@ const apple = { produccion: {}, pruebas: {} };
 let jwtsMalos = 0;
 let peticionesApple = 0;
 let appleRoto = false;
+let produccion401 = false;   // producción antes de publicar la app
 
 function suscripcion(entorno, ids, { original, estado, expira, producto, bundle, gracia }) {
   const cuerpo = {
@@ -140,6 +141,7 @@ globalThis.fetch = async function (url, opciones) {
     return new Response('{"errorCode":4010000}', { status: 401 });
   }
   if (appleRoto) return new Response('{}', { status: 500 });
+  if (produccion401 && entorno === 'produccion') return new Response('{}', { status: 401 });
   const m = u.pathname.match(/^\/inApps\/v1\/subscriptions\/(\d+)$/);
   const cuerpo = m && apple[entorno][m[1]];
   if (!cuerpo) return new Response('{"errorCode":4040010}', { status: 404 });
@@ -350,6 +352,14 @@ async function correr() {
     const r = await llama(worker, env, { op: 'apple', transaccion: '1001' });
     comprueba('sin las llaves de Apple, la compra dice que todavía no está abierto',
       !r.ok && r.error === 'sin-cobro', JSON.stringify(r));
+  }
+
+  {
+    produccion401 = true;
+    const r = await llama(worker, entorno(baseNueva()), { op: 'apple', transaccion: '3001' });
+    produccion401 = false;
+    comprueba('si producción contesta 401 (app sin publicar), se busca igual en pruebas',
+      r.ok && leePase(r.pase).p === 'impulso', JSON.stringify(r));
   }
 
   comprueba('todas las peticiones a Apple llevaron un JWT bien firmado', jwtsMalos === 0, jwtsMalos + ' mal firmadas');

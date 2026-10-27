@@ -46,6 +46,24 @@ async function main() {
   const priv = soloLoSuyo(privada, ['sign']);
   const pub = soloLoSuyo(publica, ['verify']);
 
+  /* Con --archivo <ruta>, la privada va a ese archivo y NO a la pantalla.
+     Copiar a mano una línea así de larga desde una terminal la corta con
+     facilidad, y una captura de pantalla se la lleva entera. Desde el archivo
+     se manda a Cloudflare con una tubería y luego se borra. */
+  const i = process.argv.indexOf('--archivo');
+  if (i > 0) {
+    const ruta = process.argv[i + 1];
+    if (!ruta) throw new Error('falta la ruta después de --archivo');
+    require('fs').writeFileSync(ruta, JSON.stringify(priv), { mode: 0o600 });
+    console.log('');
+    console.log('  La mitad PRIVADA quedó en ' + ruta + ' (no se enseña).');
+    console.log('  La mitad PÚBLICA, para js/core/impulso.js:');
+    console.log('');
+    console.log('  ' + JSON.stringify(pub));
+    console.log('');
+    return;
+  }
+
   console.log('');
   console.log('  1) LA MITAD PRIVADA — va al Worker, no al repo');
   console.log('');

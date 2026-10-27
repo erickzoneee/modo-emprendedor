@@ -67,7 +67,8 @@
      sin poder arreglarlo desde su lado. Para rotar de verdad hay que aceptar
      las dos durante una temporada. Por eso esto es una LISTA. */
   var LLAVES = [
-    // { "kty":"EC","crv":"P-256","x":"…","y":"…","key_ops":["verify"],"ext":true }
+    // Puesta el 2026-10-27 con tools/nueva-llave-pase.js. Su privada es PASE_JWK en worker-pago.
+    { "kty":"EC","crv":"P-256","x":"h9tpy3Jybi3c7pcXYsecpVee6Ndrt97awBSRP2f4QfY","y":"lBDOoail-AivMBIHZ3zKxv-ue5GRApyHNaEjA1HhtKY","key_ops":["verify"],"ext":true }
   ];
 
   /* Cada cuánto se pide un pase nuevo teniendo red. Seis horas: lo bastante

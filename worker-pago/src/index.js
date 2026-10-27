@@ -367,12 +367,19 @@ function cuerpoJws(jws) {
  */
 async function estadoApple(env, transaccion) {
   const token = await jwtApple(env);
+  const respuestas = [];
   for (const entorno of ['produccion', 'pruebas']) {
     const res = await fetch(APPLE_API[entorno] + '/inApps/v1/subscriptions/' + encodeURIComponent(transaccion), {
       headers: { authorization: 'Bearer ' + token }
     });
+    respuestas.push(entorno + '-' + res.status);
     if (res.status === 404) continue;   // 4040010: no es de este entorno
-    if (!res.ok) throw new Error('apple-' + res.status);
+    /* Mientras la app no está publicada, producción puede contestar 401 a una
+       llave buena. Con eso se cortaba antes de mirar en pruebas, que es donde
+       compran TestFlight y la revisión de Apple. Si pruebas también dice 401,
+       entonces sí es la llave. */
+    if (res.status === 401 && entorno === 'produccion') continue;
+    if (!res.ok) throw new Error('apple ' + respuestas.join(' '));
     const j = await res.json();
 
     let mejor = null;
@@ -394,6 +401,8 @@ async function estadoApple(env, transaccion) {
     }
     return mejor || { entorno, viva: false, fin: 0, bundle: j.bundleId, original: '', estado: 0 };
   }
+  // Ni producción ni pruebas la conocen. Queda en el registro qué dijo cada uno.
+  console.log('pago: apple sin compra · ' + respuestas.join(' '));
   return null;
 }
 
